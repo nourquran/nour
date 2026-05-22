@@ -798,6 +798,9 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="stat-card"><div class="stat-val" id="totalGames">٠</div><div class="stat-lbl">جلسة مكتملة</div></div>
       <div class="stat-card"><div class="stat-val" id="totalHasanat">٠</div><div class="stat-lbl">حسنة ✨</div></div>
     </div>
+    <div style="text-align:center;margin:-6px 0 14px;">
+      <button onclick="resetScore()" style="background:transparent;border:1px solid rgba(192,57,43,0.3);border-radius:10px;padding:6px 16px;color:rgba(192,57,43,0.7);font-family:'Cairo',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='rgba(192,57,43,0.7)';this.style.color='#C0392B';" onmouseout="this.style.borderColor='rgba(192,57,43,0.3)';this.style.color='rgba(192,57,43,0.7)';">🔄 تصفير النقاط</button>
+    </div>
 
     <div class="streak-bar">
       <span class="streak-fire">🔥</span>
@@ -1342,9 +1345,8 @@ function doLogout() {
 function saveCurrentUser() {
   if (!currentUser || currentUser.isGuest) return;
   const users = getUsers();
-  if (!users[currentUser.username]) return;
   users[currentUser.username] = {
-    ...users[currentUser.username],
+    ...(users[currentUser.username] || {}),
     totalScore: currentUser.totalScore,
     totalGames: currentUser.totalGames,
     totalHasanat: currentUser.totalHasanat,
@@ -2838,8 +2840,14 @@ function renderQuestion() {
   document.getElementById('mcqWrap').innerHTML = '';
   document.getElementById('typingWrap').style.display = 'none';
   document.getElementById('listenWrap').style.display = 'none';
-  document.getElementById('typingInput') && (document.getElementById('typingInput').value='');
-  document.getElementById('typingInput') && (document.getElementById('typingInput').className='typing-input');
+  if (document.getElementById('typingInput')) {
+    document.getElementById('typingInput').value = '';
+    document.getElementById('typingInput').className = 'typing-input';
+    document.getElementById('typingInput').disabled = false;
+  }
+  if (document.querySelector('.typing-submit')) {
+    document.querySelector('.typing-submit').disabled = false;
+  }
   resetHintsUI();
 
   const activeMode = state.isReviewMode ? 'mcq' : state.mode;
@@ -3079,6 +3087,40 @@ function showResults() {
   renderLeaderboard();
 }
 
+function resetScore() {
+  if (!currentUser) return;
+  showConfirm('هتتصفر النقاط والحسنات وعدد الجلسات. متأكد؟', () => {
+    currentUser.totalScore = 0;
+    currentUser.totalGames = 0;
+    currentUser.totalHasanat = 0;
+    currentUser.streak = 0;
+    saveCurrentUser();
+    // امسح من لوحة المتصدرين كمان
+    const users = getUsers();
+    if (users[currentUser.username]) {
+      users[currentUser.username].totalScore = 0;
+      users[currentUser.username].totalGames = 0;
+      users[currentUser.username].totalHasanat = 0;
+      users[currentUser.username].streak = 0;
+      saveUsers(users);
+    }
+    updateHomeStats();
+    renderLeaderboard();
+    showToast('✅ تم تصفير النقاط والحسنات');
+  });
+}
+
+function showConfirm(msg, onYes) {
+  const modal = document.getElementById('confirmModal');
+  document.getElementById('confirmText').textContent = msg;
+  modal.style.display = 'flex';
+  document.getElementById('confirmYes').onclick = () => { closeConfirm(); onYes(); };
+}
+
+function closeConfirm() {
+  document.getElementById('confirmModal').style.display = 'none';
+}
+
 function goHome() {
   stopTimer();
   state.isReviewMode = false;
@@ -3141,14 +3183,50 @@ function showMistakesScreen() {
     tab.onclick = () => {
       document.querySelectorAll('.mdate-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      renderMistakesForDay(all[d]);
+      renderMistakesForDay(all[d], d);
     };
     tabsEl.appendChild(tab);
   });
-  renderMistakesForDay(all[days[0]]);
+  renderMistakesForDay(all[days[0]], days[0]);
 }
 
-function renderMistakesForDay(mistakes) {
+
+function deleteMistakeItem(ayahKey, dayKey) {
+  if (!currentUser) return;
+  const key = 'nour_mistakes_' + currentUser.username;
+  let all = {};
+  try { all = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
+  if (!all[dayKey]) return;
+  all[dayKey] = all[dayKey].filter(m => (m.ayah + '|' + m.blank) !== ayahKey);
+  if (all[dayKey].length === 0) delete all[dayKey];
+  localStorage.setItem(key, JSON.stringify(all));
+  showMistakesScreen();
+  showToast('🗑️ تم مسح الغلطة');
+}
+
+function saveMistakeForLater(ayahKey, dayKey) {
+  if (!currentUser) return;
+  const key = 'nour_mistakes_' + currentUser.username;
+  let all = {};
+  try { all = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
+  if (!all[dayKey]) return;
+  const m = all[dayKey].find(m => (m.ayah + '|' + m.blank) === ayahKey);
+  if (!m) return;
+  // نحفظها في قائمة "المحفوظة للمراجعة"
+  const savedKey = 'nour_saved_mistakes_' + currentUser.username;
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(savedKey) || '[]'); } catch {}
+  const exists = saved.some(s => (s.ayah + '|' + s.blank) === ayahKey);
+  if (!exists) {
+    saved.push({...m, savedAt: Date.now()});
+    localStorage.setItem(savedKey, JSON.stringify(saved));
+    showToast('✅ تم حفظها للمراجعة لاحقاً');
+  } else {
+    showToast('📌 محفوظة بالفعل');
+  }
+}
+
+function renderMistakesForDay(mistakes, dayKey) {
   const el = document.getElementById('mistakesList');
   if (!mistakes || mistakes.length === 0) {
     el.innerHTML = '<div class="mistakes-empty">✅ ما فيش غلطات في هذا اليوم!</div>';
@@ -3171,7 +3249,9 @@ function renderMistakesForDay(mistakes) {
   ];
 
   el.innerHTML = unique.map((m, idx) => {
-    // Safe replace: only replace the blank word once, using split
+    const ayahKey = (m.ayah + '|' + m.blank).replace(/'/g, "\'");
+    const safeDay = (dayKey || '').replace(/'/g, "\'");
+    // Safe replace
     const parts = m.ayah.split(m.blank);
     const highlighted = parts[0]
       + `<span class="blank-wrong">${m.wrong_chosen}</span>`
@@ -3180,8 +3260,14 @@ function renderMistakesForDay(mistakes) {
       + (parts[1] || '');
     const hint = HINTS[idx % HINTS.length];
     return `
-      <div class="mistake-card">
-        <div class="mistake-surah">📖 سورة ${m.surah}</div>
+      <div class="mistake-card" id="mc-${idx}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div class="mistake-surah">📖 سورة ${m.surah}</div>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button onclick="saveMistakeForLater('${ayahKey}','${safeDay}')" title="احفظ للمراجعة" style="background:rgba(46,175,120,0.12);border:1px solid rgba(46,175,120,0.35);border-radius:8px;padding:4px 9px;color:#7DFFC9;font-size:13px;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='rgba(46,175,120,0.25)'" onmouseout="this.style.background='rgba(46,175,120,0.12)'">📌</button>
+            <button onclick="deleteMistakeItem('${ayahKey}','${safeDay}')" title="مسح الغلطة" style="background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.3);border-radius:8px;padding:4px 9px;color:rgba(255,120,100,0.8);font-size:13px;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='rgba(192,57,43,0.25)'" onmouseout="this.style.background='rgba(192,57,43,0.1)'">🗑️</button>
+          </div>
+        </div>
         <div class="mistake-ayah">${highlighted}</div>
         <div class="mistake-labels">
           <span class="mistake-lbl-wrong">❌ اخترت: ${m.wrong_chosen}</span>
@@ -3248,6 +3334,12 @@ let reviewFilter = 'all';
 let reviewSearchVal = '';
 
 function getSurahQCount(surahName) {
+  // عدد الأسئلة = عدد الآيات المتاحة (QURAN_LOCAL أولاً ثم QURAN_DB)
+  const surahMetaIdx = SURAHS_META.findIndex(s => s[0] === surahName);
+  if (surahMetaIdx !== -1) {
+    const localData = QURAN_LOCAL[surahMetaIdx + 1];
+    if (localData && localData.length > 0) return localData.length;
+  }
   const allPool = Object.values(QURAN_DB).flat();
   return allPool.filter(q => q.surah === surahName).length;
 }
@@ -3320,7 +3412,7 @@ function renderReviewGrid() {
     card.onclick = () => startSurahReview(s.name);
 
     // Badges
-    let badges = `<span class="src-badge src-badge-q">📝 ${s.qCount} سؤال</span>`;
+    let badges = `<span class="src-badge src-badge-q">📝 ${toArabicNum(s.qCount)} سؤال</span>`;
     if (s.prog.done >= s.prog.total && s.prog.total > 0) badges += `<span class="src-badge src-badge-done">✅ مكتملة</span>`;
     else if (s.prog.done === 0) badges += `<span class="src-badge src-badge-new">✨ جديدة</span>`;
     if (s.prog.streak > 1) badges += `<span class="src-badge src-badge-streak">🔥 ×${s.prog.streak}</span>`;
@@ -3341,96 +3433,86 @@ function showReviewScreen() {
   renderReviewGrid();
 }
 
-// ===== بناء أسئلة المراجعة - 4 أنواع =====
 function buildReviewQuestions(surahName) {
-  const allPool = Object.values(QURAN_DB).flat();
-  const ayahs = allPool
-    .filter(q => q.surah === surahName)
-    .sort((a,b) => (getAyahNum(a)||999) - (getAyahNum(b)||999));
+  // ===== نجمع الآيات من QURAN_LOCAL أو QURAN_DB =====
+  const surahMetaIdx = SURAHS_META.findIndex(s => s[0] === surahName);
+  let ayahs = []; // [{text, num}]
 
-  if (ayahs.length === 0) return [];
+  if (surahMetaIdx !== -1) {
+    const surahNum = surahMetaIdx + 1;
+    const localData = QURAN_LOCAL[surahNum];
+    if (localData && localData.length > 0) {
+      ayahs = localData.map(a => ({ text: a.t, num: a.n }));
+    }
+  }
+
+  // fallback: من QURAN_DB
+  if (ayahs.length === 0) {
+    const allPool = Object.values(QURAN_DB).flat();
+    const dbAyahs = allPool
+      .filter(q => q.surah === surahName)
+      .sort((a,b) => (getAyahNum(a)||999) - (getAyahNum(b)||999));
+    ayahs = dbAyahs.map(q => ({ text: q.ayah, num: getAyahNum(q) }));
+  }
+
+  if (ayahs.length < 2) return [];
 
   const questions = [];
 
-  ayahs.forEach((q, idx) => {
-    // نوع ١: الكلمة الناقصة (الأصلي)
-    questions.push({ ...q, qtype: 'blank', surahIdx: idx });
+  // ===== لكل آية: نبني الأنواع الأربعة الممكنة ثم نختار واحد عشوائي =====
+  ayahs.forEach((item, idx) => {
+    const candidates = [];
 
-    // نوع ٢: ما بعدها - "اختر الآية اللي بعد هذه"
+    // نوع ١: الكلمة الناقصة
+    const words = item.text.split(' ').filter(w => w.length > 0);
+    if (words.length >= 2) {
+      const candidateIdxs = words.length > 2 ? words.map((_,i)=>i).slice(1,-1) : words.map((_,i)=>i);
+      const blankWordIdx = candidateIdxs[Math.floor(Math.random() * candidateIdxs.length)];
+      const blankWord = words[blankWordIdx];
+      const otherWords = ayahs
+        .filter((_,i) => i !== idx)
+        .flatMap(x => x.text.split(' ').filter(w => w.length > 2 && w !== blankWord))
+        .filter((w,i,arr) => arr.indexOf(w) === i)
+        .sort(() => Math.random()-0.5)
+        .slice(0, 3);
+      if (otherWords.length >= 2) {
+        candidates.push({ surah: surahName, ayah: item.text, blank: blankWord, wrong: otherWords, qtype: 'blank', surahIdx: idx, ayahNum: item.num });
+      }
+    }
+
+    // نوع ٢: ما بعدها
     if (idx < ayahs.length - 1) {
       const next = ayahs[idx+1];
-      const wrongNexts = ayahs.filter((_,i) => i !== idx+1 && i !== idx)
-        .sort(() => Math.random()-0.5).slice(0,3);
+      const wrongNexts = ayahs.filter((_,i) => i !== idx+1 && i !== idx).sort(() => Math.random()-0.5).slice(0,3);
       if (wrongNexts.length >= 2) {
-        questions.push({
-          surah: q.surah,
-          ayah: q.ayah,
-          blank: next.ayah,
-          wrong: wrongNexts.map(x => x.ayah),
-          qtype: 'next',
-          surahIdx: idx,
-        });
+        candidates.push({ surah: surahName, ayah: item.text, blank: next.text, wrong: wrongNexts.map(x => x.text), qtype: 'next', surahIdx: idx });
       }
     }
 
     // نوع ٣: ما قبلها
     if (idx > 0) {
       const prev = ayahs[idx-1];
-      const wrongPrevs = ayahs.filter((_,i) => i !== idx-1 && i !== idx)
-        .sort(() => Math.random()-0.5).slice(0,3);
+      const wrongPrevs = ayahs.filter((_,i) => i !== idx-1 && i !== idx).sort(() => Math.random()-0.5).slice(0,3);
       if (wrongPrevs.length >= 2) {
-        questions.push({
-          surah: q.surah,
-          ayah: q.ayah,
-          blank: prev.ayah,
-          wrong: wrongPrevs.map(x => x.ayah),
-          qtype: 'prev',
-          surahIdx: idx,
-        });
+        candidates.push({ surah: surahName, ayah: item.text, blank: prev.text, wrong: wrongPrevs.map(x => x.text), qtype: 'prev', surahIdx: idx });
       }
     }
 
-    // نوع ٤: رقم الآية (لو موجود)
-    const num = getAyahNum(q);
-    if (num !== null) {
-      const otherNums = ayahs
-        .map(x => getAyahNum(x))
-        .filter(n => n !== null && n !== num);
+    // نوع ٤: رقم الآية
+    if (item.num) {
+      const otherNums = ayahs.map(x => x.num).filter(n => n && n !== item.num);
       const distractors = [...new Set(otherNums)].sort(() => Math.random()-0.5).slice(0,3);
       if (distractors.length >= 2) {
-        questions.push({
-          surah: q.surah,
-          ayah: q.ayah,
-          blank: String(num),
-          wrong: distractors.map(String),
-          qtype: 'num',
-          surahIdx: idx,
-          realAyah: q.ayah,
-        });
+        candidates.push({ surah: surahName, ayah: item.text, blank: String(item.num), wrong: distractors.map(String), qtype: 'num', surahIdx: idx });
       }
+    }
+
+    if (candidates.length > 0) {
+      questions.push(candidates[Math.floor(Math.random() * candidates.length)]);
     }
   });
 
-  // خلط بس مع الحفاظ على ترتيب الأنواع نسبياً (كل ٤ أسئلة = آية واحدة بأنواع مختلفة)
-  // نجمع بالآية أولاً ثم نخلط بين الآيات
-  const byAyah = {};
-  questions.forEach(q => {
-    const k = q.surahIdx;
-    if (!byAyah[k]) byAyah[k] = [];
-    byAyah[k].push(q);
-  });
-
-  // خلط ترتيب الآيات لكن نحافظ على أسئلة نفس الآية متجاورة
-  const ayahKeys = Object.keys(byAyah).map(Number).sort((a,b)=>a-b);
-  const result = [];
-  ayahKeys.forEach(k => {
-    const group = byAyah[k];
-    // خلط أنواع الأسئلة داخل نفس الآية
-    const shuffled = [...group].sort(() => Math.random()-0.5);
-    result.push(...shuffled);
-  });
-
-  return result;
+  return questions;
 }
 
 function startSurahReview(surahName) {
@@ -3438,7 +3520,13 @@ function startSurahReview(surahName) {
 
   const questions = buildReviewQuestions(surahName);
   if (questions.length < 2) {
-    showToast('⚠️ السورة دي محتاجة سؤالين على الأقل');
+    // تحقق من وجود آيات محلية
+    const surahIdx = SURAHS_META.findIndex(s => s[0] === surahName);
+    if (surahIdx !== -1 && QURAN_LOCAL[surahIdx+1] && QURAN_LOCAL[surahIdx+1].length >= 2) {
+      showToast('⚠️ محتاج ٢ آية على الأقل لبناء الأسئلة');
+    } else {
+      showToast('⚠️ السورة دي محتاجة سؤالين على الأقل');
+    }
     return;
   }
 
@@ -3524,5 +3612,16 @@ if (savedSession) {
   } catch {}
 }
 </script>
+
+<!-- ===== CONFIRM MODAL ===== -->
+<div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;">
+  <div style="background:linear-gradient(160deg,#1e1508,#12100a);border:1px solid rgba(201,151,58,0.4);border-radius:20px;padding:28px 24px;max-width:320px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.6);">
+    <div id="confirmText" style="font-size:16px;color:#FDF8EE;margin-bottom:20px;line-height:1.6;font-family:'Cairo',sans-serif;"></div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button id="confirmNo" onclick="closeConfirm()" style="flex:1;padding:12px;background:rgba(255,254,249,0.05);border:1px solid rgba(201,151,58,0.2);border-radius:12px;color:rgba(245,217,139,0.6);font-family:'Cairo',sans-serif;font-size:15px;font-weight:600;cursor:pointer;">لأ</button>
+      <button id="confirmYes" style="flex:1;padding:12px;background:linear-gradient(135deg,#C0392B,#E74C3C);border:none;border-radius:12px;color:white;font-family:'Cairo',sans-serif;font-size:15px;font-weight:700;cursor:pointer;">تصفير</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
