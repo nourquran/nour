@@ -2,8 +2,13 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1A1208">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>نور - تحدي القرآن الكريم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -119,6 +124,7 @@ body { font-family:'Cairo',sans-serif; background:var(--ink); color:var(--cream)
   scrollbar-width:thin; scrollbar-color:rgba(201,151,58,0.3) transparent;
   -webkit-overflow-scrolling:touch;
   scroll-snap-type:x mandatory;
+  overscroll-behavior-x:contain;
 }
 .levels-scroll::-webkit-scrollbar { height:4px; }
 .levels-scroll::-webkit-scrollbar-track { background:transparent; }
@@ -358,10 +364,167 @@ body { font-family:'Cairo',sans-serif; background:var(--ink); color:var(--cream)
 .hint-btn .hint-count { font-size:11px; background:rgba(201,151,58,0.2); border-radius:8px; padding:1px 6px; }
 .hint-reveal { background:rgba(27,107,74,0.12); border:1px solid rgba(46,175,120,0.25); border-radius:12px; padding:10px 14px; margin-bottom:10px; font-family:'Amiri',serif; font-size:16px; color:#7DFFC9; text-align:center; display:none; line-height:1.8; }
 .hint-reveal.show { display:block; }
+
+/* ===== TOUCH & INTERACTION FIXES ===== */
+button, .choice-btn, .mode-btn, .level-card, .hint-btn,
+.start-btn, .next-btn, .login-btn, .typing-submit,
+.memorized-add, .memorized-play-btn, .mistakes-nav-btn,
+.btn-again, .btn-home, .q-back, .surah-clear, .mistakes-back {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Active press feedback on mobile */
+.choice-btn:active:not(:disabled) { transform:scale(0.97); }
+.start-btn:active { transform:scale(0.98) !important; }
+.login-btn:active { transform:scale(0.98) !important; }
+.mode-btn:active { transform:scale(0.96); }
+.level-card:active { transform:scale(0.97); }
+.next-btn:active { transform:scale(0.98); }
+.memorized-play-btn:active { transform:scale(0.98) !important; }
+.btn-again:active, .btn-home:active { transform:scale(0.97); }
+
+input[type="range"] {
+  touch-action: manipulation;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ===== FONT PERFORMANCE ===== */
+@font-face {
+  font-family: 'Amiri';
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Cairo';
+  font-display: swap;
+}
+
+/* ===== SAFE AREA (iPhone notch / home bar) ===== */
+.app { padding-bottom: max(80px, env(safe-area-inset-bottom, 20px)); }
+#loginScreen { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); }
+
+/* ===== SMOOTH SCROLL ===== */
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+/* ===== TABLET (768px) ===== */
+@media(max-width:768px) {
+  .app { padding:16px 14px max(70px, env(safe-area-inset-bottom, 20px)); }
+  .ayah-text { font-size:23px; line-height:1.95; }
+  .ayah-card { padding:22px 18px; }
+}
+
+/* ===== MOBILE (480px) ===== */
 @media(max-width:480px) {
-  .ayah-text { font-size:22px; }
+  .app { padding:14px 12px max(70px, env(safe-area-inset-bottom, 20px)); }
+  .ayah-text { font-size:21px; line-height:1.9; }
   .choice-btn { font-size:17px; padding:12px 10px; }
-  .logo-title { font-size:32px; }
+  .logo-title { font-size:30px; }
+  .logo-moon { font-size:36px; }
+  .logo-sub { font-size:12px; }
+  .stats-row { gap:7px; }
+  .stat-val { font-size:18px; }
+  .stat-lbl { font-size:10px; }
+  .streak-bar { padding:11px 13px; gap:10px; }
+  .streak-fire { font-size:22px; }
+  .streak-days { font-size:15px; }
+
+  /* modes بتتضغط على شاشات صغيرة — نخليها 2×2 */
+  .modes-row {
+    grid-template-columns: 1fr 1fr;
+    gap:8px;
+  }
+  .mode-btn { padding:12px 8px; border-radius:12px; }
+  .mode-icon { font-size:20px; margin-bottom:4px; }
+  .mode-name { font-size:12px; }
+  .mode-sub { font-size:10px; }
+
+  /* level cards على موبايل */
+  .level-card { width:clamp(95px, 26vw, 130px); padding:11px 7px; }
+  .level-name { font-size:12px; }
+  .level-desc { font-size:10px; }
+  .level-icon { font-size:20px; margin-bottom:6px; }
+
+  /* login box */
+  .login-box { padding:28px 20px; border-radius:18px; }
+  .login-title { font-size:32px; }
+  .login-moon { font-size:44px; }
+
+  /* game screen header */
+  .q-back { padding:5px 10px; font-size:12px; }
+  .q-score-live { font-size:15px; }
+  .qCounter { font-size:12px; }
+
+  /* hints on mobile */
+  .hints-row { gap:5px; flex-wrap:wrap; justify-content:center; }
+  .hint-btn { font-size:12px; padding:6px 10px; }
+
+  /* results */
+  .results-card { padding:22px 16px; }
+  .results-emoji { font-size:48px; }
+  .results-title { font-size:22px; }
+  .r-stat-val { font-size:20px; }
+  .hasanat-count { font-size:28px; }
+  .results-stats { gap:7px; }
+  .results-btns { gap:8px; }
+
+  /* question count slider */
+  .qcount-ticks { font-size:9px; }
+  .qcount-val { font-size:14px; padding:2px 9px; }
+
+  /* memorized tags */
+  .memorized-tag { font-size:12px; padding:4px 10px; }
+
+  /* start btn */
+  .start-btn { font-size:17px; padding:16px; }
+
+  /* mistakes */
+  .mistakes-title { font-size:20px; }
+  .mistake-ayah { font-size:18px; }
+
+  /* ayah card */
+  .ayah-card { padding:18px 14px; border-radius:16px; }
+  .ayah-card::before { font-size:28px; top:8px; right:14px; }
+
+  /* typing */
+  .typing-input { font-size:19px; padding:13px 14px; }
+  .typing-submit { font-size:14px; padding:11px; }
+
+  /* section title */
+  .section-title { font-size:11px; }
+}
+
+/* ===== SMALL MOBILE (360px and below) ===== */
+@media(max-width:360px) {
+  .ayah-text { font-size:19px; }
+  .choice-btn { font-size:15px; padding:10px 8px; }
+  .logo-title { font-size:26px; }
+  .modes-row { gap:6px; }
+  .mode-btn { padding:10px 6px; }
+  .mode-name { font-size:11px; }
+  .mode-sub { display:none; }
+  .level-card { width:clamp(85px, 28vw, 110px); }
+  .stats-row { grid-template-columns:repeat(3,1fr); gap:5px; }
+  .choices-grid { gap:7px; }
+  .hint-btn .hint-count { display:none; }
+}
+
+/* ===== LANDSCAPE MOBILE ===== */
+@media(max-height:500px) and (orientation:landscape) {
+  .app { padding-top:8px; }
+  .header { padding:8px 0 6px; }
+  .logo-moon { font-size:28px; }
+  .logo-title { font-size:24px; }
+  .streak-bar { padding:8px 12px; }
+  .stats-row { margin:8px 0; }
+  .ayah-card { padding:14px 16px; margin-bottom:10px; }
+  .ayah-text { font-size:20px; line-height:1.8; }
+}
+
+/* ===== LARGE SCREENS (desktop) ===== */
+@media(min-width:1024px) {
+  .app { max-width:720px; }
+  .choices-grid { gap:12px; }
+  .ayah-text { font-size:28px; }
 }
 </style>
 </head>
