@@ -335,6 +335,67 @@ body { font-family:'Cairo',sans-serif; background:var(--ink); color:var(--cream)
 .lb-hasanat { font-size:14px; color:var(--emerald-light); font-weight:700; }
 .lb-me { border-color:var(--gold); background:rgba(201,151,58,0.08); }
 
+/* ===== SURAH REVIEW SCREEN ===== */
+.review-screen-wrap { padding-top:8px; }
+.review-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+.review-back { background:none; border:1px solid rgba(201,151,58,0.3); border-radius:10px; padding:7px 14px; color:var(--gold-light); font-family:'Cairo',sans-serif; cursor:pointer; font-size:13px; }
+.review-title { font-family:'Amiri',serif; font-size:24px; color:var(--gold); flex:1; text-align:center; }
+
+.review-search-wrap { position:relative; margin-bottom:16px; }
+.review-search { width:100%; background:rgba(255,254,249,0.05); border:1.5px solid rgba(201,151,58,0.25); border-radius:14px; padding:12px 16px 12px 42px; font-family:'Cairo',sans-serif; font-size:15px; color:var(--cream); direction:rtl; outline:none; transition:border-color .2s; }
+.review-search:focus { border-color:var(--gold); }
+.review-search::placeholder { color:rgba(245,217,139,0.35); }
+.review-search-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:16px; pointer-events:none; }
+
+.review-filters { display:flex; gap:8px; margin-bottom:16px; overflow-x:auto; scrollbar-width:none; padding-bottom:4px; }
+.review-filters::-webkit-scrollbar { display:none; }
+.review-filter-btn { background:rgba(255,254,249,0.04); border:1px solid rgba(201,151,58,0.2); border-radius:20px; padding:7px 16px; font-family:'Cairo',sans-serif; font-size:12px; color:rgba(245,217,139,0.6); cursor:pointer; white-space:nowrap; flex-shrink:0; transition:all .2s; }
+.review-filter-btn.active { border-color:var(--gold); color:var(--gold); background:rgba(201,151,58,0.1); }
+
+.surah-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.surah-review-card {
+  background:rgba(255,254,249,0.04); border:1px solid rgba(201,151,58,0.15);
+  border-radius:16px; padding:14px 12px; cursor:pointer; transition:all .25s;
+  position:relative; overflow:hidden;
+}
+.surah-review-card:hover { border-color:rgba(201,151,58,0.45); background:rgba(201,151,58,0.07); transform:translateY(-2px); }
+.surah-review-card:active { transform:scale(0.97); }
+.src-num { font-size:11px; color:rgba(245,217,139,0.4); margin-bottom:4px; }
+.src-name { font-family:'Amiri',serif; font-size:20px; color:var(--cream); margin-bottom:4px; }
+.src-info { font-size:11px; color:rgba(245,217,139,0.5); margin-bottom:8px; }
+.src-progress-bar { height:3px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; }
+.src-progress-fill { height:100%; background:linear-gradient(90deg, var(--emerald-light), var(--gold)); border-radius:2px; transition:width .5s; }
+.src-badges { display:flex; gap:5px; margin-top:7px; flex-wrap:wrap; }
+.src-badge { font-size:10px; padding:2px 8px; border-radius:10px; }
+.src-badge-q { background:rgba(201,151,58,0.15); color:var(--gold); border:1px solid rgba(201,151,58,0.3); }
+.src-badge-done { background:rgba(46,175,120,0.15); color:#7DFFC9; border:1px solid rgba(46,175,120,0.3); }
+.src-badge-new { background:rgba(26,82,118,0.25); color:#85C1E9; border:1px solid rgba(26,82,118,0.5); }
+.src-badge-streak { background:rgba(231,76,60,0.15); color:#FF9E9E; border:1px solid rgba(231,76,60,0.3); }
+
+.review-q-type-badge {
+  position:absolute; top:10px; left:10px;
+  font-size:10px; padding:2px 8px; border-radius:10px;
+  background:rgba(27,107,74,0.2); color:var(--emerald-light); border:1px solid rgba(46,175,120,0.3);
+  font-family:'Cairo',sans-serif;
+}
+.review-start-btn { width:100%; padding:16px; margin-top:16px; background:linear-gradient(135deg, var(--emerald-light), var(--emerald-mid)); border:none; border-radius:14px; font-family:'Cairo',sans-serif; font-size:17px; font-weight:700; color:white; cursor:pointer; transition:all .2s; display:none; }
+.review-start-btn.show { display:block; }
+.review-empty { text-align:center; padding:40px 20px; color:rgba(245,217,139,0.35); font-size:14px; line-height:2; }
+
+/* Q-type indicator in game */
+.qtype-pill {
+  display:inline-block; font-size:11px; font-family:'Cairo',sans-serif; padding:3px 12px;
+  border-radius:20px; margin-bottom:10px; font-weight:600;
+  background:rgba(27,107,74,0.2); color:#7DFFC9; border:1px solid rgba(46,175,120,0.3);
+}
+.qtype-pill.type-order { background:rgba(26,82,118,0.2); color:#85C1E9; border-color:rgba(26,82,118,0.4); }
+.qtype-pill.type-prev { background:rgba(155,89,182,0.2); color:#C39BD3; border-color:rgba(155,89,182,0.4); }
+.qtype-pill.type-num { background:rgba(201,151,58,0.15); color:var(--gold); border-color:rgba(201,151,58,0.3); }
+
+/* Surah completion animation */
+@keyframes surah-done { 0%{transform:scale(1);}40%{transform:scale(1.12);}100%{transform:scale(1);} }
+.surah-done-toast { animation:surah-done .6s ease; }
+
 /* ===== MISTAKES SCREEN ===== */
 .mistakes-screen-wrap { padding-top:8px; }
 .mistakes-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
@@ -670,6 +731,9 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     <!-- Mistakes Button -->
     <button class="mistakes-nav-btn" onclick="showMistakesScreen()">❌ مراجعة غلطاتي اليومية</button>
 
+    <!-- Surah Review Button -->
+    <button class="mistakes-nav-btn" style="color:#7DFFC9;border-color:rgba(46,175,120,0.3);background:rgba(27,107,74,0.08);margin-bottom:14px;" onclick="showReviewScreen()">📖 مراجعة السور كاملة</button>
+
     <!-- Leaderboard -->
     <div class="section-title">لوحة الشرف</div>
     <div id="leaderboard" class="lb-section"></div>
@@ -692,6 +756,35 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     </div>
   </div>
 
+  <!-- SURAH REVIEW SCREEN -->
+  <div class="screen" id="reviewScreen">
+    <div class="review-screen-wrap">
+      <div class="review-header">
+        <button class="review-back" onclick="goHome()">→ رجوع</button>
+        <div class="review-title">📖 مراجعة السور</div>
+      </div>
+
+      <div class="review-search-wrap">
+        <span class="review-search-icon">🔍</span>
+        <input class="review-search" id="reviewSearch" placeholder="ابحث عن سورة..." oninput="filterReviewSurahs(this.value)">
+      </div>
+
+      <div class="review-filters" id="reviewFilters">
+        <button class="review-filter-btn active" onclick="setReviewFilter('all',this)">🌿 كل السور</button>
+        <button class="review-filter-btn" onclick="setReviewFilter('juz30',this)">الجزء ٣٠</button>
+        <button class="review-filter-btn" onclick="setReviewFilter('short',this)">قصيرة &lt;١٠</button>
+        <button class="review-filter-btn" onclick="setReviewFilter('started',this)">🔥 بدأتها</button>
+        <button class="review-filter-btn" onclick="setReviewFilter('new',this)">✨ جديدة</button>
+      </div>
+
+      <div class="surah-grid" id="reviewSurahGrid"></div>
+
+      <div id="reviewEmpty" class="review-empty" style="display:none">
+        🔍 ما فيش سور بهذا الفلتر
+      </div>
+    </div>
+  </div>
+
   <!-- GAME SCREEN -->
   <div class="screen" id="gameScreen">
     <div class="q-header">
@@ -703,6 +796,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="q-score-live">⭐ <span id="liveScore">٠</span></div>
     </div>
     <div class="level-badge-game" id="levelBadgeGame"></div>
+    <div style="text-align:center;"><span class="qtype-pill" id="qtypePill" style="display:none"></span></div>
 
     <!-- Timer (for timed mode) -->
     <div id="timerWrap" style="display:none">
@@ -1421,7 +1515,7 @@ function populateMemorizedSelect() {
   });
 }
 
-
+function onSurahFilterChange() {
   selectedSurah = document.getElementById('surahFilter').value;
   updateSurahHint();
 }
@@ -1963,14 +2057,52 @@ function renderQuestion() {
 
   document.getElementById('progressFill').style.width = ((state.qIndex/total)*100)+'%';
   document.getElementById('qCounter').textContent = 'سؤال '+toArabicNum(state.qIndex+1)+' من '+toArabicNum(total);
+
+  // Q-type pill for review mode
+  const pill = document.getElementById('qtypePill');
+  if (q.qtype && q.qtype !== 'blank') {
+    pill.style.display = 'inline-block';
+    if (q.qtype === 'next') {
+      pill.textContent = '➡️ ما بعدها؟';
+      pill.className = 'qtype-pill type-order';
+    } else if (q.qtype === 'prev') {
+      pill.textContent = '⬅️ ما قبلها؟';
+      pill.className = 'qtype-pill type-prev';
+    } else if (q.qtype === 'num') {
+      pill.textContent = '🔢 رقم الآية؟';
+      pill.className = 'qtype-pill type-num';
+    }
+  } else {
+    pill.style.display = 'none';
+  }
+
+  // Surah label
   const ayahNum = getAyahNum(q);
   const ayahNumStr = ayahNum ? ' — آية ' + toArabicNum(ayahNum) : '';
   document.getElementById('surahLabel').textContent = 'سورة ' + q.surah + ayahNumStr;
-  document.getElementById('levelBadgeGame').textContent = lvl.icon + ' ' + lvl.name;
-  document.getElementById('hasanatMultiplier').textContent = '✨ مضاعف الحسنات: ×' + lvl.hasanatMult;
+  if (!state.isReviewMode) {
+    document.getElementById('levelBadgeGame').textContent = lvl.icon + ' ' + lvl.name;
+    document.getElementById('hasanatMultiplier').textContent = '✨ مضاعف الحسنات: ×' + lvl.hasanatMult;
+  } else {
+    document.getElementById('hasanatMultiplier').textContent = '';
+  }
 
-  const blankHTML = '<span class="blank"></span>';
-  document.getElementById('ayahText').innerHTML = q.ayah.replace(q.blank, blankHTML);
+  // Render ayah text based on qtype
+  if (q.qtype === 'next') {
+    document.getElementById('ayahText').innerHTML = q.ayah;
+    document.getElementById('qHint').textContent = 'ما الآية التالية بعد هذه؟';
+  } else if (q.qtype === 'prev') {
+    document.getElementById('ayahText').innerHTML = q.ayah;
+    document.getElementById('qHint').textContent = 'ما الآية السابقة لهذه؟';
+  } else if (q.qtype === 'num') {
+    document.getElementById('ayahText').innerHTML = q.ayah;
+    document.getElementById('qHint').textContent = 'ما رقم هذه الآية في السورة؟';
+  } else {
+    const blankHTML = '<span class="blank"></span>';
+    document.getElementById('ayahText').innerHTML = q.ayah.replace(q.blank, blankHTML);
+    document.getElementById('qHint').textContent = 'اختر الكلمة الصحيحة';
+  }
+
   document.getElementById('feedback').className = 'feedback';
   document.getElementById('feedback').textContent = '';
   document.getElementById('nextBtn').className = 'next-btn';
@@ -1983,21 +2115,19 @@ function renderQuestion() {
   document.getElementById('typingInput') && (document.getElementById('typingInput').className='typing-input');
   resetHintsUI();
 
-  if (state.mode==='mcq') {
-    document.getElementById('qHint').textContent = 'اختر الكلمة الصحيحة';
+  const activeMode = state.isReviewMode ? 'mcq' : state.mode;
+
+  if (activeMode==='mcq' || q.qtype === 'next' || q.qtype === 'prev' || q.qtype === 'num') {
     renderMCQ(q);
-  } else if (state.mode==='typing') {
-    document.getElementById('qHint').textContent = 'اكتب الكلمة الناقصة';
+  } else if (activeMode==='typing') {
     document.getElementById('typingWrap').style.display = 'block';
     document.getElementById('typingInput').focus();
-  } else if (state.mode==='timed') {
-    document.getElementById('qHint').textContent = '⚡ ضد الوقت - اختر بسرعة!';
+  } else if (activeMode==='timed') {
     renderMCQ(q);
     startTimer();
   } else {
-    document.getElementById('qHint').textContent = 'احفظ الآية جيداً ثم اختبر نفسك';
     document.getElementById('listenWrap').style.display = 'block';
-    document.getElementById('ayahText').innerHTML = q.ayah;
+    document.getElementById('ayahText').innerHTML = q.qtype ? q.ayah : q.ayah;
     document.getElementById('listenBtn').style.display = '';
     document.getElementById('listenChoices').innerHTML = '';
   }
@@ -2006,13 +2136,40 @@ function renderQuestion() {
 function renderMCQ(q) {
   const choices = shuffle([q.blank, ...q.wrong]);
   const wrap = document.getElementById('mcqWrap');
+  const isAyahChoice = q.qtype === 'next' || q.qtype === 'prev';
+  const isNumChoice = q.qtype === 'num';
+
   choices.forEach(ch => {
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
+    if (isAyahChoice) {
+      btn.style.fontFamily = 'Amiri,serif';
+      btn.style.fontSize = '16px';
+      btn.style.textAlign = 'right';
+      btn.style.lineHeight = '1.8';
+      btn.style.padding = '12px 14px';
+    } else if (isNumChoice) {
+      btn.style.fontFamily = 'Cairo,sans-serif';
+      btn.style.fontSize = '22px';
+      btn.style.fontWeight = '700';
+      btn.textContent = 'آية ' + toArabicNum(parseInt(ch));
+      btn.onclick = (e) => checkAnswer(ch, q.blank, e);
+      wrap.appendChild(btn);
+      return;
+    }
     btn.textContent = ch;
     btn.onclick = (e) => checkAnswer(ch, q.blank, e);
     wrap.appendChild(btn);
   });
+
+  // For num type, adjust grid to 2 cols
+  if (isNumChoice) {
+    wrap.style.gridTemplateColumns = '1fr 1fr';
+  } else if (isAyahChoice) {
+    wrap.style.gridTemplateColumns = '1fr';
+  } else {
+    wrap.style.gridTemplateColumns = '';
+  }
 }
 
 function showListenChoices() {
@@ -2072,14 +2229,18 @@ function handleResult(isRight, e) {
 
   if (isRight) {
     state.correct++;
-    const basePts = state.mode==='typing' ? 20 : state.mode==='timed' ? 15 : state.mode==='listen' ? 15 : 10;
-    let pts = Math.round(basePts * (1 + state.level * 0.5));
-    // Combo bonus: ×1.5 per extra combo (cap at ×4)
+    let basePts;
+    if (state.isReviewMode) {
+      // نقاط المراجعة حسب نوع السؤال
+      basePts = q.qtype === 'num' ? 15 : q.qtype === 'next' || q.qtype === 'prev' ? 20 : 10;
+    } else {
+      basePts = state.mode==='typing' ? 20 : state.mode==='timed' ? 15 : state.mode==='listen' ? 15 : 10;
+    }
+    let pts = state.isReviewMode ? basePts : Math.round(basePts * (1 + state.level * 0.5));
     if (state.combo >= 2) pts = Math.round(pts * Math.min(1 + (state.combo-1)*0.5, 4));
-    // Timed bonus: speed bonus
     if (state.mode==='timed' && state.timeLeft > 0) pts += state.timeLeft * 2;
     state.score += pts;
-    const hasanat = pts * lvl.hasanatMult * 10;
+    const hasanat = pts * (state.isReviewMode ? 2 : lvl.hasanatMult) * 10;
     state.sessionHasanat += hasanat;
     document.getElementById('liveScore').textContent = toArabicNum(state.score);
     const comboSuffix = state.combo >= 2 ? ` 🔥×${state.combo}` : '';
@@ -2088,7 +2249,15 @@ function handleResult(isRight, e) {
     if (e) spawnHasanat(e.clientX, e.clientY, hasanat);
   } else {
     fb.className = 'feedback wrong show';
-    fb.innerHTML = '❌ الصحيح: <span style="font-family:Amiri,serif;font-size:20px">'+q.blank+'</span>';
+    if (q.qtype === 'num') {
+      fb.innerHTML = '❌ الصحيح: آية ' + toArabicNum(parseInt(q.blank));
+    } else if (q.qtype === 'next') {
+      fb.innerHTML = '❌ الآية التالية: <span style="font-family:Amiri,serif;font-size:16px;display:block;margin-top:6px;line-height:1.8">'+q.blank+'</span>';
+    } else if (q.qtype === 'prev') {
+      fb.innerHTML = '❌ الآية السابقة: <span style="font-family:Amiri,serif;font-size:16px;display:block;margin-top:6px;line-height:1.8">'+q.blank+'</span>';
+    } else {
+      fb.innerHTML = '❌ الصحيح: <span style="font-family:Amiri,serif;font-size:20px">'+q.blank+'</span>';
+    }
   }
   nextBtn.className = 'next-btn show';
 }
@@ -2100,10 +2269,14 @@ function nextQuestion() {
 }
 
 function showResults() {
+  // Save review progress if in review mode
+  if (state.isReviewMode && state.reviewSurah) {
+    saveSurahReviewProgress(state.reviewSurah, state.correct, state.questions.length);
+  }
+
   showScreen('resultsScreen');
   const total = state.questions.length;
   const accuracy = Math.round((state.correct/total)*100);
-  const prevScore = currentUser.totalScore;
 
   currentUser.totalScore += state.score;
   currentUser.totalGames++;
@@ -2117,15 +2290,21 @@ function showResults() {
   }
   saveCurrentUser();
 
-  // Check level ups
   const levelUpBox = document.getElementById('levelUpBox');
   levelUpBox.classList.remove('show');
 
   let emoji, title, msg;
-  if (accuracy===100) { emoji='🏆'; title='ممتاز! ماشاءالله!'; msg='أجبت على جميع الأسئلة صحيحة! أنت حافظ متقن 🌟'; }
-  else if (accuracy>=70) { emoji='⭐'; title='أحسنت!'; msg='نتيجة رائعة! استمر في الحفظ ولا تتوقف.'; }
-  else if (accuracy>=40) { emoji='📖'; title='جيد، استمر!'; msg='كل يوم أفضل من أمس. القرآن حفظه يحتاج صبر.'; }
-  else { emoji='💪'; title='لا تستسلم!'; msg='البداية صعبة دائماً. كرر المحاولة وستتحسن.'; }
+  if (state.isReviewMode) {
+    if (accuracy===100) { emoji='🏆'; title='أتقنت السورة! ماشاءالله!'; msg='١٠٠٪ على سورة '+state.reviewSurah+' — حافظ متقن 🌟'; }
+    else if (accuracy>=70) { emoji='📖'; title='مراجعة رائعة!'; msg='كملت سورة '+state.reviewSurah+' بدقة عالية، استمر!'; }
+    else if (accuracy>=40) { emoji='🌱'; title='استمر في المراجعة!'; msg='القرآن يحتاج تكرار — راجع سورة '+state.reviewSurah+' مجدداً.'; }
+    else { emoji='💪'; title='راجع وكرر!'; msg='كل ما راجعت كلما رسخت في قلبك بإذن الله.'; }
+  } else {
+    if (accuracy===100) { emoji='🏆'; title='ممتاز! ماشاءالله!'; msg='أجبت على جميع الأسئلة صحيحة! أنت حافظ متقن 🌟'; }
+    else if (accuracy>=70) { emoji='⭐'; title='أحسنت!'; msg='نتيجة رائعة! استمر في الحفظ ولا تتوقف.'; }
+    else if (accuracy>=40) { emoji='📖'; title='جيد، استمر!'; msg='كل يوم أفضل من أمس. القرآن حفظه يحتاج صبر.'; }
+    else { emoji='💪'; title='لا تستسلم!'; msg='البداية صعبة دائماً. كرر المحاولة وستتحسن.'; }
+  }
 
   document.getElementById('resEmoji').textContent = emoji;
   document.getElementById('resTitle').textContent = title;
@@ -2135,8 +2314,21 @@ function showResults() {
   document.getElementById('resAccuracy').textContent = toArabicNum(accuracy)+'٪';
 
   const lvl = LEVEL_DEFS[state.level];
+  const mult = state.isReviewMode ? 2 : lvl.hasanatMult;
   document.getElementById('resHasanat').textContent = toArabicNum(state.sessionHasanat) + ' ✨';
-  document.getElementById('resHasanatSub').textContent = 'مضاعف ×'+lvl.hasanatMult+' — كل حرف = ١٠ حسنات إن شاء الله 🤍';
+  document.getElementById('resHasanatSub').textContent = state.isReviewMode
+    ? 'مراجعة السور ×٢ حسنات — جزاك الله خيراً 🤍'
+    : 'مضاعف ×'+mult+' — كل حرف = ١٠ حسنات إن شاء الله 🤍';
+
+  // Review again button
+  const againBtn = document.querySelector('.btn-again');
+  if (state.isReviewMode) {
+    againBtn.textContent = '🔄 راجع مجدداً';
+    againBtn.onclick = () => startSurahReview(state.reviewSurah);
+  } else {
+    againBtn.textContent = 'العب مجدداً 🔄';
+    againBtn.onclick = () => startGame();
+  }
 
   const inspo = [
     { text:'إِنَّ هَٰذَا الْقُرْآنَ يَهْدِي لِلَّتِي هِيَ أَقْوَمُ', ref:'الإسراء: ٩' },
@@ -2156,6 +2348,8 @@ function showResults() {
 
 function goHome() {
   stopTimer();
+  state.isReviewMode = false;
+  state.reviewSurah = null;
   showScreen('homeScreen');
   updateHomeStats();
 }
@@ -2269,6 +2463,270 @@ function renderMistakesForDay(mistakes) {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('show'));
   document.getElementById(id).classList.add('show');
+}
+
+// ============================================================
+// ===== SURAH REVIEW SYSTEM =====
+// ============================================================
+
+// بيانات السور الـ ١١٤: [اسم, عدد الآيات, نوع (مكية/مدنية), رقم الجزء الأول]
+const SURAHS_META = [
+  ["الفاتحة",7,"مكية",1],["البقرة",286,"مدنية",1],["آل عمران",200,"مدنية",3],
+  ["النساء",176,"مدنية",4],["المائدة",120,"مدنية",6],["الأنعام",165,"مكية",7],
+  ["الأعراف",206,"مكية",8],["الأنفال",75,"مدنية",9],["التوبة",129,"مدنية",10],
+  ["يونس",109,"مكية",11],["هود",123,"مكية",11],["يوسف",111,"مكية",12],
+  ["الرعد",43,"مدنية",13],["إبراهيم",52,"مكية",13],["الحجر",99,"مكية",14],
+  ["النحل",128,"مكية",14],["الإسراء",111,"مكية",15],["الكهف",110,"مكية",15],
+  ["مريم",98,"مكية",16],["طه",135,"مكية",16],["الأنبياء",112,"مكية",17],
+  ["الحج",78,"مدنية",17],["المؤمنون",118,"مكية",18],["النور",64,"مدنية",18],
+  ["الفرقان",77,"مكية",18],["الشعراء",227,"مكية",19],["النمل",93,"مكية",19],
+  ["القصص",88,"مكية",20],["العنكبوت",69,"مكية",20],["الروم",60,"مكية",21],
+  ["لقمان",34,"مكية",21],["السجدة",30,"مكية",21],["الأحزاب",73,"مدنية",21],
+  ["سبأ",54,"مكية",22],["فاطر",45,"مكية",22],["يس",83,"مكية",22],
+  ["الصافات",182,"مكية",23],["ص",88,"مكية",23],["الزمر",75,"مكية",23],
+  ["غافر",85,"مكية",24],["فصلت",54,"مكية",24],["الشورى",53,"مكية",25],
+  ["الزخرف",89,"مكية",25],["الدخان",59,"مكية",25],["الجاثية",37,"مكية",25],
+  ["الأحقاف",35,"مكية",26],["محمد",38,"مدنية",26],["الفتح",29,"مدنية",26],
+  ["الحجرات",18,"مدنية",26],["ق",45,"مكية",26],["الذاريات",60,"مكية",26],
+  ["الطور",49,"مكية",27],["النجم",62,"مكية",27],["القمر",55,"مكية",27],
+  ["الرحمن",78,"مدنية",27],["الواقعة",96,"مكية",27],["الحديد",29,"مدنية",27],
+  ["المجادلة",22,"مدنية",28],["الحشر",24,"مدنية",28],["الممتحنة",13,"مدنية",28],
+  ["الصف",14,"مدنية",28],["الجمعة",11,"مدنية",28],["المنافقون",11,"مدنية",28],
+  ["التغابن",18,"مدنية",28],["الطلاق",12,"مدنية",28],["التحريم",12,"مدنية",28],
+  ["الملك",30,"مكية",29],["القلم",52,"مكية",29],["الحاقة",52,"مكية",29],
+  ["المعارج",44,"مكية",29],["نوح",28,"مكية",29],["الجن",28,"مكية",29],
+  ["المزمل",20,"مكية",29],["المدثر",56,"مكية",29],["القيامة",40,"مكية",29],
+  ["الإنسان",31,"مدنية",29],["المرسلات",50,"مكية",29],["النبأ",40,"مكية",30],
+  ["النازعات",46,"مكية",30],["عبس",42,"مكية",30],["التكوير",29,"مكية",30],
+  ["الانفطار",19,"مكية",30],["المطففين",36,"مكية",30],["الانشقاق",25,"مكية",30],
+  ["البروج",22,"مكية",30],["الطارق",17,"مكية",30],["الأعلى",19,"مكية",30],
+  ["الغاشية",26,"مكية",30],["الفجر",30,"مكية",30],["البلد",20,"مكية",30],
+  ["الشمس",15,"مكية",30],["الليل",21,"مكية",30],["الضحى",11,"مكية",30],
+  ["الشرح",8,"مكية",30],["التين",8,"مكية",30],["العلق",19,"مكية",30],
+  ["القدر",5,"مكية",30],["البينة",8,"مدنية",30],["الزلزلة",8,"مدنية",30],
+  ["العاديات",11,"مكية",30],["القارعة",11,"مكية",30],["التكاثر",8,"مكية",30],
+  ["العصر",3,"مكية",30],["الهمزة",9,"مكية",30],["الفيل",5,"مكية",30],
+  ["قريش",4,"مكية",30],["الماعون",7,"مكية",30],["الكوثر",3,"مكية",30],
+  ["الكافرون",6,"مكية",30],["النصر",3,"مدنية",30],["المسد",5,"مكية",30],
+  ["الإخلاص",4,"مكية",30],["الفلق",5,"مكية",30],["الناس",6,"مكية",30],
+];
+
+let reviewFilter = 'all';
+let reviewSearchVal = '';
+
+function getSurahQCount(surahName) {
+  const allPool = Object.values(QURAN_DB).flat();
+  return allPool.filter(q => q.surah === surahName).length;
+}
+
+function getSurahReviewProgress(surahName) {
+  // returns {done, total, streak} from localStorage
+  if (!currentUser || currentUser.isGuest) return {done:0,total:0,streak:0};
+  const key = 'nour_revprog_' + currentUser.username;
+  try {
+    const d = JSON.parse(localStorage.getItem(key) || '{}');
+    return d[surahName] || {done:0,total:0,streak:0};
+  } catch { return {done:0,total:0,streak:0}; }
+}
+
+function saveSurahReviewProgress(surahName, done, total) {
+  if (!currentUser || currentUser.isGuest) return;
+  const key = 'nour_revprog_' + currentUser.username;
+  let d = {};
+  try { d = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
+  const prev = d[surahName] || {done:0,total:0,streak:0};
+  const streak = done >= total ? (prev.streak||0)+1 : prev.streak||0;
+  d[surahName] = {done, total, streak, lastPlay: Date.now()};
+  localStorage.setItem(key, JSON.stringify(d));
+}
+
+function setReviewFilter(f, btn) {
+  reviewFilter = f;
+  document.querySelectorAll('.review-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderReviewGrid();
+}
+
+function filterReviewSurahs(val) {
+  reviewSearchVal = val;
+  renderReviewGrid();
+}
+
+function renderReviewGrid() {
+  const allPool = Object.values(QURAN_DB).flat();
+  const grid = document.getElementById('reviewSurahGrid');
+  const empty = document.getElementById('reviewEmpty');
+
+  let list = SURAHS_META.map(([name, ayahCount, type, juz], idx) => {
+    const qCount = getSurahQCount(name);
+    if (qCount === 0) return null; // only show surahs with questions
+    const prog = getSurahReviewProgress(name);
+    return {name, ayahCount, type, juz, qCount, prog, idx: idx+1};
+  }).filter(Boolean);
+
+  // Filter
+  if (reviewFilter === 'juz30') list = list.filter(s => s.juz === 30);
+  else if (reviewFilter === 'short') list = list.filter(s => s.ayahCount < 10);
+  else if (reviewFilter === 'started') list = list.filter(s => s.prog.done > 0);
+  else if (reviewFilter === 'new') list = list.filter(s => s.prog.done === 0);
+
+  // Search
+  if (reviewSearchVal) list = list.filter(s => s.name.includes(reviewSearchVal));
+
+  grid.innerHTML = '';
+  if (list.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.forEach(s => {
+    const pct = s.prog.total > 0 ? Math.round((s.prog.done/s.prog.total)*100) : 0;
+    const card = document.createElement('div');
+    card.className = 'surah-review-card';
+    card.onclick = () => startSurahReview(s.name);
+
+    // Badges
+    let badges = `<span class="src-badge src-badge-q">📝 ${s.qCount} سؤال</span>`;
+    if (s.prog.done >= s.prog.total && s.prog.total > 0) badges += `<span class="src-badge src-badge-done">✅ مكتملة</span>`;
+    else if (s.prog.done === 0) badges += `<span class="src-badge src-badge-new">✨ جديدة</span>`;
+    if (s.prog.streak > 1) badges += `<span class="src-badge src-badge-streak">🔥 ×${s.prog.streak}</span>`;
+
+    card.innerHTML = `
+      <div class="src-num">${s.idx}. ${s.type} • الجزء ${toArabicNum(s.juz)}</div>
+      <div class="src-name">سورة ${s.name}</div>
+      <div class="src-info">${toArabicNum(s.ayahCount)} آية</div>
+      <div class="src-progress-bar"><div class="src-progress-fill" style="width:${pct}%"></div></div>
+      <div class="src-badges">${badges}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function showReviewScreen() {
+  showScreen('reviewScreen');
+  renderReviewGrid();
+}
+
+// ===== بناء أسئلة المراجعة - 4 أنواع =====
+function buildReviewQuestions(surahName) {
+  const allPool = Object.values(QURAN_DB).flat();
+  const ayahs = allPool
+    .filter(q => q.surah === surahName)
+    .sort((a,b) => (getAyahNum(a)||999) - (getAyahNum(b)||999));
+
+  if (ayahs.length === 0) return [];
+
+  const questions = [];
+
+  ayahs.forEach((q, idx) => {
+    // نوع ١: الكلمة الناقصة (الأصلي)
+    questions.push({ ...q, qtype: 'blank', surahIdx: idx });
+
+    // نوع ٢: ما بعدها - "اختر الآية اللي بعد هذه"
+    if (idx < ayahs.length - 1) {
+      const next = ayahs[idx+1];
+      const wrongNexts = ayahs.filter((_,i) => i !== idx+1 && i !== idx)
+        .sort(() => Math.random()-0.5).slice(0,3);
+      if (wrongNexts.length >= 2) {
+        questions.push({
+          surah: q.surah,
+          ayah: q.ayah,
+          blank: next.ayah,
+          wrong: wrongNexts.map(x => x.ayah),
+          qtype: 'next',
+          surahIdx: idx,
+        });
+      }
+    }
+
+    // نوع ٣: ما قبلها
+    if (idx > 0) {
+      const prev = ayahs[idx-1];
+      const wrongPrevs = ayahs.filter((_,i) => i !== idx-1 && i !== idx)
+        .sort(() => Math.random()-0.5).slice(0,3);
+      if (wrongPrevs.length >= 2) {
+        questions.push({
+          surah: q.surah,
+          ayah: q.ayah,
+          blank: prev.ayah,
+          wrong: wrongPrevs.map(x => x.ayah),
+          qtype: 'prev',
+          surahIdx: idx,
+        });
+      }
+    }
+
+    // نوع ٤: رقم الآية (لو موجود)
+    const num = getAyahNum(q);
+    if (num !== null) {
+      const otherNums = ayahs
+        .map(x => getAyahNum(x))
+        .filter(n => n !== null && n !== num);
+      const distractors = [...new Set(otherNums)].sort(() => Math.random()-0.5).slice(0,3);
+      if (distractors.length >= 2) {
+        questions.push({
+          surah: q.surah,
+          ayah: q.ayah,
+          blank: String(num),
+          wrong: distractors.map(String),
+          qtype: 'num',
+          surahIdx: idx,
+          realAyah: q.ayah,
+        });
+      }
+    }
+  });
+
+  // خلط بس مع الحفاظ على ترتيب الأنواع نسبياً (كل ٤ أسئلة = آية واحدة بأنواع مختلفة)
+  // نجمع بالآية أولاً ثم نخلط بين الآيات
+  const byAyah = {};
+  questions.forEach(q => {
+    const k = q.surahIdx;
+    if (!byAyah[k]) byAyah[k] = [];
+    byAyah[k].push(q);
+  });
+
+  // خلط ترتيب الآيات لكن نحافظ على أسئلة نفس الآية متجاورة
+  const ayahKeys = Object.keys(byAyah).map(Number).sort((a,b)=>a-b);
+  const result = [];
+  ayahKeys.forEach(k => {
+    const group = byAyah[k];
+    // خلط أنواع الأسئلة داخل نفس الآية
+    const shuffled = [...group].sort(() => Math.random()-0.5);
+    result.push(...shuffled);
+  });
+
+  return result;
+}
+
+function startSurahReview(surahName) {
+  if (!currentUser) return;
+
+  const questions = buildReviewQuestions(surahName);
+  if (questions.length < 2) {
+    showToast('⚠️ السورة دي محتاجة سؤالين على الأقل');
+    return;
+  }
+
+  // Save progress tracking
+  state.reviewSurah = surahName;
+  state.reviewTotal = questions.length;
+  state.isReviewMode = true;
+  state.questions = questions;
+  state.qIndex = 0; state.score = 0; state.correct = 0;
+  state.sessionHasanat = 0; state.answered = false;
+  state.combo = 0;
+  state.hints = { h1:2, h2:2, h3:2 }; // أكتر hints في مود المراجعة
+  state.mode = 'mcq'; // مراجعة دايماً MCQ
+  stopTimer();
+
+  showScreen('gameScreen');
+  document.getElementById('liveScore').textContent = '٠';
+  document.getElementById('timerWrap').style.display = 'none';
+  document.getElementById('levelBadgeGame').textContent = '📖 مراجعة سورة ' + surahName;
+  renderQuestion();
+  showToast('📖 مراجعة سورة ' + surahName + ' — ' + toArabicNum(questions.length) + ' سؤال');
 }
 
 // ============================================================
