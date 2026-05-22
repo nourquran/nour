@@ -669,26 +669,22 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
         <span>اختر عدد الأسئلة في كل جلسة</span>
         <span class="qcount-val" id="qcountDisplay">٢٠</span>
       </div>
-      <input type="range" class="qcount-slider" id="qcountSlider" min="20" max="50" step="5" value="20" oninput="onQcountChange(this.value)">
+      <input type="range" class="qcount-slider" id="qcountSlider" min="5" max="50" step="5" value="20" oninput="onQcountChange(this.value)" onchange="onQcountChange(this.value)">
       <div class="qcount-ticks">
-        <span>٢٠</span><span>٢٥</span><span>٣٠</span><span>٣٥</span><span>٤٠</span><span>٤٥</span><span>٥٠</span>
+        <span>٥</span><span>١٠</span><span>١٥</span><span>٢٠</span><span>٢٥</span><span>٣٠</span><span>٣٥</span><span>٤٠</span><span>٤٥</span><span>٥٠</span>
       </div>
     </div>
 
     <!-- Memorized Surahs -->
     <div class="section-title">📚 السور المحفوظة</div>
     <div class="memorized-wrap">
-      <div class="memorized-label">أضف السور اللي حفظتها — هتذاكر منها بس</div>
-      <div class="memorized-row">
-        <select class="memorized-select" id="memorizedSelect">
-          <option value="">اختر سورة محفوظة...</option>
-        </select>
-        <button class="memorized-add" onclick="addMemorizedSurah()">+ أضف</button>
+      <div class="memorized-label">السور اللي خلصت كل أسئلتها هتظهر هنا تلقائياً</div>
+      <div class="memorized-tags" id="memorizedTags">
+        <div style="font-size:12px;color:rgba(245,217,139,0.3);padding:8px 0;">🌱 العب على سورة وخلص أسئلتها هتتضاف هنا أوتوماتيك</div>
       </div>
-      <div class="memorized-tags" id="memorizedTags"></div>
       <div class="memorized-count" id="memorizedCount"></div>
       <button class="memorized-play-btn" id="memorizedPlayBtn" onclick="startFromMemorized()">📖 ذاكر السور المحفوظة فقط ✨</button>
-      <div class="memorized-hint">💡 الأسئلة هتكون مرتبة بترتيب الآيات من المصحف</div>
+      <div class="memorized-hint">💡 لما تخلص كل آيات سورة تتحفظ تلقائياً هنا</div>
     </div>
 
     <div class="surah-filter-wrap">
@@ -1141,7 +1137,6 @@ function loginSuccess(username, data, isGuest=false) {
   updateHomeStats();
   renderLeaderboard();
   populateSurahFilter();
-  populateMemorizedSelect();
   loadMemorizedSurahs();
   showToast('مرحباً ' + username + '! 🌙');
 }
@@ -1264,49 +1259,43 @@ function onQcountChange(val) {
 }
 
 // ============================================================
-// ===== MEMORIZED SURAHS =====
+// ===== SURAH COMPLETION & MEMORIZED (AUTO) =====
 // ============================================================
 let memorizedSurahs = [];
 
 function loadMemorizedSurahs() {
   if (!currentUser || currentUser.isGuest) return;
-  try {
-    const key = 'nour_memorized_' + currentUser.username;
-    memorizedSurahs = JSON.parse(localStorage.getItem(key) || '[]');
-  } catch { memorizedSurahs = []; }
+  const key = 'nour_memorized_' + currentUser.username;
+  try { memorizedSurahs = JSON.parse(localStorage.getItem(key) || '[]'); } catch { memorizedSurahs = []; }
   renderMemorizedTags();
 }
 
 function saveMemorizedSurahs() {
   if (!currentUser || currentUser.isGuest) return;
-  const key = 'nour_memorized_' + currentUser.username;
-  localStorage.setItem(key, JSON.stringify(memorizedSurahs));
+  localStorage.setItem('nour_memorized_' + currentUser.username, JSON.stringify(memorizedSurahs));
 }
 
-function addMemorizedSurah() {
-  const sel = document.getElementById('memorizedSelect');
-  const surah = sel.value;
-  if (!surah) { showToast('اختر سورة الأول'); return; }
-  if (memorizedSurahs.includes(surah)) { showToast('السورة دي موجودة بالفعل ✅'); return; }
-
-  // Check if surah has questions in DB
+// يتم استدعاؤها لما يخلص كل أسئلة سورة معينة
+function checkSurahCompletion(surahName) {
+  if (!surahName || memorizedSurahs.includes(surahName)) return;
   const allPool = Object.values(QURAN_DB).flat();
-  const inDB = allPool.filter(q => q.surah === surah);
-  if (inDB.length === 0) {
-    showToast('❌ السورة دي مش في قاعدة الأسئلة لحد دلوقتي');
-    return;
+  const surahQs = allPool.filter(q => q.surah === surahName);
+  const progress = getSurahProgress(surahName);
+  // لو الـ progress وصل للنهاية (next index = 0 بعد ما لف) أو لو اللاعب خلص كل الأسئلة
+  if (progress === 0 && surahQs.length > 0) {
+    // اتلف يعني خلصهم
+    memorizedSurahs.push(surahName);
+    saveMemorizedSurahs();
+    renderMemorizedTags();
+    setTimeout(() => showToast('🎉 أتقنت سورة ' + surahName + '! تم حفظها في السور المحفوظة ✨', 3500), 500);
   }
-
-  memorizedSurahs.push(surah);
-  saveMemorizedSurahs();
-  renderMemorizedTags();
-  sel.value = '';
-  showToast('✅ أضفت سورة ' + surah);
 }
 
-function removeMemorizedSurah(surah) {
-  memorizedSurahs = memorizedSurahs.filter(s => s !== surah);
+function removeMemorizedSurah(surahName) {
+  memorizedSurahs = memorizedSurahs.filter(s => s !== surahName);
   saveMemorizedSurahs();
+  // reset progress too
+  saveSurahProgress(surahName, 0);
   renderMemorizedTags();
 }
 
@@ -1315,54 +1304,58 @@ function renderMemorizedTags() {
   const countEl = document.getElementById('memorizedCount');
   const playBtn = document.getElementById('memorizedPlayBtn');
 
+  if (memorizedSurahs.length === 0) {
+    container.innerHTML = '<div style="font-size:12px;color:rgba(245,217,139,0.3);padding:8px 0;">🌱 العب على سورة وخلص أسئلتها هتتضاف هنا أوتوماتيك</div>';
+    countEl.textContent = '';
+    playBtn.classList.remove('show');
+    return;
+  }
+
   container.innerHTML = memorizedSurahs.map(s => `
     <div class="memorized-tag">
       📖 ${s}
-      <span class="memorized-tag-remove" onclick="removeMemorizedSurah('${s}')">×</span>
+      <span class="memorized-tag-remove" onclick="removeMemorizedSurah('${s}')" title="إزالة وإعادة التقدم">×</span>
     </div>
   `).join('');
 
-  if (memorizedSurahs.length > 0) {
-    const allPool = Object.values(QURAN_DB).flat();
-    const total = memorizedSurahs.reduce((n, s) => n + allPool.filter(q => q.surah === s).length, 0);
-    countEl.textContent = '📊 إجمالي الأسئلة المتاحة: ' + toArabicNum(total) + ' سؤال من ' + toArabicNum(memorizedSurahs.length) + ' سورة';
-    playBtn.classList.add('show');
-  } else {
-    countEl.textContent = '';
-    playBtn.classList.remove('show');
-  }
+  const allPool = Object.values(QURAN_DB).flat();
+  const total = memorizedSurahs.reduce((n, s) => n + allPool.filter(q => q.surah === s).length, 0);
+  countEl.textContent = '📊 ' + toArabicNum(memorizedSurahs.length) + ' سورة • ' + toArabicNum(total) + ' سؤال';
+  playBtn.classList.add('show');
 }
 
 function startFromMemorized() {
   if (memorizedSurahs.length === 0) return;
-  // Build pool from memorized surahs sorted by Quran order
   const allPool = Object.values(QURAN_DB).flat();
-  const pool = allPool
-    .filter(q => memorizedSurahs.includes(q.surah))
-    .sort((a, b) => {
-      const na = getAyahNum(a) || 0;
-      const nb = getAyahNum(b) || 0;
-      // Sort by surah index in memorized list first, then ayah number
-      const si = memorizedSurahs.indexOf(a.surah);
-      const sj = memorizedSurahs.indexOf(b.surah);
-      if (si !== sj) return si - sj;
-      return na - nb;
-    });
 
-  if (pool.length < 2) {
-    showToast('⚠️ محتاج سورتين على الأقل أو سورة فيها أكتر من سؤال');
-    return;
-  }
+  // ابني pool بترتيب السور المحفوظة مع الاستكمال من حيث وقفنا
+  let picked = [];
+  let remaining = selectedQCount;
 
-  // Build shuffled questions from pool
-  const count = Math.min(selectedQCount, pool.length);
-  const shuffled = [...pool];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor((crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF) * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
+  memorizedSurahs.forEach(surahName => {
+    if (remaining <= 0) return;
+    const surahQs = allPool
+      .filter(q => q.surah === surahName)
+      .sort((a, b) => (getAyahNum(a)||0) - (getAyahNum(b)||0));
+    if (surahQs.length === 0) return;
 
-  state.questions = shuffled.slice(0, count);
+    const startIdx = getSurahProgress(surahName);
+    const effectiveStart = startIdx >= surahQs.length ? 0 : startIdx;
+    const take = Math.min(remaining, surahQs.length);
+    const slice1 = surahQs.slice(effectiveStart, effectiveStart + take);
+    const slice2 = slice1.length < take ? surahQs.slice(0, take - slice1.length) : [];
+    const batch = [...slice1, ...slice2];
+    const nextStart = (effectiveStart + take) % surahQs.length;
+    saveSurahProgress(surahName, nextStart);
+    picked = [...picked, ...batch];
+    remaining -= batch.length;
+  });
+
+  if (picked.length < 1) { showToast('⚠️ السور المحفوظة فيها مشكلة'); return; }
+
+  state.reviewSurah = null;
+  state.isReviewMode = false;
+  state.questions = picked;
   state.qIndex = 0; state.score = 0; state.correct = 0;
   state.sessionHasanat = 0; state.answered = false;
   state.combo = 0;
@@ -1372,8 +1365,9 @@ function startFromMemorized() {
   showScreen('gameScreen');
   document.getElementById('liveScore').textContent = '٠';
   document.getElementById('timerWrap').style.display = state.mode === 'timed' ? 'block' : 'none';
+  document.getElementById('levelBadgeGame').textContent = '📚 السور المحفوظة';
   renderQuestion();
-  showToast('📖 ذاكرة من ' + toArabicNum(memorizedSurahs.length) + ' سور محفوظة!');
+  showToast('📖 مذاكرة من ' + toArabicNum(memorizedSurahs.length) + ' سور محفوظة!');
 }
 
 // ============================================================
@@ -1384,7 +1378,9 @@ let state = {
   score: 0, correct: 0, sessionHasanat: 0,
   answered: false, listenRevealed: false,
   combo: 0, timerInterval: null, timeLeft: 15,
-  hints: { h1:1, h2:1, h3:1 }
+  hints: { h1:1, h2:1, h3:1 },
+  isReviewMode: false, reviewSurah: null,
+  pendingCompletionCheck: null,
 };
 
 // ===== COMBO =====
@@ -1486,34 +1482,6 @@ function populateSurahFilter() {
   });
 }
 
-function populateMemorizedSelect() {
-  // Only show surahs that exist in QURAN_DB
-  const allPool = Object.values(QURAN_DB).flat();
-  const availableSurahs = [...new Set(allPool.map(q => q.surah))];
-  const ALL_SURAHS = [
-    "الفاتحة","البقرة","آل عمران","النساء","المائدة","الأنعام","الأعراف","الأنفال","التوبة","يونس",
-    "هود","يوسف","الرعد","إبراهيم","الحجر","النحل","الإسراء","الكهف","مريم","طه",
-    "الأنبياء","الحج","المؤمنون","النور","الفرقان","الشعراء","النمل","القصص","العنكبوت","الروم",
-    "لقمان","السجدة","الأحزاب","سبأ","فاطر","يس","الصافات","ص","الزمر","غافر",
-    "فصلت","الشورى","الزخرف","الدخان","الجاثية","الأحقاف","محمد","الفتح","الحجرات","ق",
-    "الذاريات","الطور","النجم","القمر","الرحمن","الواقعة","الحديد","المجادلة","الحشر","الممتحنة",
-    "الصف","الجمعة","المنافقون","التغابن","الطلاق","التحريم","الملك","القلم","الحاقة","المعارج",
-    "نوح","الجن","المزمل","المدثر","القيامة","الإنسان","المرسلات","النبأ","النازعات","عبس",
-    "التكوير","الانفطار","المطففين","الانشقاق","البروج","الطارق","الأعلى","الغاشية","الفجر","البلد",
-    "الشمس","الليل","الضحى","الشرح","التين","العلق","القدر","البينة","الزلزلة","العاديات",
-    "القارعة","التكاثر","العصر","الهمزة","الفيل","قريش","الماعون","الكوثر","الكافرون","النصر",
-    "المسد","الإخلاص","الفلق","الناس"
-  ];
-  const sel = document.getElementById('memorizedSelect');
-  sel.innerHTML = '<option value="">اختر سورة محفوظة...</option>';
-  ALL_SURAHS.forEach((s, i) => {
-    if (!availableSurahs.includes(s)) return; // only show surahs with questions
-    const opt = document.createElement('option');
-    opt.value = s;
-    opt.textContent = (i+1) + '. سورة ' + s;
-    sel.appendChild(opt);
-  });
-}
 
 function onSurahFilterChange() {
   selectedSurah = document.getElementById('surahFilter').value;
@@ -1909,13 +1877,8 @@ function buildQuestions() {
   if (selectedSurah) {
     const allPool = Object.values(QURAN_DB).flat();
     const filtered = allPool.filter(q => q.surah === selectedSurah);
-    if (filtered.length >= 2) {
-      // Sort by ayah number (sequential order)
-      pool = [...filtered].sort((a, b) => {
-        const na = getAyahNum(a) || 0;
-        const nb = getAyahNum(b) || 0;
-        return na - nb;
-      });
+    if (filtered.length >= 1) {
+      pool = [...filtered].sort((a, b) => (getAyahNum(a)||0) - (getAyahNum(b)||0));
       isSequential = true;
     } else {
       showToast('السورة دي مش موجودة - بيجيب عشوائي');
@@ -1928,39 +1891,31 @@ function buildQuestions() {
   let picked;
 
   if (isSequential) {
-    // Start from where we left off in this surah
     const startIdx = getSurahProgress(selectedSurah);
     const count = Math.min(selectedQCount, pool.length);
-    // If we reached the end, wrap around
     const effectiveStart = startIdx >= pool.length ? 0 : startIdx;
-    // Slice from start, wrap if needed
     const slice1 = pool.slice(effectiveStart, effectiveStart + count);
     const slice2 = slice1.length < count ? pool.slice(0, count - slice1.length) : [];
     picked = [...slice1, ...slice2];
-    // Save next starting position
     const nextStart = (effectiveStart + count) % pool.length;
     saveSurahProgress(selectedSurah, nextStart);
-    if (effectiveStart > 0 && slice1.length === count) {
-      // not wrapping, show which ayahs
-    } else if (effectiveStart === 0 && startIdx > 0) {
-      showToast('🔄 وصلت للآخر — بدأنا من الأول مجدداً!');
+
+    // هل اتلف على السورة كلها؟
+    if (nextStart === 0 || nextStart < effectiveStart) {
+      state.pendingCompletionCheck = selectedSurah;
+      showToast('🔄 خلصت كل آيات سورة ' + selectedSurah + '!');
+    } else if (effectiveStart > 0) {
+      showToast('▶️ متكملاً من آية ' + toArabicNum(effectiveStart + 1) + ' من ' + toArabicNum(pool.length));
     }
   } else {
-    // Avoid recently asked — prefer fresh questions
     const fresh = pool.filter(q => !recentlyAsked.includes(q.ayah));
     const usePool = fresh.length >= selectedQCount ? fresh : pool;
-
-    // True random shuffle using crypto
     const shuffled = [...usePool];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor((crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF) * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     picked = shuffled.slice(0, Math.min(selectedQCount, shuffled.length));
-  }
-
-  // Remember what we just picked (for non-sequential mode)
-  if (!isSequential) {
     recentlyAsked = [...recentlyAsked, ...picked.map(q => q.ayah)].slice(-60);
   }
 
@@ -2272,6 +2227,12 @@ function showResults() {
   // Save review progress if in review mode
   if (state.isReviewMode && state.reviewSurah) {
     saveSurahReviewProgress(state.reviewSurah, state.correct, state.questions.length);
+  }
+
+  // Check if surah was completed this session → auto-add to memorized
+  if (state.pendingCompletionCheck) {
+    checkSurahCompletion(state.pendingCompletionCheck);
+    state.pendingCompletionCheck = null;
   }
 
   showScreen('resultsScreen');
