@@ -443,14 +443,62 @@ body { font-family:'Cairo',sans-serif; background:var(--ink); color:var(--cream)
 @keyframes float-up { 0%{opacity:1;transform:translateY(0) scale(1);} 100%{opacity:0;transform:translateY(-80px) scale(1.3);} }
 
 /* ===== LEADERBOARD ===== */
-.lb-section { margin-top:20px; }
-.lb-card { background:rgba(255,254,249,0.04); border:1px solid rgba(201,151,58,0.15); border-radius:16px; padding:16px; margin-bottom:8px; display:flex; align-items:center; gap:14px; }
-.lb-rank { font-size:20px; width:32px; text-align:center; }
+.lb-section { margin-top:8px; position:relative; overflow:hidden; border-radius:20px; }
+
+/* بطاقة المتصدر المتحركة */
+.lb-podium-wrap {
+  position:relative; min-height:140px; overflow:hidden; border-radius:20px;
+  background:linear-gradient(135deg, rgba(201,151,58,0.06) 0%, rgba(27,107,74,0.06) 100%);
+  border:1px solid rgba(201,151,58,0.18);
+}
+.lb-podium-slide {
+  display:flex; align-items:center; gap:16px;
+  padding:20px 20px;
+  position:absolute; width:100%; top:0; left:0;
+  opacity:0; transform:translateX(60px);
+  transition:opacity 0.5s ease, transform 0.5s ease;
+  pointer-events:none;
+}
+.lb-podium-slide.active {
+  opacity:1; transform:translateX(0);
+  pointer-events:auto;
+}
+.lb-podium-slide.exit {
+  opacity:0; transform:translateX(-60px);
+}
+.lb-podium-rank {
+  font-size:52px; line-height:1; flex-shrink:0;
+  filter:drop-shadow(0 2px 8px rgba(201,151,58,0.4));
+}
+.lb-podium-info { flex:1; min-width:0; }
+.lb-podium-name {
+  font-size:19px; font-weight:900; color:var(--cream);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  margin-bottom:4px;
+}
+.lb-podium-name.is-me { color:var(--gold); }
+.lb-podium-hasanat {
+  font-size:22px; font-weight:700; color:var(--emerald-light);
+  margin-bottom:2px;
+}
+.lb-podium-score { font-size:12px; color:rgba(245,217,139,0.55); }
+
+/* نقاط الـ pagination */
+.lb-dots { display:flex; justify-content:center; gap:6px; padding:10px 0 4px; }
+.lb-dot { width:7px; height:7px; border-radius:50%; background:rgba(201,151,58,0.2); transition:all .3s; cursor:pointer; }
+.lb-dot.active { background:var(--gold); transform:scale(1.3); }
+
+/* باقي القائمة */
+.lb-rest { margin-top:10px; }
+.lb-card { background:rgba(255,254,249,0.04); border:1px solid rgba(201,151,58,0.12); border-radius:14px; padding:12px 16px; margin-bottom:6px; display:flex; align-items:center; gap:12px; }
+.lb-rank { font-size:18px; width:28px; text-align:center; }
 .lb-info { flex:1; }
-.lb-name { font-size:15px; font-weight:700; color:var(--cream); }
-.lb-score { font-size:12px; color:rgba(245,217,139,0.6); margin-top:2px; }
-.lb-hasanat { font-size:14px; color:var(--emerald-light); font-weight:700; }
+.lb-name { font-size:14px; font-weight:700; color:var(--cream); }
+.lb-score { font-size:11px; color:rgba(245,217,139,0.55); margin-top:1px; }
+.lb-hasanat { font-size:13px; color:var(--emerald-light); font-weight:700; }
 .lb-me { border-color:var(--gold); background:rgba(201,151,58,0.08); }
+
+@keyframes lb-glow { 0%,100%{box-shadow:0 0 0 rgba(201,151,58,0);} 50%{box-shadow:0 0 18px rgba(201,151,58,0.18);} }
 
 /* ===== SURAH REVIEW SCREEN ===== */
 .review-screen-wrap { padding-top:8px; }
@@ -919,7 +967,13 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     <!-- Leaderboard -->
     <div class="section-title">لوحة الشرف</div>
-    <div id="leaderboard" class="lb-section"></div>
+    <div class="lb-section">
+      <!-- المنصة المتحركة للمراكز الـ٣ -->
+      <div class="lb-podium-wrap" id="lbPodiumWrap"></div>
+      <div class="lb-dots" id="lbDots"></div>
+      <!-- باقي المراكز ٤–١٠ -->
+      <div class="lb-rest" id="leaderboard"></div>
+    </div>
 
     <div style="text-align:center;font-size:12px;color:rgba(245,217,139,0.3);line-height:1.8;margin-top:20px;">
       كل آية تحفظها صدقة جارية 🤍<br>
@@ -1420,6 +1474,10 @@ function updateHomeStats() {
   renderLevels();
 }
 
+// ===== LEADERBOARD PODIUM =====
+let lbPodiumTimer = null;
+let lbPodiumIdx = 0;
+
 function renderLeaderboard() {
   const users = getUsers();
   const list = Object.entries(users)
@@ -1427,22 +1485,83 @@ function renderLeaderboard() {
     .sort(([,a],[,b]) => b.totalHasanat - a.totalHasanat)
     .slice(0, 10);
 
-  const lb = document.getElementById('leaderboard');
+  const podiumWrap = document.getElementById('lbPodiumWrap');
+  const dotsEl    = document.getElementById('lbDots');
+  const lb        = document.getElementById('leaderboard');
+
+  if (!podiumWrap || !lb) return;
+
   if (list.length === 0) {
-    lb.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:16px;">كن أول من يسجل نقاطه! 🌟</div>';
+    podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">كن أول من يسجل نقاطه! 🌟</div>';
+    dotsEl.innerHTML = '';
+    lb.innerHTML = '';
     return;
   }
-  const medals = ['🥇','🥈','🥉','④','⑤','⑥','⑦','⑧','⑨','⑩'];
-  lb.innerHTML = list.map(([name,data],i) => `
-    <div class="lb-card ${currentUser && name===currentUser.username ? 'lb-me' : ''}">
-      <div class="lb-rank">${medals[i]||i+1}</div>
-      <div class="lb-info">
-        <div class="lb-name">${name} ${currentUser && name===currentUser.username ? '(أنت)' : ''}</div>
-        <div class="lb-score">${toArabicNum(data.totalScore)} نقطة • ${toArabicNum(data.totalGames||0)} جلسة</div>
-      </div>
-      <div class="lb-hasanat">${toArabicNum(data.totalHasanat||0)} ✨</div>
-    </div>
-  `).join('');
+
+  const top3 = list.slice(0, 3);
+  const rest  = list.slice(3);
+  const rankEmojis = ['🥇','🥈','🥉'];
+  const rankColors = [
+    'linear-gradient(135deg,rgba(201,151,58,0.18),rgba(201,151,58,0.06))',
+    'linear-gradient(135deg,rgba(180,180,180,0.14),rgba(180,180,180,0.04))',
+    'linear-gradient(135deg,rgba(180,100,40,0.16),rgba(180,100,40,0.04))',
+  ];
+  const borderColors = ['rgba(201,151,58,0.45)','rgba(180,180,180,0.3)','rgba(180,100,40,0.35)'];
+
+  // Build podium slides
+  podiumWrap.innerHTML = top3.map(([name,data],i) => {
+    const isMe = currentUser && name === currentUser.username;
+    return `
+      <div class="lb-podium-slide${i===0?' active':''}" id="lbSlide${i}"
+           style="background:${rankColors[i]};border-color:${borderColors[i]};">
+        <div class="lb-podium-rank">${rankEmojis[i]}</div>
+        <div class="lb-podium-info">
+          <div class="lb-podium-name${isMe?' is-me':''}">${name}${isMe?' (أنت)':''}</div>
+          <div class="lb-podium-hasanat">${toArabicNum(data.totalHasanat||0)} ✨</div>
+          <div class="lb-podium-score">${toArabicNum(data.totalScore)} نقطة • ${toArabicNum(data.totalGames||0)} جلسة</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Dots
+  dotsEl.innerHTML = top3.map((_,i) =>
+    `<div class="lb-dot${i===0?' active':''}" onclick="lbGoTo(${i})"></div>`
+  ).join('');
+
+  lb.innerHTML = '';
+
+  // Start auto-rotation if more than 1 top player
+  if (lbPodiumTimer) clearInterval(lbPodiumTimer);
+  lbPodiumIdx = 0;
+  if (top3.length > 1) {
+    lbPodiumTimer = setInterval(() => {
+      lbGoTo((lbPodiumIdx + 1) % top3.length);
+    }, 3000);
+  }
+}
+
+function lbGoTo(idx) {
+  const slides = document.querySelectorAll('.lb-podium-slide');
+  const dots   = document.querySelectorAll('.lb-dot');
+  if (!slides.length) return;
+
+  // exit current
+  slides[lbPodiumIdx]?.classList.remove('active');
+  slides[lbPodiumIdx]?.classList.add('exit');
+  setTimeout(() => slides[lbPodiumIdx]?.classList.remove('exit'), 500);
+
+  lbPodiumIdx = idx;
+
+  // enter new
+  slides[lbPodiumIdx]?.classList.add('active');
+  dots.forEach((d,i) => d.classList.toggle('active', i === lbPodiumIdx));
+
+  // restart timer
+  if (lbPodiumTimer) { clearInterval(lbPodiumTimer); lbPodiumTimer = null; }
+  const total = slides.length;
+  if (total > 1) {
+    lbPodiumTimer = setInterval(() => lbGoTo((lbPodiumIdx + 1) % total), 3000);
+  }
 }
 
 // ============================================================
