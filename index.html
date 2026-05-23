@@ -4393,8 +4393,8 @@ function stopCurrentAudio() {
 }
 
 // تشغيل ملف MP3 — مشاري راشد من everyayah.com
-// يُنشئ عنصر Audio جديد في كل مرة (ضروري لـ iOS Safari)
-function _playMp3(url, btn) {
+// stopAtRatio: رقم بين 0 و1 — لو موجود يوقف الصوت عند تلك النسبة من المدة
+function _playMp3(url, btn, stopAtRatio) {
   stopCurrentAudio();
 
   _currentAudioBtn = btn;
@@ -4405,37 +4405,40 @@ function _playMp3(url, btn) {
   audio.preload = 'auto';
   _currentAudioEl = audio;
 
-  audio.oncanplaythrough = () => {
-    if (_currentAudioEl === audio) btn.textContent = '⏸';
-  };
-  audio.onended = () => {
+  let stopTimer = null;
+
+  const cleanup = () => {
+    if (stopTimer) { clearInterval(stopTimer); stopTimer = null; }
     if (_currentAudioEl === audio) {
       _resetAudioBtn(btn);
       _currentAudioEl  = null;
       _currentAudioBtn = null;
-    }
-  };
-  audio.onerror = () => {
-    if (_currentAudioEl === audio) {
-      _resetAudioBtn(btn);
-      _currentAudioEl  = null;
-      _currentAudioBtn = null;
-      showToast('⚠️ تعذّر تشغيل الصوت — تأكد من الإنترنت');
     }
   };
 
+  const startStopTimer = () => {
+    if (stopTimer || !stopAtRatio || stopAtRatio >= 1) return;
+    if (!audio.duration || !isFinite(audio.duration)) return;
+    const stopAt = audio.duration * stopAtRatio;
+    stopTimer = setInterval(() => {
+      if (_currentAudioEl !== audio) { clearInterval(stopTimer); return; }
+      if (audio.currentTime >= stopAt) { audio.pause(); cleanup(); }
+    }, 50);
+  };
+
+  audio.oncanplaythrough = () => {
+    if (_currentAudioEl !== audio) return;
+    btn.textContent = '⏸';
+    startStopTimer();
+  };
+  audio.ondurationchange = () => { startStopTimer(); };
+  audio.onended = cleanup;
+  audio.onerror = () => { cleanup(); showToast('⚠️ تعذّر تشغيل الصوت — تأكد من الإنترنت'); };
+
   const p = audio.play();
   if (p && typeof p.then === 'function') {
-    p.then(() => {
-      if (_currentAudioEl === audio) btn.textContent = '⏸';
-    }).catch(() => {
-      if (_currentAudioEl === audio) {
-        _resetAudioBtn(btn);
-        _currentAudioEl  = null;
-        _currentAudioBtn = null;
-        showToast('⚠️ تعذّر تشغيل الصوت');
-      }
-    });
+    p.then(() => { if (_currentAudioEl === audio) btn.textContent = '⏸'; })
+     .catch(() => { cleanup(); showToast('⚠️ تعذّر تشغيل الصوت'); });
   }
 }
 
@@ -4468,11 +4471,10 @@ function playAyahAudio() {
   _playMp3(url, btn);
 }
 
-// تشغيل آية السؤال الحالي بصوت مشاري راشد (للخيارات العادية — كلمة)
+// تشغيل آية السؤال لحد الكلمة الناقصة بصوت مشاري راشد (للخيارات العادية — كلمة)
 function playChoiceAudio(q, btn) {
   if (!q) return;
 
-  // لو الزر نفسه شغّال → وقّف
   if (btn.classList.contains('playing')) {
     stopCurrentAudio();
     return;
@@ -4486,10 +4488,21 @@ function playChoiceAudio(q, btn) {
     return;
   }
 
+  // احسب نسبة موضع الكلمة الناقصة في الآية بالأحرف
+  let stopAtRatio = 1;
+  const ayahText = q.ayah || '';
+  const blank = q.blank || '';
+  if (blank && ayahText) {
+    const charPos = ayahText.indexOf(blank);
+    if (charPos >= 0) {
+      stopAtRatio = Math.min(0.95, Math.max(0.08, charPos / ayahText.length));
+    }
+  }
+
   const s = String(surahNum).padStart(3, '0');
   const a = String(ayahNum).padStart(3, '0');
   const url = `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
-  _playMp3(url, btn);
+  _playMp3(url, btn, stopAtRatio);
 }
 
 // تشغيل آية كاملة (للخيارات من نوع next/prev — الخيار آية كاملة)
