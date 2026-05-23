@@ -4390,8 +4390,8 @@ function stopCurrentAudio() {
 }
 
 // تشغيل ملف MP3 — مشاري راشد من everyayah.com
-// stopAtRatio: رقم بين 0 و1 — لو موجود يوقف الصوت عند تلك النسبة من المدة
-function _playMp3(url, btn, stopAtRatio) {
+// stopAtWordIndex: وقّف بعد كام كلمة (اختياري)
+function _playMp3(url, btn, stopAtWordIndex) {
   stopCurrentAudio();
 
   _currentAudioBtn = btn;
@@ -4402,10 +4402,7 @@ function _playMp3(url, btn, stopAtRatio) {
   audio.preload = 'auto';
   _currentAudioEl = audio;
 
-  let stopTimer = null;
-
   const cleanup = () => {
-    if (stopTimer) { clearInterval(stopTimer); stopTimer = null; }
     if (_currentAudioEl === audio) {
       _resetAudioBtn(btn);
       _currentAudioEl  = null;
@@ -4413,22 +4410,30 @@ function _playMp3(url, btn, stopAtRatio) {
     }
   };
 
-  const startStopTimer = () => {
-    if (stopTimer || !stopAtRatio || stopAtRatio >= 1) return;
-    if (!audio.duration || !isFinite(audio.duration)) return;
-    const stopAt = audio.duration * stopAtRatio;
-    stopTimer = setInterval(() => {
-      if (_currentAudioEl !== audio) { clearInterval(stopTimer); return; }
-      if (audio.currentTime >= stopAt) { audio.pause(); cleanup(); }
-    }, 50);
-  };
-
   audio.oncanplaythrough = () => {
     if (_currentAudioEl !== audio) return;
     btn.textContent = '⏸';
-    startStopTimer();
+    // لو عندنا عدد كلمات للوقف، نحسب الوقت بعد ما نعرف المدة
+    if (stopAtWordIndex && audio.duration && isFinite(audio.duration)) {
+      audio._stopAt = audio.duration * stopAtWordIndex;
+    }
   };
-  audio.ondurationchange = () => { startStopTimer(); };
+
+  audio.ontimeupdate = () => {
+    if (_currentAudioEl !== audio) return;
+    if (audio._stopAt && audio.currentTime >= audio._stopAt) {
+      audio.pause();
+      cleanup();
+    }
+  };
+
+  // fallback لما duration يظهر متأخر
+  audio.ondurationchange = () => {
+    if (stopAtWordIndex && audio.duration && isFinite(audio.duration)) {
+      audio._stopAt = audio.duration * stopAtWordIndex;
+    }
+  };
+
   audio.onended = cleanup;
   audio.onerror = () => { cleanup(); showToast('⚠️ تعذّر تشغيل الصوت — تأكد من الإنترنت'); };
 
@@ -4452,22 +4457,6 @@ function playAyahAudio() {
   const q = state.questions && state.questions[state.qIndex];
   if (!q) return;
 
-  // لو في فراغ — اقرأ النص قبل الفراغ بس بـ TTS
-  if (q.blank) {
-    let textBeforeBlank = '';
-    if (q.fromApi && q.displayAyah) {
-      textBeforeBlank = q.displayAyah.split('___')[0].trim();
-    } else if (q.ayah && q.blank) {
-      const idx = q.ayah.indexOf(q.blank);
-      textBeforeBlank = idx > 0 ? q.ayah.substring(0, idx).trim() : '';
-    }
-    if (textBeforeBlank) {
-      _speakArabic(textBeforeBlank, btn);
-      return;
-    }
-  }
-
-  // مفيش فراغ — شغّل الآية كاملة بصوت مشاري راشد
   const surahNum = q.surahNum || SURAH_NAME_TO_NUM[q.surah];
   const ayahNum  = q.fromApi ? q.ayahNum : (getAyahNum(q) || q.ayahNum);
 
@@ -4479,7 +4468,28 @@ function playAyahAudio() {
   const s = String(surahNum).padStart(3, '0');
   const a = String(ayahNum).padStart(3, '0');
   const url = `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
-  _playMp3(url, btn);
+
+  // لو في فراغ — احسب نسبة الكلمات قبل الفراغ ووقّف عندها
+  let stopRatio = null;
+  if (q.blank) {
+    const allWords = (q.ayah || '').trim().split(/\s+/);
+    const totalWords = allWords.length;
+    // ابحث عن كلمة الفراغ الأولى
+    let blankWordIdx = -1;
+    if (q.fromApi && q.displayAyah) {
+      const beforeBlank = q.displayAyah.split('___')[0].trim();
+      blankWordIdx = beforeBlank.trim().split(/\s+/).length;
+    } else {
+      const beforeBlank = q.ayah.substring(0, q.ayah.indexOf(q.blank)).trim();
+      blankWordIdx = beforeBlank ? beforeBlank.split(/\s+/).length : 0;
+    }
+    if (blankWordIdx > 0 && totalWords > 0) {
+      // نسبة الكلمات قبل الفراغ + هامش نصف كلمة
+      stopRatio = Math.min(0.94, (blankWordIdx - 0.3) / totalWords);
+    }
+  }
+
+  _playMp3(url, btn, stopRatio);
 }
 
 // تشغيل الاختيار — TTS يقرأ الكلمة بالظبط بصوت عربي
