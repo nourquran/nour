@@ -134,6 +134,7 @@ body { font-family:'Cairo',sans-serif; background:var(--ink); color:var(--cream)
   display:flex; align-items:stretch; justify-content:flex-end;
   overflow:hidden;
 }
+body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 #loginScreen.hide { display:none; }
 
 /* الجزء الأيمن — المحتوى */
@@ -141,7 +142,7 @@ body { font-family:'Cairo',sans-serif; background:var(--ink); color:var(--cream)
   width:100%; max-width:440px;
   background:linear-gradient(160deg, #1e1508 0%, #12100a 60%, #0e1810 100%);
   display:flex; flex-direction:column; justify-content:center;
-  padding:44px 36px; position:relative; z-index:2; overflow-y:auto;
+  padding:clamp(16px, 4vh, 44px) 36px; position:relative; z-index:2; overflow:hidden;
   box-shadow:-20px 0 60px rgba(0,0,0,0.5);
 }
 /* خط ذهبي رفيع على اليمين */
@@ -274,8 +275,15 @@ body { font-family:'Cairo',sans-serif; background:var(--ink); color:var(--cream)
   .login-panel::before { display:none; }
 }
 @media(max-width:480px) {
-  .login-panel { padding:28px 20px; }
-  .login-brand-name { font-size:28px; }
+  .login-panel { padding:clamp(12px, 3vh, 28px) 20px; }
+  .login-brand-name { font-size:26px; }
+  .login-brand { margin-bottom:20px; }
+  .login-tabs { margin-bottom:16px; }
+  .login-field { margin-bottom:10px; }
+  .login-field input { padding:10px 14px 10px 40px; font-size:14px; }
+  .login-btn { padding:12px; font-size:15px; }
+  .login-divider { margin:10px 0; }
+  .login-guest { padding:6px; font-size:12px; }
 }
 
 /* ===== HEADER ===== */
@@ -874,7 +882,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getDatabase, ref, set, remove, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDHoGH9K-xFvZfrYGsViDe0NC4c1o0MPrQ",
@@ -994,10 +1002,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     const key = isGuest
       ? ('guest_' + username.replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g,''))
       : username.replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g,'');
-    const { remove } = { remove: (r) => import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js").then(m => m.remove(r)) };
-    import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js").then(m => {
-      m.remove(m.ref(db, 'leaderboard/' + key)).catch(()=>{});
-    });
+    remove(ref(db, 'leaderboard/' + key)).catch(() => {});
   };
 
   // استمع للتغييرات في الوقت الفعلي
