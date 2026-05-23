@@ -1194,7 +1194,6 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div style="display:flex;gap:12px;align-items:center;">
         <span style="font-size:13px;color:var(--gold);" id="userLevelDisplay">المستوى ١</span>
         <span class="user-logout" onclick="resetScore()" style="color:rgba(255,120,100,0.5);" title="تصفير النقاط">🔄</span>
-        <span class="user-logout" onclick="deleteAccount()" style="color:rgba(255,80,80,0.45);font-size:12px;" title="حذف الحساب">🗑️</span>
         <span class="user-logout" onclick="doLogout()">خروج ↩</span>
       </div>
     </div>
@@ -3823,44 +3822,9 @@ function resetScore() {
   });
 }
 
-function deleteAccount() {
-  if (!currentUser) return;
-  const isGuest = currentUser.isGuest;
-  showConfirm('هيتحذف حسابك وكل بياناتك نهائياً. متأكد؟', () => {
-    const u = currentUser.username;
-
-    // مسح كل بيانات المستخدم من localStorage
-    const keys = [
-      'nour_mistakes_'      + (isGuest ? 'guest' : u),
-      'nour_saved_mistakes_'+ (isGuest ? 'guest' : u),
-      'nour_revprog_'       + u,
-      'nour_memorized_'     + u,
-      'nour_session',
-    ];
-    keys.forEach(k => localStorage.removeItem(k));
-
-    // مسح من nour_users
-    if (!isGuest) {
-      const users = getUsers();
-      delete users[u];
-      saveUsers(users);
-    }
-
-    // مسح من Firebase
-    if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest);
-
-    // تسجيل خروج
-    currentUser = null;
-    window.currentUser = null;
-    document.getElementById('loginScreen').classList.remove('hide');
-    goHome();
-    showToast('✅ تم حذف الحساب');
-  });
-}
-
+function showConfirm(msg, onYes) {
   const modal = document.getElementById('confirmModal');
   document.getElementById('confirmText').textContent = msg;
-  document.getElementById('confirmYes').textContent = 'تأكيد';
   modal.style.display = 'flex';
   document.getElementById('confirmYes').onclick = () => { closeConfirm(); onYes(); };
 }
