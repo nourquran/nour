@@ -3455,11 +3455,9 @@ function renderMCQ(q) {
     audioBtn.onclick = (ev) => {
       ev.stopPropagation();
       if (isAyahChoice) {
-        // الخيار آية كاملة — ابحث عن رقمها
         playChoiceAyahAudio(ch, q.surah, audioBtn);
       } else {
-        // الخيار كلمة — شغّل آية السؤال الكاملة
-        playChoiceAudio(q, audioBtn);
+        playChoiceAudio(ch, audioBtn);
       }
     };
 
@@ -3475,8 +3473,7 @@ function renderMCQ(q) {
       btn.style.fontWeight = '700';
       btn.textContent = 'آية ' + toArabicNum(parseInt(ch));
       btn.onclick = (e) => checkAnswer(ch, q.blank, e);
-      // لأسئلة الرقم، زر الصوت يشغّل الآية الحالية
-      audioBtn.onclick = (ev) => { ev.stopPropagation(); playChoiceAudio(q, audioBtn); };
+      audioBtn.onclick = (ev) => { ev.stopPropagation(); playChoiceAudio(ch, audioBtn); };
       wrapDiv.appendChild(audioBtn);
       wrapDiv.appendChild(btn);
       wrap.appendChild(wrapDiv);
@@ -3515,7 +3512,7 @@ function showListenChoices() {
     audioBtn.style.cssText = 'border-radius:14px 0 0 14px;width:36px;height:auto;align-self:stretch;';
     audioBtn.textContent = '🔊';
     audioBtn.title = 'استمع بصوت مشاري راشد';
-    audioBtn.onclick = (ev) => { ev.stopPropagation(); playChoiceAudio(q, audioBtn); };
+    audioBtn.onclick = (ev) => { ev.stopPropagation(); playChoiceAudio(ch, audioBtn); };
 
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
@@ -4447,7 +4444,6 @@ function playAyahAudio() {
   const btn = document.getElementById('ayahAudioBtn');
   if (!btn) return;
 
-  // لو شغّال → وقّف
   if (btn.classList.contains('playing')) {
     stopCurrentAudio();
     return;
@@ -4456,47 +4452,37 @@ function playAyahAudio() {
   const q = state.questions && state.questions[state.qIndex];
   if (!q) return;
 
-  const surahNum = q.surahNum || SURAH_NAME_TO_NUM[q.surah];
-  const ayahNum  = q.fromApi ? q.ayahNum : (getAyahNum(q) || q.ayahNum);
+  // اقرأ النص المعروض في الشاشة بالظبط (مع الفراغ متجاهل)
+  const ayahEl = document.getElementById('ayahText');
+  let displayedText = ayahEl ? ayahEl.innerText.replace(/[?٪]/g, '').trim() : '';
 
-  if (!surahNum || !ayahNum) {
-    showToast('⚠️ رقم الآية غير معروف');
-    return;
+  // لو مفيش نص خد الآية كاملة
+  if (!displayedText) displayedText = q.ayah || '';
+
+  // لو في السؤال فراغ، اقرأ بس الجزء المكتوب (قبل علامة الاستفهام أو الفراغ)
+  if (q.blank) {
+    if (q.fromApi && q.displayAyah) {
+      displayedText = q.displayAyah.split('___')[0].trim();
+    } else if (q.ayah && q.blank) {
+      const idx = q.ayah.indexOf(q.blank);
+      if (idx > 0) displayedText = q.ayah.substring(0, idx).trim();
+    }
   }
 
-  // everyayah.com — الشيخ مشاري راشد العفاسي (128kbps)
-  const s = String(surahNum).padStart(3, '0');
-  const a = String(ayahNum).padStart(3, '0');
-  const url = `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
-  _playMp3(url, btn);
+  if (!displayedText) return;
+  _speakArabic(displayedText, btn);
 }
 
-// تشغيل النص المكتوب في الشاشة (قبل الفراغ) بـ TTS عربي
-function playChoiceAudio(q, btn) {
-  if (!q) return;
+// تشغيل الاختيار (الكلمة نفسها) بـ TTS صوت عربي
+function playChoiceAudio(choiceText, btn) {
+  if (!choiceText) return;
 
   if (btn.classList.contains('playing')) {
     stopCurrentAudio();
     return;
   }
 
-  // استخرج النص المعروض — الجزء قبل الفراغ فقط
-  let textToRead = '';
-
-  if (q.fromApi && q.displayAyah) {
-    // displayAyah فيها ___ مكان الفراغ
-    const parts = q.displayAyah.split('___');
-    textToRead = parts[0].trim();
-  } else if (q.ayah && q.blank) {
-    const idx = q.ayah.indexOf(q.blank);
-    textToRead = idx > 0 ? q.ayah.substring(0, idx).trim() : q.ayah;
-  } else {
-    textToRead = q.ayah || '';
-  }
-
-  if (!textToRead) return;
-
-  _speakArabic(textToRead, btn);
+  _speakArabic(choiceText, btn);
 }
 
 // TTS عربي — يقرأ النص المعطى ويوقف عند انتهائه
