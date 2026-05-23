@@ -1077,9 +1077,11 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
       // rotation
       if (window.lbPodiumTimer) clearInterval(window.lbPodiumTimer);
+      lbPodiumIdx = 0;
       window.lbPodiumIdx = 0;
       if (top3.length > 1) {
-        window.lbPodiumTimer = setInterval(() => lbGoTo((window.lbPodiumIdx + 1) % top3.length), 3000);
+        lbPodiumTimer = setInterval(() => lbGoTo((lbPodiumIdx + 1) % top3.length), 3000);
+        window.lbPodiumTimer = lbPodiumTimer;
       }
     }).catch(() => {
       podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:20px;">⚠️ تعذّر تحميل اللوحة</div>';
@@ -1192,6 +1194,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div style="display:flex;gap:12px;align-items:center;">
         <span style="font-size:13px;color:var(--gold);" id="userLevelDisplay">المستوى ١</span>
         <span class="user-logout" onclick="resetScore()" style="color:rgba(255,120,100,0.5);" title="تصفير النقاط">🔄</span>
+        <span class="user-logout" onclick="deleteAccount()" style="color:rgba(255,80,80,0.45);font-size:12px;" title="حذف الحساب">🗑️</span>
         <span class="user-logout" onclick="doLogout()">خروج ↩</span>
       </div>
     </div>
@@ -1775,8 +1778,7 @@ function renderLeaderboard() {
   const users = getUsers();
   const list = Object.entries(users)
     .filter(([,d]) => (d.totalHasanat || 0) > 0)
-    .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0))
-    .slice(0, 3);
+    .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
 
   const podiumWrap = document.getElementById('lbPodiumWrap');
   const dotsEl    = document.getElementById('lbDots');
@@ -1874,22 +1876,22 @@ function lbGoTo(idx) {
   const dots   = document.querySelectorAll('.lb-dot');
   if (!slides.length) return;
 
-  // exit current
   slides[lbPodiumIdx]?.classList.remove('active');
   slides[lbPodiumIdx]?.classList.add('exit');
   setTimeout(() => slides[lbPodiumIdx]?.classList.remove('exit'), 500);
 
   lbPodiumIdx = idx;
+  window.lbPodiumIdx = idx;
 
-  // enter new
   slides[lbPodiumIdx]?.classList.add('active');
   dots.forEach((d,i) => d.classList.toggle('active', i === lbPodiumIdx));
 
-  // restart timer
   if (lbPodiumTimer) { clearInterval(lbPodiumTimer); lbPodiumTimer = null; }
+  if (window.lbPodiumTimer) { clearInterval(window.lbPodiumTimer); window.lbPodiumTimer = null; }
   const total = slides.length;
   if (total > 1) {
     lbPodiumTimer = setInterval(() => lbGoTo((lbPodiumIdx + 1) % total), 3000);
+    window.lbPodiumTimer = lbPodiumTimer;
   }
 }
 
@@ -3821,9 +3823,44 @@ function resetScore() {
   });
 }
 
-function showConfirm(msg, onYes) {
+function deleteAccount() {
+  if (!currentUser) return;
+  const isGuest = currentUser.isGuest;
+  showConfirm('هيتحذف حسابك وكل بياناتك نهائياً. متأكد؟', () => {
+    const u = currentUser.username;
+
+    // مسح كل بيانات المستخدم من localStorage
+    const keys = [
+      'nour_mistakes_'      + (isGuest ? 'guest' : u),
+      'nour_saved_mistakes_'+ (isGuest ? 'guest' : u),
+      'nour_revprog_'       + u,
+      'nour_memorized_'     + u,
+      'nour_session',
+    ];
+    keys.forEach(k => localStorage.removeItem(k));
+
+    // مسح من nour_users
+    if (!isGuest) {
+      const users = getUsers();
+      delete users[u];
+      saveUsers(users);
+    }
+
+    // مسح من Firebase
+    if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest);
+
+    // تسجيل خروج
+    currentUser = null;
+    window.currentUser = null;
+    document.getElementById('loginScreen').classList.remove('hide');
+    goHome();
+    showToast('✅ تم حذف الحساب');
+  });
+}
+
   const modal = document.getElementById('confirmModal');
   document.getElementById('confirmText').textContent = msg;
+  document.getElementById('confirmYes').textContent = 'تأكيد';
   modal.style.display = 'flex';
   document.getElementById('confirmYes').onclick = () => { closeConfirm(); onYes(); };
 }
