@@ -583,6 +583,25 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 
 /* باقي القائمة */
 .lb-rest { margin-top:10px; }
+.lb-rest-wrap {
+  position:relative; overflow:hidden; border-radius:16px; min-height:60px;
+}
+.lb-rest-page {
+  position:absolute; width:100%; top:0; left:0;
+  opacity:0; transform:translateX(50px);
+  transition:opacity 0.5s ease, transform 0.5s ease;
+  pointer-events:none;
+}
+.lb-rest-page.active {
+  opacity:1; transform:translateX(0);
+  position:relative; pointer-events:auto;
+}
+.lb-rest-page.exit {
+  opacity:0; transform:translateX(-50px);
+}
+.lb-rest-dots { display:flex; justify-content:center; gap:5px; padding:8px 0 2px; }
+.lb-rest-dot { width:5px; height:5px; border-radius:50%; background:rgba(201,151,58,0.2); transition:all .3s; cursor:pointer; }
+.lb-rest-dot.active { background:rgba(201,151,58,0.6); transform:scale(1.3); }
 .lb-card { background:rgba(255,254,249,0.04); border:1px solid rgba(201,151,58,0.12); border-radius:14px; padding:12px 16px; margin-bottom:6px; display:flex; align-items:center; gap:12px; }
 .lb-rank { font-size:18px; width:28px; text-align:center; }
 .lb-info { flex:1; }
@@ -1018,17 +1037,42 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       ).join('');
 
       if (lb) {
-        lb.innerHTML = rest.map(([key, d], i) => {
-          const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
-          return `<div class="lb-card${isMe?' lb-me':''}">
-            <div class="lb-rank">${i+4}</div>
-            <div class="lb-info">
-              <div class="lb-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
-              <div class="lb-score">${toA(d.totalScore||0)} نقطة • ${toA(d.totalGames||0)} جلسة</div>
-            </div>
-            <div class="lb-hasanat">${toA(d.totalHasanat||0)} ⭐</div>
-          </div>`;
-        }).join('');
+        if (rest.length === 0) {
+          lb.innerHTML = '';
+        } else {
+          const pageSize = 3;
+          const pages = [];
+          for (let i = 0; i < rest.length; i += pageSize) pages.push(rest.slice(i, i + pageSize));
+
+          const pagesHtml = pages.map((pg, pi) =>
+            `<div class="lb-rest-page${pi===0?' active':''}" id="lbRestPage${pi}">` +
+            pg.map(([key, d]) => {
+              const rank = rest.findIndex(r => r[0] === key) + 4;
+              const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
+              return `<div class="lb-card${isMe?' lb-me':''}">
+                <div class="lb-rank">${rank}</div>
+                <div class="lb-info">
+                  <div class="lb-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
+                  <div class="lb-score">${toA(d.totalScore||0)} نقطة • ${toA(d.totalGames||0)} جلسة</div>
+                </div>
+                <div class="lb-hasanat">${toA(d.totalHasanat||0)} ⭐</div>
+              </div>`;
+            }).join('') +
+            `</div>`
+          ).join('');
+
+          const dotsHtml = pages.length > 1
+            ? `<div class="lb-rest-dots">${pages.map((_,i) => `<div class="lb-rest-dot${i===0?' active':''}" onclick="lbRestGoTo(${i})"></div>`).join('')}</div>`
+            : '';
+
+          lb.innerHTML = `<div class="lb-rest-wrap" id="lbRestWrap">${pagesHtml}</div>${dotsHtml}`;
+
+          if (window.lbRestTimer) clearInterval(window.lbRestTimer);
+          window.lbRestIdx = 0;
+          if (pages.length > 1) {
+            window.lbRestTimer = setInterval(() => lbRestGoTo((window.lbRestIdx + 1) % pages.length), 4000);
+          }
+        }
       }
 
       // rotation
@@ -1719,6 +1763,8 @@ function updateHomeStats() {
 // ===== LEADERBOARD PODIUM =====
 let lbPodiumTimer = null;
 let lbPodiumIdx = 0;
+let lbRestTimer = null;
+let lbRestIdx = 0;
 
 function renderLeaderboard() {
   if (typeof window.fbRenderLeaderboard === 'function') {
@@ -1777,6 +1823,42 @@ function renderLeaderboard() {
 
   lb.innerHTML = '';
 
+  // rest pages — auto-rotation
+  if (rest.length > 0) {
+    const pageSize = 3;
+    const pages = [];
+    for (let i = 0; i < rest.length; i += pageSize) pages.push(rest.slice(i, i + pageSize));
+
+    const pagesHtml = pages.map((pg, pi) =>
+      `<div class="lb-rest-page${pi===0?' active':''}" id="lbRestPage${pi}">` +
+      pg.map(([name, data]) => {
+        const rank = rest.findIndex(r => r[0] === name) + 4;
+        const isMe = currentUser && name === currentUser.username;
+        return `<div class="lb-card${isMe?' lb-me':''}">
+          <div class="lb-rank">${rank}</div>
+          <div class="lb-info">
+            <div class="lb-name${isMe?' is-me':''}">${name}${isMe?' (أنت)':''}</div>
+            <div class="lb-score">${toArabicNum(data.totalScore)} نقطة • ${toArabicNum(data.totalGames||0)} جلسة</div>
+          </div>
+          <div class="lb-hasanat">${toArabicNum(data.totalHasanat||0)} ⭐</div>
+        </div>`;
+      }).join('') +
+      `</div>`
+    ).join('');
+
+    const dotsHtml = pages.length > 1
+      ? `<div class="lb-rest-dots">${pages.map((_,i) => `<div class="lb-rest-dot${i===0?' active':''}" onclick="lbRestGoTo(${i})"></div>`).join('')}</div>`
+      : '';
+
+    lb.innerHTML = `<div class="lb-rest-wrap" id="lbRestWrap">${pagesHtml}</div>${dotsHtml}`;
+
+    if (lbRestTimer) clearInterval(lbRestTimer);
+    lbRestIdx = 0;
+    if (pages.length > 1) {
+      lbRestTimer = setInterval(() => lbRestGoTo((lbRestIdx + 1) % pages.length), 4000);
+    }
+  }
+
   // Start auto-rotation if more than 1 top player
   if (lbPodiumTimer) clearInterval(lbPodiumTimer);
   lbPodiumIdx = 0;
@@ -1808,6 +1890,30 @@ function lbGoTo(idx) {
   const total = slides.length;
   if (total > 1) {
     lbPodiumTimer = setInterval(() => lbGoTo((lbPodiumIdx + 1) % total), 3000);
+  }
+}
+
+function lbRestGoTo(idx) {
+  const pages = document.querySelectorAll('.lb-rest-page');
+  const dots  = document.querySelectorAll('.lb-rest-dot');
+  if (!pages.length) return;
+
+  pages[lbRestIdx]?.classList.remove('active');
+  pages[lbRestIdx]?.classList.add('exit');
+  setTimeout(() => pages[lbRestIdx]?.classList.remove('exit'), 500);
+
+  lbRestIdx = idx;
+  if (typeof window.lbRestIdx !== 'undefined') window.lbRestIdx = idx;
+
+  pages[lbRestIdx]?.classList.add('active');
+  dots.forEach((d,i) => d.classList.toggle('active', i === lbRestIdx));
+
+  if (lbRestTimer) { clearInterval(lbRestTimer); lbRestTimer = null; }
+  if (typeof window.lbRestTimer !== 'undefined') window.lbRestTimer = null;
+  const total = pages.length;
+  if (total > 1) {
+    lbRestTimer = setInterval(() => lbRestGoTo((lbRestIdx + 1) % total), 4000);
+    window.lbRestTimer = lbRestTimer;
   }
 }
 
@@ -3916,6 +4022,9 @@ function renderMistakesForDay(mistakes, dayKey) {
   el.innerHTML = unique.map((m, idx) => {
     const ayahKey = (m.ayah + '|' + m.blank).replace(/'/g, "\'");
     const safeDay = (dayKey || '').replace(/'/g, "\'");
+    const safeSurah = (m.surah || '').replace(/'/g, "\\'");
+    const safeAyah = (m.ayah || '').replace(/'/g, "\\'");
+    const audioBtnId = `mistake-audio-${idx}`;
     // Safe replace
     const parts = m.ayah.split(m.blank);
     const highlighted = parts[0]
@@ -3927,7 +4036,10 @@ function renderMistakesForDay(mistakes, dayKey) {
     return `
       <div class="mistake-card" id="mc-${idx}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-          <div class="mistake-surah">📖 سورة ${m.surah}</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button id="${audioBtnId}" onclick="playMistakeAudio('${safeSurah}','${safeAyah}','${audioBtnId}')" title="استمع بصوت مشاري راشد" class="audio-btn-small" style="flex-shrink:0;">🔊</button>
+            <div class="mistake-surah" style="margin-bottom:0;">📖 سورة ${m.surah}</div>
+          </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
             <button onclick="saveMistakeForLater('${ayahKey}','${safeDay}')" title="احفظ للمراجعة" style="background:rgba(46,175,120,0.12);border:1px solid rgba(46,175,120,0.35);border-radius:8px;padding:4px 9px;color:#7DFFC9;font-size:13px;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='rgba(46,175,120,0.25)'" onmouseout="this.style.background='rgba(46,175,120,0.12)'">📌</button>
             <button onclick="deleteMistakeItem('${ayahKey}','${safeDay}')" title="مسح الغلطة" style="background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.3);border-radius:8px;padding:4px 9px;color:rgba(255,120,100,0.8);font-size:13px;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='rgba(192,57,43,0.25)'" onmouseout="this.style.background='rgba(192,57,43,0.1)'">🗑️</button>
@@ -4590,6 +4702,49 @@ function playChoiceAyahAudio(ayahText, surahName, btn) {
 }
 
 
+
+// تشغيل الآية من شاشة الغلطات — بصوت مشاري راشد العفاسي
+function playMistakeAudio(surahName, ayahText, btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+
+  if (btn.classList.contains('playing')) {
+    stopCurrentAudio();
+    return;
+  }
+
+  const surahNum = SURAH_NAME_TO_NUM[surahName];
+  if (!surahNum) { showToast('⚠️ السورة غير معروفة'); return; }
+
+  // ابحث عن رقم الآية
+  let ayahNum = null;
+  const key = surahName + '|' + ayahText;
+  ayahNum = QURAN_AYAH_NUMS[key];
+
+  if (!ayahNum) {
+    for (const k in QURAN_AYAH_NUMS) {
+      if (k.startsWith(surahName + '|') && ayahText && k.includes(ayahText.substring(0, 15))) {
+        ayahNum = QURAN_AYAH_NUMS[k];
+        break;
+      }
+    }
+  }
+
+  if (!ayahNum) {
+    const ayahs = fetchSurahAyahs(surahNum);
+    if (ayahs) {
+      const found = ayahs.find(a => a.text === ayahText || (ayahText && a.text.startsWith(ayahText.substring(0, 20))));
+      if (found) ayahNum = found.num;
+    }
+  }
+
+  if (!ayahNum) { showToast('⚠️ رقم الآية غير معروف'); return; }
+
+  const s = String(surahNum).padStart(3, '0');
+  const a = String(ayahNum).padStart(3, '0');
+  const url = `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
+  _playMp3(url, btn);
+}
 
 // ===== INIT =====
 // Auto-login if session token exists
