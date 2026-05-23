@@ -4471,7 +4471,7 @@ function playAyahAudio() {
   _playMp3(url, btn);
 }
 
-// تشغيل آية السؤال لحد الكلمة الناقصة بصوت مشاري راشد (للخيارات العادية — كلمة)
+// تشغيل النص المكتوب في الشاشة (قبل الفراغ) بـ TTS عربي
 function playChoiceAudio(q, btn) {
   if (!q) return;
 
@@ -4480,29 +4480,63 @@ function playChoiceAudio(q, btn) {
     return;
   }
 
-  const surahNum = q.surahNum || SURAH_NAME_TO_NUM[q.surah];
-  const ayahNum  = q.fromApi ? q.ayahNum : (getAyahNum(q) || q.ayahNum);
+  // استخرج النص المعروض — الجزء قبل الفراغ فقط
+  let textToRead = '';
 
-  if (!surahNum || !ayahNum) {
-    showToast('⚠️ رقم الآية غير معروف');
+  if (q.fromApi && q.displayAyah) {
+    // displayAyah فيها ___ مكان الفراغ
+    const parts = q.displayAyah.split('___');
+    textToRead = parts[0].trim();
+  } else if (q.ayah && q.blank) {
+    const idx = q.ayah.indexOf(q.blank);
+    textToRead = idx > 0 ? q.ayah.substring(0, idx).trim() : q.ayah;
+  } else {
+    textToRead = q.ayah || '';
+  }
+
+  if (!textToRead) return;
+
+  _speakArabic(textToRead, btn);
+}
+
+// TTS عربي — يقرأ النص المعطى ويوقف عند انتهائه
+function _speakArabic(text, btn) {
+  stopCurrentAudio();
+
+  if (!window.speechSynthesis) {
+    showToast('⚠️ المتصفح لا يدعم النطق');
     return;
   }
 
-  // احسب نسبة موضع الكلمة الناقصة في الآية بالأحرف
-  let stopAtRatio = 1;
-  const ayahText = q.ayah || '';
-  const blank = q.blank || '';
-  if (blank && ayahText) {
-    const charPos = ayahText.indexOf(blank);
-    if (charPos >= 0) {
-      stopAtRatio = Math.min(0.95, Math.max(0.08, charPos / ayahText.length));
-    }
-  }
+  _currentAudioBtn = btn;
+  btn.textContent = '⏸';
+  btn.classList.add('playing');
 
-  const s = String(surahNum).padStart(3, '0');
-  const a = String(ayahNum).padStart(3, '0');
-  const url = `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
-  _playMp3(url, btn, stopAtRatio);
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang  = 'ar-SA';
+  utt.rate  = 0.82;
+  utt.pitch = 1;
+
+  // أفضل صوت عربي متاح
+  const voices = window.speechSynthesis.getVoices();
+  const arVoice = voices.find(v => v.lang === 'ar-SA') || voices.find(v => v.lang.startsWith('ar'));
+  if (arVoice) utt.voice = arVoice;
+
+  _speechUtterance = utt;
+
+  utt.onend = () => {
+    _resetAudioBtn(btn);
+    _currentAudioBtn = null;
+    _speechUtterance = null;
+  };
+  utt.onerror = () => {
+    _resetAudioBtn(btn);
+    _currentAudioBtn = null;
+    _speechUtterance = null;
+  };
+
+  window.speechSynthesis.cancel();
+  setTimeout(() => window.speechSynthesis.speak(utt), 80);
 }
 
 // تشغيل آية كاملة (للخيارات من نوع next/prev — الخيار آية كاملة)
