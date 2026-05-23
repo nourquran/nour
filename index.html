@@ -469,6 +469,9 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 .hasanat-multiplier { font-size:11px; color:var(--emerald-light); text-align:center; margin-bottom:10px; }
 
 .choices-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+.choices-grid > div { display:flex; align-items:stretch; gap:0; }
+.choices-grid > div .choice-btn { flex:1; border-radius:0 14px 14px 0; }
+.choices-grid > div .audio-btn-small { border-radius:14px 0 0 14px; border-left:none; height:auto; align-self:stretch; width:36px; }
 .choice-btn {
   background:rgba(255,254,249,0.05); border:1.5px solid rgba(201,151,58,0.2);
   border-radius:14px; padding:14px 12px; font-family:'Amiri',serif;
@@ -510,10 +513,10 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 .r-stat { background:rgba(201,151,58,0.08); border-radius:12px; padding:14px 8px; }
 .r-stat-val { font-size:24px; font-weight:700; color:var(--gold); }
 .r-stat-lbl { font-size:11px; color:rgba(245,217,139,0.6); margin-top:2px; }
-.hasanat-box { background:rgba(27,107,74,0.15); border:1px solid rgba(46,175,120,0.3); border-radius:16px; padding:16px; margin-bottom:18px; }
-.hasanat-title { font-size:13px; color:var(--emerald-light); margin-bottom:8px; }
-.hasanat-count { font-size:34px; font-weight:900; color:var(--emerald-light); }
-.hasanat-sub { font-size:12px; color:rgba(46,175,120,0.7); margin-top:4px; }
+.hasanat-box { background:rgba(201,151,58,0.12); border:1px solid rgba(201,151,58,0.4); border-radius:16px; padding:16px; margin-bottom:18px; }
+.hasanat-title { font-size:13px; color:var(--gold); margin-bottom:8px; }
+.hasanat-count { font-size:34px; font-weight:900; color:var(--gold); }
+.hasanat-sub { font-size:12px; color:rgba(201,151,58,0.7); margin-top:4px; }
 .level-up-box { background:rgba(201,151,58,0.1); border:1px solid var(--gold); border-radius:16px; padding:14px; margin-bottom:16px; display:none; }
 .level-up-box.show { display:block; }
 .level-up-text { font-size:16px; font-weight:700; color:var(--gold); }
@@ -529,7 +532,7 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 .toast.show { transform:translateX(-50%) translateY(0); }
 
 /* ===== PARTICLES ===== */
-.hasanat-particle { position:fixed; pointer-events:none; z-index:200; font-size:15px; font-weight:700; color:var(--emerald-light); animation:float-up 1.2s ease-out forwards; }
+.hasanat-particle { position:fixed; pointer-events:none; z-index:200; font-size:15px; font-weight:700; color:var(--gold); animation:float-up 1.2s ease-out forwards; }
 @keyframes float-up { 0%{opacity:1;transform:translateY(0) scale(1);} 100%{opacity:0;transform:translateY(-80px) scale(1.3);} }
 
 /* ===== LEADERBOARD ===== */
@@ -683,6 +686,48 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 .hint-btn .hint-count { font-size:11px; background:rgba(201,151,58,0.2); border-radius:8px; padding:1px 6px; }
 .hint-reveal { background:rgba(27,107,74,0.12); border:1px solid rgba(46,175,120,0.25); border-radius:12px; padding:10px 14px; margin-bottom:10px; font-family:'Amiri',serif; font-size:16px; color:#7DFFC9; text-align:center; display:none; line-height:1.8; }
 .hint-reveal.show { display:block; }
+
+/* ===== AUDIO BUTTON ===== */
+.audio-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:34px; height:34px; border-radius:50%;
+  background:rgba(201,151,58,0.15); border:1.5px solid rgba(201,151,58,0.35);
+  color:var(--gold); font-size:16px; cursor:pointer;
+  transition:all .2s; flex-shrink:0; vertical-align:middle;
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+  margin-right:6px;
+}
+.audio-btn:hover { background:rgba(201,151,58,0.3); transform:scale(1.1); }
+.audio-btn:active { transform:scale(0.95); }
+.audio-btn.playing { background:rgba(46,175,120,0.25); border-color:var(--emerald-light); color:#7DFFC9; animation:pulse-audio .6s ease-in-out infinite alternate; }
+@keyframes pulse-audio { from{box-shadow:0 0 0 rgba(46,175,120,0);} to{box-shadow:0 0 10px rgba(46,175,120,0.5);} }
+
+.audio-btn-small {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:50%;
+  background:rgba(201,151,58,0.1); border:1px solid rgba(201,151,58,0.25);
+  color:var(--gold); font-size:13px; cursor:pointer;
+  transition:all .2s; flex-shrink:0;
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+  margin-right:4px;
+}
+.audio-btn-small:hover { background:rgba(201,151,58,0.25); }
+.audio-btn-small.playing { background:rgba(46,175,120,0.2); border-color:var(--emerald-light); color:#7DFFC9; }
+
+/* Ayah row with audio btn */
+.ayah-audio-row {
+  display:flex; align-items:center; justify-content:flex-end; gap:8px;
+  margin-bottom:6px;
+}
+
+/* Choice btn with audio */
+.choice-btn-wrap {
+  display:flex; align-items:center; gap:0;
+  width:100%;
+}
+.choice-btn-wrap .choice-btn {
+  flex:1;
+}
 
 /* ===== TOUCH & INTERACTION FIXES ===== */
 button, .choice-btn, .mode-btn, .level-card, .hint-btn,
@@ -962,7 +1007,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
             <div class="lb-podium-rank">${rankEmojis[i]}</div>
             <div class="lb-podium-info">
               <div class="lb-podium-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
-              <div class="lb-podium-hasanat">${toA(d.totalHasanat||0)} ✨</div>
+              <div class="lb-podium-hasanat">${toA(d.totalHasanat||0)} ⭐</div>
               <div class="lb-podium-score">${toA(d.totalScore||0)} نقطة • ${toA(d.totalGames||0)} جلسة</div>
             </div>
           </div>`;
@@ -981,7 +1026,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
               <div class="lb-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
               <div class="lb-score">${toA(d.totalScore||0)} نقطة • ${toA(d.totalGames||0)} جلسة</div>
             </div>
-            <div class="lb-hasanat">${toA(d.totalHasanat||0)} ✨</div>
+            <div class="lb-hasanat">${toA(d.totalHasanat||0)} ⭐</div>
           </div>`;
         }).join('');
       }
@@ -1111,7 +1156,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     <div class="stats-row">
       <div class="stat-card"><div class="stat-val" id="totalScore">٠</div><div class="stat-lbl">مجموع النقاط</div></div>
       <div class="stat-card"><div class="stat-val" id="totalGames">٠</div><div class="stat-lbl">جلسة مكتملة</div></div>
-      <div class="stat-card"><div class="stat-val" id="totalHasanat">٠</div><div class="stat-lbl">حسنة ✨</div></div>
+      <div class="stat-card"><div class="stat-val" id="totalHasanat">٠</div><div class="stat-lbl">نقطة ⭐</div></div>
     </div>
 
     <!-- LEVELS -->
@@ -1227,6 +1272,9 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     <div class="ayah-card">
       <div class="surah-label" id="surahLabel">سورة الفاتحة</div>
+      <div class="ayah-audio-row">
+        <button class="audio-btn" id="ayahAudioBtn" onclick="playAyahAudio()" title="استمع للآية بصوت الشيخ مشاري راشد">🔊</button>
+      </div>
       <div class="ayah-text" id="ayahText">...</div>
     </div>
     <div class="q-hint" id="qHint">اختر الكلمة الصحيحة</div>
@@ -1266,9 +1314,9 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
         <div class="r-stat"><div class="r-stat-val" id="resAccuracy">٠٪</div><div class="r-stat-lbl">دقة</div></div>
       </div>
       <div class="hasanat-box">
-        <div class="hasanat-title">💎 حسناتك هذه الجلسة</div>
+        <div class="hasanat-title">⭐ نقاطك هذه الجلسة</div>
         <div class="hasanat-count" id="resHasanat">٠</div>
-        <div class="hasanat-sub" id="resHasanatSub">كل حرف = ١٠ حسنات إن شاء الله 🤍</div>
+        <div class="hasanat-sub" id="resHasanatSub">كل حرف بنقطة ✨</div>
       </div>
       <div class="level-up-box" id="levelUpBox">
         <div class="level-up-text" id="levelUpText">🎉 تهانينا! فتحت مستوى جديد!</div>
@@ -1630,7 +1678,7 @@ function renderLevels() {
     card.id = 'level-' + i;
     card.onclick = () => selectLevel(i);
 
-    const multLabel = lvl.hasanatMult > 1 ? `×${lvl.hasanatMult} حسنات` : 'حسنات عادية';
+    const multLabel = lvl.hasanatMult > 1 ? `×${lvl.hasanatMult} نقاط` : 'نقاط عادية';
     const dots = '●'.repeat(Math.min(lvl.id+1,4)) + '○'.repeat(Math.max(0,4-lvl.id-1));
     const dotColors = ['#4CAF50','#8BC34A','#FFC107','#FF9800','#F44336','#E91E63','#9C27B0','#3F51B5'];
     const dotColor = dotColors[lvl.id] || '#ccc';
@@ -1716,7 +1764,7 @@ function renderLeaderboard() {
         <div class="lb-podium-rank">${rankEmojis[i]}</div>
         <div class="lb-podium-info">
           <div class="lb-podium-name${isMe?' is-me':''}">${name}${isMe?' (أنت)':''}</div>
-          <div class="lb-podium-hasanat">${toArabicNum(data.totalHasanat||0)} ✨</div>
+          <div class="lb-podium-hasanat">${toArabicNum(data.totalHasanat||0)} ⭐</div>
           <div class="lb-podium-score">${toArabicNum(data.totalScore)} نقطة • ${toArabicNum(data.totalGames||0)} جلسة</div>
         </div>
       </div>`;
@@ -3260,6 +3308,10 @@ function renderQuestion() {
   document.getElementById('progressFill').style.width = ((state.qIndex/total)*100)+'%';
   document.getElementById('qCounter').textContent = 'سؤال '+toArabicNum(state.qIndex+1)+' من '+toArabicNum(total);
 
+  // إعادة ضبط زر الصوت
+  const aBtn = document.getElementById('ayahAudioBtn');
+  if (aBtn) { aBtn.textContent = '🔊'; aBtn.classList.remove('playing'); }
+
   // Q-type pill for review mode
   const pill = document.getElementById('qtypePill');
   if (q.qtype && q.qtype !== 'blank') {
@@ -3286,7 +3338,7 @@ function renderQuestion() {
   document.getElementById('surahLabel').textContent = 'سورة ' + q.surah + ayahNumStr;
   if (!state.isReviewMode) {
     document.getElementById('levelBadgeGame').textContent = lvl.icon + ' ' + lvl.name;
-    document.getElementById('hasanatMultiplier').textContent = '✨ مضاعف الحسنات: ×' + lvl.hasanatMult;
+    document.getElementById('hasanatMultiplier').textContent = '⭐ النقاط: كل حرف = نقطة';
     // مؤشر نوع الفراغ في الشريط العلوي
     const diffLabels = {0:'🟢',1:'🟡',2:'🟠',3:'🔴',4:'🔴',5:'🔴',6:'⚫',7:'⚫'};
     const badge = document.getElementById('levelBadgeGame');
@@ -3387,8 +3439,24 @@ function renderMCQ(q) {
   const isNumChoice = q.qtype === 'num';
 
   choices.forEach(ch => {
+    // wrapper div للزر + أيقونة الصوت
+    const wrapDiv = document.createElement('div');
+    wrapDiv.style.cssText = 'display:flex;align-items:center;gap:0;width:100%;';
+
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
+    btn.style.flex = '1';
+
+    // زر الصوت الصغير
+    const audioBtn = document.createElement('button');
+    audioBtn.className = 'audio-btn-small';
+    audioBtn.textContent = '🔊';
+    audioBtn.title = 'استمع';
+    audioBtn.onclick = (ev) => {
+      ev.stopPropagation();
+      playChoiceAudio(ch, audioBtn);
+    };
+
     if (isAyahChoice) {
       btn.style.fontFamily = 'Amiri,serif';
       btn.style.fontSize = '16px';
@@ -3401,12 +3469,17 @@ function renderMCQ(q) {
       btn.style.fontWeight = '700';
       btn.textContent = 'آية ' + toArabicNum(parseInt(ch));
       btn.onclick = (e) => checkAnswer(ch, q.blank, e);
-      wrap.appendChild(btn);
+      wrapDiv.appendChild(audioBtn);
+      wrapDiv.appendChild(btn);
+      wrap.appendChild(wrapDiv);
       return;
     }
     btn.textContent = ch;
     btn.onclick = (e) => checkAnswer(ch, q.blank, e);
-    wrap.appendChild(btn);
+
+    wrapDiv.appendChild(audioBtn);
+    wrapDiv.appendChild(btn);
+    wrap.appendChild(wrapDiv);
   });
 
   // For num type, adjust grid to 2 cols
@@ -3426,11 +3499,24 @@ function showListenChoices() {
   const choices = shuffle([q.blank, ...q.wrong]);
   const wrap = document.getElementById('listenChoices');
   choices.forEach(ch => {
+    const wrapDiv = document.createElement('div');
+    wrapDiv.style.cssText = 'display:flex;align-items:stretch;gap:0;width:100%;';
+
+    const audioBtn = document.createElement('button');
+    audioBtn.className = 'audio-btn-small';
+    audioBtn.style.cssText = 'border-radius:14px 0 0 14px;width:36px;height:auto;align-self:stretch;';
+    audioBtn.textContent = '🔊';
+    audioBtn.onclick = (ev) => { ev.stopPropagation(); playChoiceAudio(ch, audioBtn); };
+
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
+    btn.style.cssText = 'flex:1;border-radius:0 14px 14px 0;';
     btn.textContent = ch;
     btn.onclick = (e) => checkAnswer(ch, q.blank, e);
-    wrap.appendChild(btn);
+
+    wrapDiv.appendChild(audioBtn);
+    wrapDiv.appendChild(btn);
+    wrap.appendChild(wrapDiv);
   });
 }
 
@@ -3487,7 +3573,7 @@ function handleResult(isRight, e) {
     if (state.combo >= 2) pts = Math.round(pts * Math.min(1 + (state.combo-1)*0.5, 4));
     if (state.mode==='timed' && state.timeLeft > 0) pts += state.timeLeft * 2;
     state.score += pts;
-    const hasanat = pts * (state.isReviewMode ? 2 : lvl.hasanatMult) * 10;
+    const hasanat = q.blank ? q.blank.replace(/\s/g,'').length : pts;
     state.sessionHasanat += hasanat;
     document.getElementById('liveScore').textContent = toArabicNum(state.score);
     const comboSuffix = state.combo >= 2 ? ` 🔥×${state.combo}` : '';
@@ -3510,6 +3596,8 @@ function handleResult(isRight, e) {
 }
 
 function nextQuestion() {
+  stopCurrentAudio();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
   state.qIndex++;
   if (state.qIndex >= state.questions.length) showResults();
   else renderQuestion();
@@ -3568,11 +3656,8 @@ function showResults() {
   document.getElementById('resAccuracy').textContent = toArabicNum(accuracy)+'٪';
 
   const lvl = LEVEL_DEFS[state.level];
-  const mult = state.isReviewMode ? 2 : lvl.hasanatMult;
-  document.getElementById('resHasanat').textContent = toArabicNum(state.sessionHasanat) + ' ✨';
-  document.getElementById('resHasanatSub').textContent = state.isReviewMode
-    ? 'مراجعة السور ×٢ حسنات — جزاك الله خيراً 🤍'
-    : 'مضاعف ×'+mult+' — كل حرف = ١٠ حسنات إن شاء الله 🤍';
+  document.getElementById('resHasanat').textContent = toArabicNum(state.sessionHasanat) + ' ⭐';
+  document.getElementById('resHasanatSub').textContent = 'كل حرف بنقطة — بارك الله فيك 🤍';
 
   // Review again button
   const againBtn = document.querySelector('.btn-again');
@@ -3689,6 +3774,8 @@ function closeGameSheet(e) {
 }
 
 function goHome() {
+  stopCurrentAudio();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
   stopTimer();
   state.isReviewMode = false;
   state.reviewSurah = null;
@@ -4224,8 +4311,7 @@ function spawnHasanat(x, y, count) {
     setTimeout(() => {
       const el = document.createElement('div');
       el.className = 'hasanat-particle';
-      el.textContent = '+'+toArabicNum(count)+' حسنة';
-      if (lvl.hasanatMult >= 5) el.style.color = '#F5D98B';
+      el.textContent = '+'+toArabicNum(count)+' نقطة';
       el.style.left = (x + (Math.random()-0.5)*60) + 'px';
       el.style.top = (y - 20) + 'px';
       document.body.appendChild(el);
@@ -4242,6 +4328,208 @@ document.addEventListener('keydown', e => {
     else if (state.mode==='typing' && document.getElementById('typingWrap').style.display!=='none') checkTyping();
   }
 });
+
+// ============================================================
+// ===== AUDIO SYSTEM — الشيخ مشاري راشد العفاسي =====
+// ============================================================
+
+// خريطة أسماء السور العربية → أرقامها
+const SURAH_NAME_TO_NUM = {
+  "الفاتحة":1,"البقرة":2,"آل عمران":3,"النساء":4,"المائدة":5,
+  "الأنعام":6,"الأعراف":7,"الأنفال":8,"التوبة":9,"يونس":10,
+  "هود":11,"يوسف":12,"الرعد":13,"إبراهيم":14,"الحجر":15,
+  "النحل":16,"الإسراء":17,"الكهف":18,"مريم":19,"طه":20,
+  "الأنبياء":21,"الحج":22,"المؤمنون":23,"النور":24,"الفرقان":25,
+  "الشعراء":26,"النمل":27,"القصص":28,"العنكبوت":29,"الروم":30,
+  "لقمان":31,"السجدة":32,"الأحزاب":33,"سبأ":34,"فاطر":35,
+  "يس":36,"الصافات":37,"ص":38,"الزمر":39,"غافر":40,
+  "فصلت":41,"الشورى":42,"الزخرف":43,"الدخان":44,"الجاثية":45,
+  "الأحقاف":46,"محمد":47,"الفتح":48,"الحجرات":49,"ق":50,
+  "الذاريات":51,"الطور":52,"النجم":53,"القمر":54,"الرحمن":55,
+  "الواقعة":56,"الحديد":57,"المجادلة":58,"الحشر":59,"الممتحنة":60,
+  "الصف":61,"الجمعة":62,"المنافقون":63,"التغابن":64,"الطلاق":65,
+  "التحريم":66,"الملك":67,"القلم":68,"الحاقة":69,"المعارج":70,
+  "نوح":71,"الجن":72,"المزمل":73,"المدثر":74,"القيامة":75,
+  "الإنسان":76,"المرسلات":77,"النبأ":78,"النازعات":79,"عبس":80,
+  "التكوير":81,"الانفطار":82,"المطففين":83,"الانشقاق":84,"البروج":85,
+  "الطارق":86,"الأعلى":87,"الغاشية":88,"الفجر":89,"البلد":90,
+  "الشمس":91,"الليل":92,"الضحى":93,"الشرح":94,"التين":95,
+  "العلق":96,"القدر":97,"البينة":98,"الزلزلة":99,"العاديات":100,
+  "القارعة":101,"التكاثر":102,"العصر":103,"الهمزة":104,"الفيل":105,
+  "قريش":106,"الماعون":107,"الكوثر":108,"الكافرون":109,"النصر":110,
+  "المسد":111,"الإخلاص":112,"الفلق":113,"الناس":114
+};
+
+// ===== عنصر Audio مشترك (مهم لـ iOS: يجب إنشاؤه داخل gesture مرة واحدة) =====
+const _sharedAudio = new Audio();
+_sharedAudio.preload = 'auto';
+
+let _currentAudioBtn = null;
+let _speechUtterance = null;
+
+function _resetAudioBtn(btn) {
+  if (!btn) return;
+  btn.textContent = '🔊';
+  btn.classList.remove('playing');
+}
+
+function stopCurrentAudio() {
+  // وقف MP3
+  try {
+    _sharedAudio.pause();
+    _sharedAudio.currentTime = 0;
+    _sharedAudio.src = '';
+  } catch(e) {}
+
+  // وقف TTS
+  try {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+  } catch(e) {}
+
+  _resetAudioBtn(_currentAudioBtn);
+  _currentAudioBtn = null;
+}
+
+// تشغيل ملف MP3 مباشرة — مشاري راشد من everyayah.com
+function _playMp3(url, btn) {
+  stopCurrentAudio();
+
+  _currentAudioBtn = btn;
+  btn.textContent = '⏳';
+  btn.classList.add('playing');
+
+  _sharedAudio.src = url;
+
+  const onCanPlay = () => {
+    btn.textContent = '⏸';
+    _sharedAudio.removeEventListener('canplaythrough', onCanPlay);
+  };
+  const onEnd = () => {
+    _resetAudioBtn(btn);
+    _currentAudioBtn = null;
+    _sharedAudio.removeEventListener('ended', onEnd);
+    _sharedAudio.removeEventListener('error', onErr);
+  };
+  const onErr = () => {
+    _resetAudioBtn(btn);
+    _currentAudioBtn = null;
+    _sharedAudio.removeEventListener('ended', onEnd);
+    _sharedAudio.removeEventListener('error', onErr);
+    showToast('⚠️ تعذّر تشغيل الصوت — تأكد من الإنترنت');
+  };
+
+  _sharedAudio.addEventListener('canplaythrough', onCanPlay);
+  _sharedAudio.addEventListener('ended', onEnd);
+  _sharedAudio.addEventListener('error', onErr);
+
+  const playPromise = _sharedAudio.play();
+  if (playPromise && typeof playPromise.then === 'function') {
+    playPromise.then(() => {
+      btn.textContent = '⏸';
+    }).catch(() => {
+      _resetAudioBtn(btn);
+      _currentAudioBtn = null;
+      showToast('⚠️ اضغط مجدداً للاستماع');
+    });
+  }
+}
+
+// تشغيل الآية الكاملة (زر الآية في بطاقة السؤال)
+function playAyahAudio() {
+  const btn = document.getElementById('ayahAudioBtn');
+  if (!btn) return;
+
+  // لو شغّال → وقّف
+  if (btn.classList.contains('playing')) {
+    stopCurrentAudio();
+    return;
+  }
+
+  const q = state.questions && state.questions[state.qIndex];
+  if (!q) return;
+
+  const surahNum = q.surahNum || SURAH_NAME_TO_NUM[q.surah];
+  const ayahNum  = q.fromApi ? q.ayahNum : (getAyahNum(q) || q.ayahNum);
+
+  if (!surahNum || !ayahNum) {
+    showToast('⚠️ رقم الآية غير معروف');
+    return;
+  }
+
+  // everyayah.com — الشيخ مشاري راشد العفاسي (128kbps)
+  const s = String(surahNum).padStart(3, '0');
+  const a = String(ayahNum).padStart(3, '0');
+  const url = `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
+  _playMp3(url, btn);
+}
+
+// تشغيل نص الخيار (TTS عربي) — fallback لنطق المتصفح
+function playChoiceAudio(text, btn) {
+  if (!text) return;
+
+  // لو الزر نفسه شغّال → وقّف
+  if (btn.classList.contains('playing')) {
+    stopCurrentAudio();
+    return;
+  }
+
+  stopCurrentAudio();
+
+  // أولاً: حاول Speech Synthesis (يشتغل offline)
+  if (window.speechSynthesis) {
+    _currentAudioBtn = btn;
+    btn.textContent = '⏸';
+    btn.classList.add('playing');
+
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang  = 'ar-SA';
+    utt.rate  = 0.78;
+    utt.pitch = 1;
+
+    // اختار أفضل صوت عربي متاح
+    const voices = window.speechSynthesis.getVoices();
+    const arVoices = voices.filter(v => v.lang.startsWith('ar'));
+    // فضّل صوت سعودي، بعدين أي عربي
+    const best = arVoices.find(v => v.lang === 'ar-SA') || arVoices[0];
+    if (best) utt.voice = best;
+
+    _speechUtterance = utt;
+
+    utt.onend = () => {
+      _resetAudioBtn(btn);
+      _currentAudioBtn = null;
+    };
+    utt.onerror = () => {
+      _resetAudioBtn(btn);
+      _currentAudioBtn = null;
+    };
+
+    // iOS Safari workaround: cancel أي شيء قبل
+    window.speechSynthesis.cancel();
+    setTimeout(() => {
+      window.speechSynthesis.speak(utt);
+    }, 50);
+
+  } else {
+    showToast('⚠️ هذا الجهاز لا يدعم النطق');
+  }
+}
+
+// تحميل الأصوات عند أول تفاعل (مهم لـ iOS)
+function _unlockAudio() {
+  _sharedAudio.volume = 0;
+  _sharedAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+  _sharedAudio.play().then(() => {
+    _sharedAudio.pause();
+    _sharedAudio.volume = 1;
+    _sharedAudio.src = '';
+  }).catch(() => {});
+  if (window.speechSynthesis) window.speechSynthesis.getVoices();
+  document.removeEventListener('touchstart', _unlockAudio);
+  document.removeEventListener('click', _unlockAudio);
+}
+document.addEventListener('touchstart', _unlockAudio, { once: true, passive: true });
+document.addEventListener('click', _unlockAudio, { once: true });
 
 // ===== INIT =====
 // Auto-login if session token exists
