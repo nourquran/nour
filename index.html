@@ -897,12 +897,18 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
+  // مفتاح موحد — نشيل الرموز اللي Firebase مش بيحبها
+  function makeKey(username, isGuest) {
+    const clean = username.replace(/[\.\#\$\/\[\]]/g, '_');
+    return isGuest ? ('guest__' + clean) : clean;
+  }
+  window._makeKey = makeKey;
+
   // ===== رفع بيانات المستخدم على Firebase =====
   window.fbSaveUser = function(username, data) {
     if (!username) return;
-    // الضيف يظهر بـ "ضيف" بس مش بيتحفظ اسمه العشوائي
-    const displayName = data.isGuest ? ('ضيف 🕊️') : username;
-    const key = data.isGuest ? ('guest_' + username.replace(/[^a-zA-Z0-9_؀-ۿ]/g,'')) : username.replace(/[^a-zA-Z0-9_؀-ۿ]/g,'');
+    const displayName = data.isGuest ? 'ضيف 🕊️' : username;
+    const key = makeKey(username, data.isGuest);
     set(ref(db, 'leaderboard/' + key), {
       name: displayName,
       totalHasanat: data.totalHasanat || 0,
@@ -910,7 +916,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       totalGames:   data.totalGames   || 0,
       isGuest:      data.isGuest      || false,
       updatedAt:    Date.now(),
-    }).catch(() => {});
+    }).catch(e => console.error('fbSave error:', e));
   };
 
   // ===== جلب اللوحة من Firebase وعرضها =====
@@ -949,10 +955,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       const toA = n => String(Math.round(n)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
 
       podiumWrap.innerHTML = top3.map(([key, d], i) => {
-        const isMe = window.currentUser && (
-          key === window.currentUser.username.replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g,'') ||
-          (window.currentUser.isGuest && key.startsWith('guest_'))
-        );
+        const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
         return `
           <div class="lb-podium-slide${i===0?' active':''}" id="lbSlide${i}"
                style="background:${rankColors[i]};border-color:${borderColors[i]};">
@@ -971,10 +974,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
       if (lb) {
         lb.innerHTML = rest.map(([key, d], i) => {
-          const isMe = window.currentUser && (
-            key === window.currentUser.username.replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g,'') ||
-            (window.currentUser.isGuest && key.startsWith('guest_'))
-          );
+          const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
           return `<div class="lb-card${isMe?' lb-me':''}">
             <div class="lb-rank">${i+4}</div>
             <div class="lb-info">
@@ -999,10 +999,11 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
   // حذف المستخدم من اللوحة عند التصفير
   window.fbDeleteUser = function(username, isGuest) {
-    const key = isGuest
-      ? ('guest_' + username.replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g,''))
-      : username.replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g,'');
-    remove(ref(db, 'leaderboard/' + key)).catch(() => {});
+    const key = makeKey(username, isGuest);
+    console.log('Deleting Firebase key:', key);
+    remove(ref(db, 'leaderboard/' + key))
+      .then(() => console.log('Deleted OK'))
+      .catch(e => console.error('fbDelete error:', e));
   };
 
   // استمع للتغييرات في الوقت الفعلي
