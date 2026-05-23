@@ -4452,36 +4452,38 @@ function playAyahAudio() {
   const q = state.questions && state.questions[state.qIndex];
   if (!q) return;
 
-  // اقرأ النص المعروض في الشاشة بالظبط (مع الفراغ متجاهل)
-  const ayahEl = document.getElementById('ayahText');
-  let displayedText = ayahEl ? ayahEl.innerText.replace(/[?٪]/g, '').trim() : '';
+  const surahNum = q.surahNum || SURAH_NAME_TO_NUM[q.surah];
+  const ayahNum  = q.fromApi ? q.ayahNum : (getAyahNum(q) || q.ayahNum);
 
-  // لو مفيش نص خد الآية كاملة
-  if (!displayedText) displayedText = q.ayah || '';
+  if (!surahNum || !ayahNum) {
+    showToast('⚠️ رقم الآية غير معروف');
+    return;
+  }
 
-  // لو في السؤال فراغ، اقرأ بس الجزء المكتوب (قبل علامة الاستفهام أو الفراغ)
+  const s = String(surahNum).padStart(3, '0');
+  const a = String(ayahNum).padStart(3, '0');
+  const url = `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
+
+  // لو في فراغ — وقّف عند موضعه
+  let stopRatio = null;
   if (q.blank) {
-    if (q.fromApi && q.displayAyah) {
-      displayedText = q.displayAyah.split('___')[0].trim();
-    } else if (q.ayah && q.blank) {
-      const idx = q.ayah.indexOf(q.blank);
-      if (idx > 0) displayedText = q.ayah.substring(0, idx).trim();
+    const ayahText = q.ayah || '';
+    const charPos = ayahText.indexOf(q.blank);
+    if (charPos > 0) {
+      stopRatio = Math.min(0.95, Math.max(0.05, charPos / ayahText.length));
     }
   }
 
-  if (!displayedText) return;
-  _speakArabic(displayedText, btn);
+  _playMp3(url, btn, stopRatio);
 }
 
-// تشغيل الاختيار (الكلمة نفسها) بـ TTS صوت عربي
+// تشغيل الاختيار — TTS يقرأ الكلمة بالظبط بصوت عربي
 function playChoiceAudio(choiceText, btn) {
   if (!choiceText) return;
-
   if (btn.classList.contains('playing')) {
     stopCurrentAudio();
     return;
   }
-
   _speakArabic(choiceText, btn);
 }
 
