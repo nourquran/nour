@@ -989,6 +989,17 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     });
   };
 
+  // حذف المستخدم من اللوحة عند التصفير
+  window.fbDeleteUser = function(username, isGuest) {
+    const key = isGuest
+      ? ('guest_' + username.replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g,''))
+      : username.replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g,'');
+    const { remove } = { remove: (r) => import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js").then(m => m.remove(r)) };
+    import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js").then(m => {
+      m.remove(m.ref(db, 'leaderboard/' + key)).catch(()=>{});
+    });
+  };
+
   // استمع للتغييرات في الوقت الفعلي
   onValue(ref(db, 'leaderboard'), () => {
     if (typeof fbRenderLeaderboard === 'function') fbRenderLeaderboard();
@@ -1085,6 +1096,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="user-name" id="userNameDisplay">👤 مستخدم</div>
       <div style="display:flex;gap:12px;align-items:center;">
         <span style="font-size:13px;color:var(--gold);" id="userLevelDisplay">المستوى ١</span>
+        <span class="user-logout" onclick="resetScore()" style="color:rgba(255,120,100,0.5);" title="تصفير النقاط">🔄</span>
         <span class="user-logout" onclick="doLogout()">خروج ↩</span>
       </div>
     </div>
@@ -3392,8 +3404,7 @@ function resetScore() {
     currentUser.totalGames = 0;
     currentUser.totalHasanat = 0;
     currentUser.streak = 0;
-    saveCurrentUser();
-    // امسح من لوحة المتصدرين كمان
+    // محلي
     const users = getUsers();
     if (users[currentUser.username]) {
       users[currentUser.username].totalScore = 0;
@@ -3402,6 +3413,8 @@ function resetScore() {
       users[currentUser.username].streak = 0;
       saveUsers(users);
     }
+    // Firebase — احذف المستخدم من اللوحة
+    if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(currentUser.username, currentUser.isGuest);
     updateHomeStats();
     renderLeaderboard();
     showToast('✅ تم تصفير النقاط والحسنات');
@@ -4031,9 +4044,6 @@ if (savedSession) {
       </div>
     </div>
 
-    <!-- إعدادات إضافية -->
-    <div class="sheet-section">⚙️ إضافي</div>
-    <button onclick="resetScore()" style="width:100%;background:transparent;border:1px solid rgba(192,57,43,0.3);border-radius:12px;padding:11px;color:rgba(255,120,100,0.7);font-family:'Cairo',sans-serif;font-size:14px;cursor:pointer;transition:all .2s;margin-bottom:4px;">🔄 تصفير النقاط</button>
 
     <button class="sheet-start" onclick="closeGameSheet();startGame();">ابدأ التحدي ✨</button>
   </div>
