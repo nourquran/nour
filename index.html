@@ -4484,8 +4484,8 @@ function playAyahAudio() {
       blankWordIdx = beforeBlank ? beforeBlank.split(/\s+/).length : 0;
     }
     if (blankWordIdx > 0 && totalWords > 0) {
-      // نسبة الكلمات قبل الفراغ + هامش نصف كلمة
-      stopRatio = Math.min(0.94, (blankWordIdx - 0.3) / totalWords);
+      // وقّف بعد ما الكلمة الأخيرة قبل الفراغ تخلص كاملاً
+      stopRatio = Math.min(0.97, (blankWordIdx + 0.7) / totalWords);
     }
   }
 
