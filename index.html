@@ -3451,10 +3451,16 @@ function renderMCQ(q) {
     const audioBtn = document.createElement('button');
     audioBtn.className = 'audio-btn-small';
     audioBtn.textContent = '🔊';
-    audioBtn.title = 'استمع';
+    audioBtn.title = 'استمع بصوت مشاري راشد';
     audioBtn.onclick = (ev) => {
       ev.stopPropagation();
-      playChoiceAudio(ch, audioBtn);
+      if (isAyahChoice) {
+        // الخيار آية كاملة — ابحث عن رقمها
+        playChoiceAyahAudio(ch, q.surah, audioBtn);
+      } else {
+        // الخيار كلمة — شغّل آية السؤال الكاملة
+        playChoiceAudio(q, audioBtn);
+      }
     };
 
     if (isAyahChoice) {
@@ -3469,6 +3475,8 @@ function renderMCQ(q) {
       btn.style.fontWeight = '700';
       btn.textContent = 'آية ' + toArabicNum(parseInt(ch));
       btn.onclick = (e) => checkAnswer(ch, q.blank, e);
+      // لأسئلة الرقم، زر الصوت يشغّل الآية الحالية
+      audioBtn.onclick = (ev) => { ev.stopPropagation(); playChoiceAudio(q, audioBtn); };
       wrapDiv.appendChild(audioBtn);
       wrapDiv.appendChild(btn);
       wrap.appendChild(wrapDiv);
@@ -3506,7 +3514,8 @@ function showListenChoices() {
     audioBtn.className = 'audio-btn-small';
     audioBtn.style.cssText = 'border-radius:14px 0 0 14px;width:36px;height:auto;align-self:stretch;';
     audioBtn.textContent = '🔊';
-    audioBtn.onclick = (ev) => { ev.stopPropagation(); playChoiceAudio(ch, audioBtn); };
+    audioBtn.title = 'استمع بصوت مشاري راشد';
+    audioBtn.onclick = (ev) => { ev.stopPropagation(); playChoiceAudio(q, audioBtn); };
 
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
@@ -4360,11 +4369,8 @@ const SURAH_NAME_TO_NUM = {
   "المسد":111,"الإخلاص":112,"الفلق":113,"الناس":114
 };
 
-// ===== عنصر Audio مشترك (مهم لـ iOS: يجب إنشاؤه داخل gesture مرة واحدة) =====
-const _sharedAudio = new Audio();
-_sharedAudio.preload = 'auto';
-
-let _currentAudioBtn = null;
+let _currentAudioEl  = null;   // عنصر Audio الحالي
+let _currentAudioBtn = null;   // الزر الحالي
 let _speechUtterance = null;
 
 function _resetAudioBtn(btn) {
@@ -4374,23 +4380,20 @@ function _resetAudioBtn(btn) {
 }
 
 function stopCurrentAudio() {
-  // وقف MP3
-  try {
-    _sharedAudio.pause();
-    _sharedAudio.currentTime = 0;
-    _sharedAudio.src = '';
-  } catch(e) {}
-
-  // وقف TTS
-  try {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-  } catch(e) {}
-
+  if (_currentAudioEl) {
+    try { _currentAudioEl.pause(); } catch(e) {}
+    _currentAudioEl.onended  = null;
+    _currentAudioEl.onerror  = null;
+    _currentAudioEl.oncanplaythrough = null;
+    _currentAudioEl = null;
+  }
+  try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch(e) {}
   _resetAudioBtn(_currentAudioBtn);
   _currentAudioBtn = null;
 }
 
-// تشغيل ملف MP3 مباشرة — مشاري راشد من everyayah.com
+// تشغيل ملف MP3 — مشاري راشد من everyayah.com
+// يُنشئ عنصر Audio جديد في كل مرة (ضروري لـ iOS Safari)
 function _playMp3(url, btn) {
   stopCurrentAudio();
 
@@ -4398,38 +4401,40 @@ function _playMp3(url, btn) {
   btn.textContent = '⏳';
   btn.classList.add('playing');
 
-  _sharedAudio.src = url;
+  const audio = new Audio(url);
+  audio.preload = 'auto';
+  _currentAudioEl = audio;
 
-  const onCanPlay = () => {
-    btn.textContent = '⏸';
-    _sharedAudio.removeEventListener('canplaythrough', onCanPlay);
+  audio.oncanplaythrough = () => {
+    if (_currentAudioEl === audio) btn.textContent = '⏸';
   };
-  const onEnd = () => {
-    _resetAudioBtn(btn);
-    _currentAudioBtn = null;
-    _sharedAudio.removeEventListener('ended', onEnd);
-    _sharedAudio.removeEventListener('error', onErr);
-  };
-  const onErr = () => {
-    _resetAudioBtn(btn);
-    _currentAudioBtn = null;
-    _sharedAudio.removeEventListener('ended', onEnd);
-    _sharedAudio.removeEventListener('error', onErr);
-    showToast('⚠️ تعذّر تشغيل الصوت — تأكد من الإنترنت');
-  };
-
-  _sharedAudio.addEventListener('canplaythrough', onCanPlay);
-  _sharedAudio.addEventListener('ended', onEnd);
-  _sharedAudio.addEventListener('error', onErr);
-
-  const playPromise = _sharedAudio.play();
-  if (playPromise && typeof playPromise.then === 'function') {
-    playPromise.then(() => {
-      btn.textContent = '⏸';
-    }).catch(() => {
+  audio.onended = () => {
+    if (_currentAudioEl === audio) {
       _resetAudioBtn(btn);
+      _currentAudioEl  = null;
       _currentAudioBtn = null;
-      showToast('⚠️ اضغط مجدداً للاستماع');
+    }
+  };
+  audio.onerror = () => {
+    if (_currentAudioEl === audio) {
+      _resetAudioBtn(btn);
+      _currentAudioEl  = null;
+      _currentAudioBtn = null;
+      showToast('⚠️ تعذّر تشغيل الصوت — تأكد من الإنترنت');
+    }
+  };
+
+  const p = audio.play();
+  if (p && typeof p.then === 'function') {
+    p.then(() => {
+      if (_currentAudioEl === audio) btn.textContent = '⏸';
+    }).catch(() => {
+      if (_currentAudioEl === audio) {
+        _resetAudioBtn(btn);
+        _currentAudioEl  = null;
+        _currentAudioBtn = null;
+        showToast('⚠️ تعذّر تشغيل الصوت');
+      }
     });
   }
 }
@@ -4463,9 +4468,9 @@ function playAyahAudio() {
   _playMp3(url, btn);
 }
 
-// تشغيل نص الخيار (TTS عربي) — fallback لنطق المتصفح
-function playChoiceAudio(text, btn) {
-  if (!text) return;
+// تشغيل آية السؤال الحالي بصوت مشاري راشد (للخيارات العادية — كلمة)
+function playChoiceAudio(q, btn) {
+  if (!q) return;
 
   // لو الزر نفسه شغّال → وقّف
   if (btn.classList.contains('playing')) {
@@ -4473,63 +4478,68 @@ function playChoiceAudio(text, btn) {
     return;
   }
 
-  stopCurrentAudio();
+  const surahNum = q.surahNum || SURAH_NAME_TO_NUM[q.surah];
+  const ayahNum  = q.fromApi ? q.ayahNum : (getAyahNum(q) || q.ayahNum);
 
-  // أولاً: حاول Speech Synthesis (يشتغل offline)
-  if (window.speechSynthesis) {
-    _currentAudioBtn = btn;
-    btn.textContent = '⏸';
-    btn.classList.add('playing');
-
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang  = 'ar-SA';
-    utt.rate  = 0.78;
-    utt.pitch = 1;
-
-    // اختار أفضل صوت عربي متاح
-    const voices = window.speechSynthesis.getVoices();
-    const arVoices = voices.filter(v => v.lang.startsWith('ar'));
-    // فضّل صوت سعودي، بعدين أي عربي
-    const best = arVoices.find(v => v.lang === 'ar-SA') || arVoices[0];
-    if (best) utt.voice = best;
-
-    _speechUtterance = utt;
-
-    utt.onend = () => {
-      _resetAudioBtn(btn);
-      _currentAudioBtn = null;
-    };
-    utt.onerror = () => {
-      _resetAudioBtn(btn);
-      _currentAudioBtn = null;
-    };
-
-    // iOS Safari workaround: cancel أي شيء قبل
-    window.speechSynthesis.cancel();
-    setTimeout(() => {
-      window.speechSynthesis.speak(utt);
-    }, 50);
-
-  } else {
-    showToast('⚠️ هذا الجهاز لا يدعم النطق');
+  if (!surahNum || !ayahNum) {
+    showToast('⚠️ رقم الآية غير معروف');
+    return;
   }
+
+  const s = String(surahNum).padStart(3, '0');
+  const a = String(ayahNum).padStart(3, '0');
+  const url = `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
+  _playMp3(url, btn);
 }
 
-// تحميل الأصوات عند أول تفاعل (مهم لـ iOS)
-function _unlockAudio() {
-  _sharedAudio.volume = 0;
-  _sharedAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-  _sharedAudio.play().then(() => {
-    _sharedAudio.pause();
-    _sharedAudio.volume = 1;
-    _sharedAudio.src = '';
-  }).catch(() => {});
-  if (window.speechSynthesis) window.speechSynthesis.getVoices();
-  document.removeEventListener('touchstart', _unlockAudio);
-  document.removeEventListener('click', _unlockAudio);
+// تشغيل آية كاملة (للخيارات من نوع next/prev — الخيار آية كاملة)
+function playChoiceAyahAudio(ayahText, surahName, btn) {
+  if (!ayahText) return;
+
+  if (btn.classList.contains('playing')) {
+    stopCurrentAudio();
+    return;
+  }
+
+  // ابحث عن رقم الآية من QURAN_AYAH_NUMS
+  const surahNum = SURAH_NAME_TO_NUM[surahName];
+  if (!surahNum) { showToast('⚠️ السورة غير معروفة'); return; }
+
+  // ابحث في QURAN_AYAH_NUMS بالمطابقة أو المقارنة بالبداية
+  const key = surahName + '|' + ayahText;
+  let ayahNum = QURAN_AYAH_NUMS[key];
+
+  // إذا مش موجود مباشرة، ابحث بالنص
+  if (!ayahNum) {
+    for (const k in QURAN_AYAH_NUMS) {
+      if (k.startsWith(surahName + '|') && k.includes(ayahText.substring(0, 15))) {
+        ayahNum = QURAN_AYAH_NUMS[k];
+        break;
+      }
+    }
+  }
+
+  // fallback: ابحث في QURAN_LOCAL
+  if (!ayahNum) {
+    const ayahs = fetchSurahAyahs(surahNum);
+    if (ayahs) {
+      const found = ayahs.find(a => a.text === ayahText || a.text.startsWith(ayahText.substring(0, 20)));
+      if (found) ayahNum = found.num;
+    }
+  }
+
+  if (!ayahNum) {
+    showToast('⚠️ رقم الآية غير معروف');
+    return;
+  }
+
+  const s = String(surahNum).padStart(3, '0');
+  const a = String(ayahNum).padStart(3, '0');
+  const url = `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
+  _playMp3(url, btn);
 }
-document.addEventListener('touchstart', _unlockAudio, { once: true, passive: true });
-document.addEventListener('click', _unlockAudio, { once: true });
+
+
 
 // ===== INIT =====
 // Auto-login if session token exists
