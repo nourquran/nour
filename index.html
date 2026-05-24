@@ -479,8 +479,8 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 }
 .ayah-card::before { content:'❝'; position:absolute; top:12px; right:20px; font-size:36px; color:rgba(201,151,58,0.12); font-family:serif; }
 .surah-label { font-size:12px; color:var(--gold); opacity:0.7; margin-bottom:12px; }
-.ayah-text { font-family:'Amiri',serif; font-size:26px; line-height:2.4; color:var(--cream); direction:rtl; word-spacing:4px; }
-.ayah-text .blank { display:inline; background:rgba(201,151,58,0.15); border-bottom:2px solid var(--gold); min-width:60px; padding:2px 10px; border-radius:6px; animation:pulse-blank 1.5s ease-in-out infinite; vertical-align:middle; position:relative; top:-2px; }
+.ayah-text { font-family:'Amiri',serif; font-size:26px; line-height:2; color:var(--cream); direction:rtl; }
+.ayah-text .blank { display:inline-block; background:rgba(201,151,58,0.15); border-bottom:2px solid var(--gold); min-width:80px; height:1.2em; vertical-align:middle; border-radius:4px; animation:pulse-blank 1.5s ease-in-out infinite; }
 @keyframes pulse-blank { 0%,100%{background:rgba(201,151,58,0.1);}50%{background:rgba(201,151,58,0.25);} }
 
 .q-hint { font-size:13px; color:rgba(245,217,139,0.5); text-align:center; margin-bottom:16px; }
@@ -488,8 +488,8 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 
 .choices-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
 .choices-grid > div { display:flex; align-items:stretch; gap:0; }
-.choices-grid > div .choice-btn { flex:1; border-radius:0 14px 14px 0; font-size:20px; padding:10px 10px; line-height:1.4; }
-.choices-grid > div .audio-btn-small { border-radius:14px 0 0 14px; border-left:none; height:auto; align-self:stretch; width:38px; font-size:15px; }
+.choices-grid > div .choice-btn { flex:1; border-radius:0 14px 14px 0; }
+.choices-grid > div .audio-btn-small { border-radius:14px 0 0 14px; border-left:none; height:auto; align-self:stretch; width:36px; }
 .choice-btn {
   background:rgba(255,254,249,0.05); border:1.5px solid rgba(201,151,58,0.2);
   border-radius:14px; padding:14px 12px; font-family:'Amiri',serif;
@@ -930,74 +930,6 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   .surah-grid { grid-template-columns:repeat(3, 1fr); }
 }
 
-/* ===== STREAK CELEBRATION ===== */
-.streak-celebrate {
-  position:fixed; inset:0; z-index:9999; pointer-events:none;
-  display:flex; align-items:center; justify-content:center;
-}
-.streak-celebrate-inner {
-  text-align:center; animation:streakPop .8s cubic-bezier(.22,1,.36,1) forwards;
-}
-@keyframes streakPop {
-  0%   { opacity:0; transform:scale(0.3) rotate(-10deg); }
-  60%  { opacity:1; transform:scale(1.2) rotate(2deg); }
-  100% { opacity:0; transform:scale(1.4) rotate(0deg); }
-}
-.streak-celebrate-num {
-  font-size:80px; line-height:1;
-  filter:drop-shadow(0 0 30px rgba(255,200,0,0.8));
-}
-.streak-celebrate-label {
-  font-family:'Cairo',sans-serif; font-size:22px; font-weight:900;
-  color:#F5D98B; margin-top:8px;
-  text-shadow:0 0 20px rgba(201,151,58,0.8);
-}
-
-/* ===== QUESTION TYPE VIBES ===== */
-.qtype-badge-big {
-  text-align:center; margin-bottom:12px;
-}
-.qtype-badge-big-inner {
-  display:inline-block; padding:7px 20px; border-radius:20px;
-  font-family:'Cairo',sans-serif; font-size:14px; font-weight:700;
-  animation:badgePulse 1.5s ease-in-out infinite;
-}
-@keyframes badgePulse {
-  0%,100% { box-shadow:0 0 0 rgba(46,175,120,0); }
-  50%      { box-shadow:0 0 12px rgba(46,175,120,0.4); }
-}
-.qbig-blank  { background:rgba(27,107,74,0.2);  color:#7DFFC9; border:1px solid rgba(46,175,120,0.4);  }
-.qbig-next   { background:rgba(26,82,118,0.2);   color:#85C1E9; border:1px solid rgba(26,82,118,0.4);   }
-.qbig-prev   { background:rgba(155,89,182,0.2);  color:#C39BD3; border:1px solid rgba(155,89,182,0.4);  }
-.qbig-order  { background:rgba(230,126,34,0.15); color:#FAB95B; border:1px solid rgba(230,126,34,0.35); }
-.qbig-num    { background:rgba(201,151,58,0.15); color:var(--gold); border:1px solid rgba(201,151,58,0.35); }
-.qbig-odd    { background:rgba(192,57,43,0.15);  color:#FF9E9E; border:1px solid rgba(192,57,43,0.35);  }
-
-/* ===== COMBO PARTICLE BOOST ===== */
-.mega-combo {
-  position:fixed; inset:0; z-index:8999; pointer-events:none;
-  display:flex; align-items:center; justify-content:center;
-}
-.mega-combo-text {
-  font-family:'Cairo',sans-serif; font-size:52px; font-weight:900;
-  color:#F5D98B; text-shadow:0 0 40px rgba(201,151,58,0.9);
-  animation:megaCombo .7s cubic-bezier(.22,1,.36,1) forwards;
-}
-@keyframes megaCombo {
-  0%   { opacity:0; transform:scale(0.5); }
-  50%  { opacity:1; transform:scale(1.3); }
-  100% { opacity:0; transform:scale(1.6); }
-}
-
-/* ===== QUESTION INTRO ANIMATION ===== */
-.ayah-card {
-  animation:cardIn .35s cubic-bezier(.22,1,.36,1);
-}
-@keyframes cardIn {
-  from { opacity:0; transform:translateY(16px) scale(0.97); }
-  to   { opacity:1; transform:translateY(0) scale(1); }
-}
-
 /* ===== BOTTOM SHEET ===== */
 .sheet-overlay {
   display:none; position:fixed; inset:0; z-index:8000;
@@ -1052,60 +984,19 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   }
   window._makeKey = makeKey;
 
-  // ===== رفع بيانات المستخدم على Firebase (leaderboard + full profile) =====
+  // ===== رفع بيانات المستخدم على Firebase =====
   window.fbSaveUser = function(username, data) {
-    if (!username || data.isGuest) return;
-    const key = makeKey(username, false);
-    // leaderboard
-    set(ref(db, 'leaderboard/' + key), {
-      name: username,
-      totalHasanat: data.totalHasanat || 0,
-      totalScore:   data.totalScore   || 0,
-      totalGames:   data.totalGames   || 0,
-      isGuest:      false,
-      updatedAt:    Date.now(),
-    }).catch(e => console.error('fbSave lb error:', e));
-    // full profile (بدون password)
-    const profile = {
-      totalScore:   data.totalScore   || 0,
-      totalGames:   data.totalGames   || 0,
-      totalHasanat: data.totalHasanat || 0,
-      streak:       data.streak       || 0,
-      lastPlay:     data.lastPlay     || null,
-      level:        data.level        || 0,
-      updatedAt:    Date.now(),
-    };
-    set(ref(db, 'users/' + key + '/profile'), profile)
-      .catch(e => console.error('fbSave profile error:', e));
-  };
-
-  // ===== جلب بيانات المستخدم من Firebase =====
-  window.fbGetUserProfile = function(username, callback) {
-    if (!username) { callback(null); return; }
-    const key = makeKey(username, false);
-    get(ref(db, 'users/' + key + '/profile'))
-      .then(snap => callback(snap.exists() ? snap.val() : null))
-      .catch(() => callback(null));
-  };
-
-  // ===== حفظ كلمة المرور المشفرة على Firebase =====
-  window.fbSavePassword = function(username, hashedPass) {
     if (!username) return;
-    const key = makeKey(username, false);
-    set(ref(db, 'users/' + key + '/auth'), { password: hashedPass })
-      .catch(e => console.error('fbSavePass error:', e));
-  };
-
-  // ===== التحقق من كلمة المرور عبر Firebase =====
-  window.fbCheckPassword = function(username, hashedPass, callback) {
-    const key = makeKey(username, false);
-    get(ref(db, 'users/' + key + '/auth'))
-      .then(snap => {
-        if (!snap.exists()) { callback('notfound'); return; }
-        const stored = snap.val().password;
-        callback(stored === hashedPass ? 'ok' : 'wrong');
-      })
-      .catch(() => callback('error'));
+    const displayName = data.isGuest ? 'ضيف 🕊️' : username;
+    const key = makeKey(username, data.isGuest);
+    set(ref(db, 'leaderboard/' + key), {
+      name: displayName,
+      totalHasanat: data.totalHasanat || 0,
+      totalScore:   data.totalScore   || 0,
+      totalGames:   data.totalGames   || 0,
+      isGuest:      data.isGuest      || false,
+      updatedAt:    Date.now(),
+    }).catch(e => console.error('fbSave error:', e));
   };
 
   // ===== جلب اللوحة من Firebase وعرضها =====
@@ -1140,8 +1031,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     const data = snapshot.val() || {};
     const list = Object.entries(data)
-      .filter(([,d]) => (d.totalScore || 0) > 0)
-      .sort(([,a],[,b]) => (b.totalScore||0) - (a.totalScore||0));
+      .filter(([,d]) => (d.totalHasanat || 0) > 0)
+      .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
 
     if (list.length === 0) {
       podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">كن أول من يسجل نقاطه! 🌟</div>';
@@ -1172,8 +1063,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="lb-podium-rank">${emoji0}</div>
       <div class="lb-podium-info">
         <div class="lb-podium-name${isMe0?' is-me':''}">${d0.name}${isMe0?' (أنت)':''}</div>
-        <div class="lb-podium-hasanat">${toA(d0.totalScore||0)} ⭐</div>
-        <div class="lb-podium-score">${toA(d0.totalGames||0)} جلسة</div>
+        <div class="lb-podium-hasanat">${toA(d0.totalHasanat||0)} ⭐</div>
+        <div class="lb-podium-score">${toA(d0.totalScore||0)} نقطة • ${toA(d0.totalGames||0)} جلسة</div>
       </div>
     </div>`;
 
@@ -1181,7 +1072,37 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       `<div class="lb-dot${i===0?' active':''}" onclick="lbGoTo(${i})"></div>`
     ).join('');
 
-    if (lb) lb.innerHTML = '';
+    if (lb) {
+      if (rest.length === 0) {
+        lb.innerHTML = '';
+      } else {
+        const pageSize = 3;
+        const pages = [];
+        for (let i = 0; i < rest.length; i += pageSize) pages.push(rest.slice(i, i + pageSize));
+        const pagesHtml = pages.map((pg, pi) =>
+          `<div class="lb-rest-page${pi===0?' active':''}" id="lbRestPage${pi}">` +
+          pg.map(([key, d]) => {
+            const rank = rest.findIndex(r => r[0] === key) + 4;
+            const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
+            return `<div class="lb-card${isMe?' lb-me':''}">
+              <div class="lb-rank">${rank}</div>
+              <div class="lb-info">
+                <div class="lb-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
+                <div class="lb-score">${toA(d.totalScore||0)} نقطة • ${toA(d.totalGames||0)} جلسة</div>
+              </div>
+              <div class="lb-hasanat">${toA(d.totalHasanat||0)} ⭐</div>
+            </div>`;
+          }).join('') + `</div>`
+        ).join('');
+        const dotsHtml = pages.length > 1
+          ? `<div class="lb-rest-dots">${pages.map((_,i) => `<div class="lb-rest-dot${i===0?' active':''}" onclick="lbRestGoTo(${i})"></div>`).join('')}</div>`
+          : '';
+        lb.innerHTML = `<div class="lb-rest-wrap" id="lbRestWrap">${pagesHtml}</div>${dotsHtml}`;
+        if (window.lbRestTimer) clearInterval(window.lbRestTimer);
+        window.lbRestIdx = 0;
+        if (pages.length > 1) window.lbRestTimer = setInterval(() => lbRestGoTo((window.lbRestIdx + 1) % pages.length), 4000);
+      }
+    }
 
     // rotation
     if (window.lbPodiumTimer) clearInterval(window.lbPodiumTimer);
@@ -1709,33 +1630,10 @@ function doLogin() {
   const user = document.getElementById('loginUser').value.trim();
   const pass = document.getElementById('loginPass').value;
   if (!user || !pass) { showLoginErr('أدخل اسم المستخدم وكلمة المرور'); return; }
-  const hashed = btoa(unescape(encodeURIComponent(pass)));
-
-  // أولاً: جرّب محلياً (أسرع)
   const users = getUsers();
-  if (users[user]) {
-    if (users[user].password !== hashed) { showLoginErr('كلمة المرور خاطئة'); return; }
-    loginSuccess(user, users[user]);
-    return;
-  }
-
-  // ثانياً: جرّب Firebase (جهاز تاني)
-  showLoginErr('⏳ جاري التحقق...');
-  if (typeof window.fbCheckPassword === 'function') {
-    window.fbCheckPassword(user, hashed, (result) => {
-      if (result === 'notfound') { showLoginErr('اسم المستخدم غير موجود'); return; }
-      if (result === 'wrong')    { showLoginErr('كلمة المرور خاطئة'); return; }
-      if (result === 'error')    { showLoginErr('⚠️ خطأ في الاتصال، حاول تاني'); return; }
-      window.fbGetUserProfile(user, (profile) => {
-        const data = { ...(profile || createDefaultUserData()), password: hashed };
-        const u2 = getUsers(); u2[user] = data; saveUsers(u2);
-        showLoginErr('');
-        loginSuccess(user, data);
-      });
-    });
-  } else {
-    showLoginErr('اسم المستخدم غير موجود');
-  }
+  if (!users[user]) { showLoginErr('اسم المستخدم غير موجود'); return; }
+  if (users[user].password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
+  loginSuccess(user, users[user]);
 }
 
 function doRegister() {
@@ -1746,33 +1644,12 @@ function doRegister() {
   if (user.length < 3) { showLoginErr('الاسم يجب أن يكون ٣ أحرف على الأقل'); return; }
   if (pass.length < 4) { showLoginErr('كلمة المرور يجب أن تكون ٤ أحرف على الأقل'); return; }
   if (pass !== pass2) { showLoginErr('كلمتا المرور غير متطابقتين'); return; }
-  const hashed = btoa(unescape(encodeURIComponent(pass)));
-
-  // تحقق Firebase أولاً إذا الاسم مسجل
-  const checkAndCreate = () => {
-    const users = getUsers();
-    if (users[user]) { showLoginErr('اسم المستخدم محجوز، اختر اسماً آخر'); return; }
-    const newData = { ...createDefaultUserData(), password: hashed };
-    users[user] = newData;
-    saveUsers(users);
-    // حفظ على Firebase
-    if (typeof window.fbSavePassword === 'function') window.fbSavePassword(user, hashed);
-    loginSuccess(user, newData);
-  };
-
-  if (typeof window.fbCheckPassword === 'function') {
-    showLoginErr('⏳ جاري التحقق من الاسم...');
-    window.fbCheckPassword(user, '', (result) => {
-      showLoginErr('');
-      if (result === 'ok' || result === 'wrong') {
-        showLoginErr('اسم المستخدم محجوز، اختر اسماً آخر');
-      } else {
-        checkAndCreate();
-      }
-    });
-  } else {
-    checkAndCreate();
-  }
+  const users = getUsers();
+  if (users[user]) { showLoginErr('اسم المستخدم محجوز، اختر اسماً آخر'); return; }
+  const newData = { ...createDefaultUserData(), password: btoa(pass) };
+  users[user] = newData;
+  saveUsers(users);
+  loginSuccess(user, newData);
 }
 
 function guestLogin() {
@@ -1784,10 +1661,6 @@ function guestLogin() {
 function loginSuccess(username, data, isGuest=false) {
   currentUser = { username, isGuest, ...data };
   window.currentUser = currentUser;
-  // حفظ session للدخول التلقائي على أي جهاز
-  if (!isGuest) {
-    localStorage.setItem('nour_session', JSON.stringify({ username }));
-  }
   document.getElementById('loginScreen').classList.add('hide');
   document.getElementById('userNameDisplay').textContent = '👤 ' + username;
   checkStreak();
@@ -1801,9 +1674,8 @@ function loginSuccess(username, data, isGuest=false) {
 }
 
 function doLogout() {
-  if (currentUser && !currentUser.isGuest) saveCurrentUser();
-  localStorage.removeItem('nour_session');
   window.currentUser = null;
+  saveCurrentUser(); // save guests too for leaderboard
   currentUser = null;
   document.getElementById('loginScreen').classList.remove('hide');
   goHome();
@@ -1822,19 +1694,13 @@ function saveCurrentUser() {
     isGuest: currentUser.isGuest || false,
   };
   saveUsers(users);
-  // حفظ session token للتذكر على أي جهاز
-  if (!currentUser.isGuest) {
-    localStorage.setItem('nour_session', JSON.stringify({ username: currentUser.username }));
-  }
-  // رفع على Firebase (بروفايل كامل + leaderboard)
-  if (typeof window.fbSaveUser === 'function' && !currentUser.isGuest) {
+  // رفع على Firebase
+  if (typeof window.fbSaveUser === 'function' && (currentUser.totalHasanat || 0) > 0) {
     window.fbSaveUser(currentUser.username, {
       totalHasanat: currentUser.totalHasanat,
       totalScore:   currentUser.totalScore,
       totalGames:   currentUser.totalGames,
-      streak:       currentUser.streak || 0,
-      lastPlay:     currentUser.lastPlay,
-      isGuest:      false,
+      isGuest:      currentUser.isGuest || false,
     });
   }
 }
@@ -1931,8 +1797,8 @@ function renderLeaderboard() {
   // fallback local
   const users = getUsers();
   const list = Object.entries(users)
-    .filter(([,d]) => (d.totalScore || 0) > 0)
-    .sort(([,a],[,b]) => (b.totalScore||0) - (a.totalScore||0));
+    .filter(([,d]) => (d.totalHasanat || 0) > 0)
+    .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
 
   const podiumWrap = document.getElementById('lbPodiumWrap');
   const dotsEl    = document.getElementById('lbDots');
@@ -1970,8 +1836,8 @@ function renderLeaderboard() {
     <div class="lb-podium-rank">${emoji0}</div>
     <div class="lb-podium-info">
       <div class="lb-podium-name${isMe0?' is-me':''}">${name0}${isMe0?' (أنت)':''}</div>
-      <div class="lb-podium-hasanat">${toArabicNum(d0.totalScore||0)} ⭐</div>
-      <div class="lb-podium-score">${toArabicNum(d0.totalGames||0)} جلسة</div>
+      <div class="lb-podium-hasanat">${toArabicNum(d0.totalHasanat||0)} ⭐</div>
+      <div class="lb-podium-score">${toArabicNum(d0.totalScore)} نقطة • ${toArabicNum(d0.totalGames||0)} جلسة</div>
     </div>
   </div>`;
 
@@ -1981,6 +1847,42 @@ function renderLeaderboard() {
   ).join('');
 
   lb.innerHTML = '';
+
+  // rest pages — auto-rotation
+  if (rest.length > 0) {
+    const pageSize = 3;
+    const pages = [];
+    for (let i = 0; i < rest.length; i += pageSize) pages.push(rest.slice(i, i + pageSize));
+
+    const pagesHtml = pages.map((pg, pi) =>
+      `<div class="lb-rest-page${pi===0?' active':''}" id="lbRestPage${pi}">` +
+      pg.map(([name, data]) => {
+        const rank = rest.findIndex(r => r[0] === name) + 4;
+        const isMe = currentUser && name === currentUser.username;
+        return `<div class="lb-card${isMe?' lb-me':''}">
+          <div class="lb-rank">${rank}</div>
+          <div class="lb-info">
+            <div class="lb-name${isMe?' is-me':''}">${name}${isMe?' (أنت)':''}</div>
+            <div class="lb-score">${toArabicNum(data.totalScore)} نقطة • ${toArabicNum(data.totalGames||0)} جلسة</div>
+          </div>
+          <div class="lb-hasanat">${toArabicNum(data.totalHasanat||0)} ⭐</div>
+        </div>`;
+      }).join('') +
+      `</div>`
+    ).join('');
+
+    const dotsHtml = pages.length > 1
+      ? `<div class="lb-rest-dots">${pages.map((_,i) => `<div class="lb-rest-dot${i===0?' active':''}" onclick="lbRestGoTo(${i})"></div>`).join('')}</div>`
+      : '';
+
+    lb.innerHTML = `<div class="lb-rest-wrap" id="lbRestWrap">${pagesHtml}</div>${dotsHtml}`;
+
+    if (lbRestTimer) clearInterval(lbRestTimer);
+    lbRestIdx = 0;
+    if (pages.length > 1) {
+      lbRestTimer = setInterval(() => lbRestGoTo((lbRestIdx + 1) % pages.length), 4000);
+    }
+  }
 
   // Start auto-rotation if more than 1 top player
   if (lbPodiumTimer) clearInterval(lbPodiumTimer);
@@ -2015,8 +1917,8 @@ function lbGoTo(idx) {
     slide.querySelector('.lb-podium-name').textContent = d.name + (isMe ? ' (أنت)' : '');
     slide.querySelector('.lb-podium-name').className = 'lb-podium-name' + (isMe ? ' is-me' : '');
     const toA = n => String(Math.round(n)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
-    slide.querySelector('.lb-podium-hasanat').textContent = toA(d.totalScore||0) + ' ⭐';
-    slide.querySelector('.lb-podium-score').textContent = toA(d.totalGames||0) + ' جلسة';
+    slide.querySelector('.lb-podium-hasanat').textContent = toA(d.totalHasanat||0) + ' ⭐';
+    slide.querySelector('.lb-podium-score').textContent = toA(d.totalScore||0) + ' نقطة • ' + toA(d.totalGames||0) + ' جلسة';
     // fade in
     slide.style.opacity = '1';
     slide.style.transform = 'translateX(0)';
@@ -3660,28 +3562,6 @@ function renderQuestion() {
   const aBtn = document.getElementById('ayahAudioBtn');
   if (aBtn) { aBtn.textContent = '🔊'; aBtn.classList.remove('playing'); }
 
-  // Q-type big badge (in review and for special types)
-  const qtypeContainer = document.querySelector('[data-qtypebadge]') || (() => {
-    const c = document.createElement('div');
-    c.setAttribute('data-qtypebadge', '1');
-    c.className = 'qtype-badge-big';
-    const ayahCard = document.querySelector('.ayah-card');
-    if (ayahCard) ayahCard.parentNode.insertBefore(c, ayahCard);
-    return c;
-  })();
-
-  const meta = QTYPE_META[q.qtype];
-  if (meta && q.qtype !== 'blank') {
-    qtypeContainer.innerHTML = `<span class="qtype-badge-big-inner ${meta.cls}">${meta.label}</span>`;
-    qtypeContainer.style.display = 'block';
-  } else {
-    qtypeContainer.style.display = 'none';
-  }
-
-  // Trigger card animation
-  const ayahCard = document.querySelector('.ayah-card');
-  if (ayahCard) { ayahCard.style.animation = 'none'; requestAnimationFrame(() => ayahCard.style.animation = ''); }
-
   // Q-type pill for review mode
   const pill = document.getElementById('qtypePill');
   if (q.qtype && q.qtype !== 'blank') {
@@ -3695,48 +3575,6 @@ function renderQuestion() {
     } else if (q.qtype === 'num') {
       pill.textContent = '🔢 رقم الآية؟';
       pill.className = 'qtype-pill type-num';
-    } else if (q.qtype === 'firstWord') {
-      pill.textContent = '🔤 أول كلمة؟';
-      pill.className = 'qtype-pill type-order';
-    } else if (q.qtype === 'twoWords') {
-      pill.textContent = '✂️ الكلمتان الناقصتان؟';
-      pill.className = 'qtype-pill type-prev';
-    } else if (q.qtype === 'oddOne') {
-      pill.textContent = '🔍 الغريبة عنها؟';
-      pill.className = 'qtype-pill type-num';
-    } else if (q.qtype === 'order3') {
-      pill.textContent = '🔀 رتّب الآيات';
-      pill.className = 'qtype-pill type-order';
-    } else if (q.qtype === 'whichSurah') {
-      pill.textContent = '📖 أي سورة؟';
-      pill.className = 'qtype-pill type-prev';
-    } else if (q.qtype === 'countAyahs') {
-      pill.textContent = '🔢 كم آية؟';
-      pill.className = 'qtype-pill type-num';
-    } else if (q.qtype === 'lastWord') {
-      pill.textContent = '🔚 آخر كلمة؟';
-      pill.className = 'qtype-pill type-order';
-    } else if (q.qtype === 'similarWord') {
-      pill.textContent = '🔎 اختر الكلمة الصحيحة';
-      pill.className = 'qtype-pill type-prev';
-    } else if (q.qtype === 'prevWord') {
-      pill.textContent = '⬅️ ما قبل هذه الكلمة؟';
-      pill.className = 'qtype-pill type-order';
-    } else if (q.qtype === 'juzNum') {
-      pill.textContent = '📚 أي جزء؟';
-      pill.className = 'qtype-pill type-num';
-    } else if (q.qtype === 'missingMiddle') {
-      pill.textContent = '🔦 الكلمة المخفية';
-      pill.className = 'qtype-pill type-order';
-    } else if (q.qtype === 'secondHalf') {
-      pill.textContent = '🔗 أكمل النصف الثاني';
-      pill.className = 'qtype-pill type-order';
-    } else if (q.qtype === 'bridgeWord') {
-      pill.textContent = '🌉 الكلمة الرابطة';
-      pill.className = 'qtype-pill type-prev';
-    } else if (q.qtype === 'surahType') {
-      pill.textContent = '🕌 مكية أم مدنية؟';
-      pill.className = 'qtype-pill type-prev';
     }
   } else {
     pill.style.display = 'none';
@@ -3782,59 +3620,30 @@ function renderQuestion() {
   } else if (q.qtype === 'num') {
     safeHTML('ayahText', q.ayah);
     document.getElementById('qHint').textContent = 'ما رقم هذه الآية في السورة؟';
-  } else if (q.qtype === 'oddOne') {
-    safeHTML('ayahText', q.ayah);
-    document.getElementById('qHint').textContent = 'اختر الآية التي ليست من هذه السورة 🔍';
-  } else if (q.qtype === 'order3') {
-    // عرض الآيات المخلوطة بشكل جميل
-    const lines = q.ayah.split('\n');
-    const htmlLines = lines.map(l => `<div style="border-right:3px solid rgba(201,151,58,0.4);padding-right:10px;margin-bottom:10px;font-size:18px;line-height:1.8">${l}</div>`).join('');
-    safeHTML('ayahText', `<div style="font-size:13px;color:rgba(245,217,139,0.5);margin-bottom:12px">🔀 رتّب هذه الآيات بترتيبها الصحيح في السورة</div>${htmlLines}`);
-    document.getElementById('qHint').textContent = 'اختر الترتيب الصحيح ١ ← ٢ ← ٣';
-  } else if (q.qtype === 'whichSurah') {
-    safeHTML('ayahText', q.ayah);
-    document.getElementById('qHint').textContent = 'هذه الآية من أي سورة؟ 📖';
-  } else if (q.qtype === 'countAyahs') {
-    safeHTML('ayahText', q.ayah);
-    document.getElementById('qHint').textContent = 'اختر العدد الصحيح 🔢';
-  } else if (q.qtype === 'lastWord') {
-    const parts = (q.displayAyah || q.ayah).split('___');
-    const htmlQ = parts[0] + '<span class="blank"></span>' + (parts[1] || '');
-    safeHTML('ayahText', htmlQ);
-    document.getElementById('qHint').textContent = 'ما آخر كلمة في هذه الآية؟ 🔚';
-  } else if (q.qtype === 'similarWord') {
-    const parts = (q.displayAyah || q.ayah).split('___');
-    const htmlQ = parts[0] + '<span class="blank"></span>' + (parts[1] || '');
-    safeHTML('ayahText', htmlQ);
-    document.getElementById('qHint').textContent = 'اختر الكلمة الصحيحة من الآية الكريمة 🔎';
-  } else if (q.qtype === 'prevWord') {
-    safeHTML('ayahText', '<span style="font-family:Amiri,serif;font-size:22px;line-height:2">... <span class="blank"></span> ' + (q.targetWord||'') + ' ...</span>');
-    document.getElementById('qHint').textContent = 'ما الكلمة التي تسبق "' + (q.targetWord||'') + '" في هذه الآية؟ ⬅️';
-  } else if (q.qtype === 'juzNum') {
-    safeHTML('ayahText', q.ayah);
-    document.getElementById('qHint').textContent = 'اختر رقم الجزء الصحيح 📚';
-  } else if (q.qtype === 'missingMiddle') {
-    const parts = (q.displayAyah || q.ayah).split('___');
-    const htmlQ = parts[0] + '<span class="blank"></span>' + (parts[1] || '');
-    safeHTML('ayahText', htmlQ);
-    document.getElementById('qHint').textContent = 'اكشف الكلمة المخفية في وسط الآية 🔦';
-  } else if (q.qtype === 'secondHalf') {
-    safeHTML('ayahText', '<span style="color:rgba(245,217,139,0.7);font-family:Amiri,serif;font-size:22px;line-height:2">' + q.ayah + '</span> <span class="blank"></span>');
-    document.getElementById('qHint').textContent = 'اختر الجزء الثاني من هذه الآية 🔗';
-  } else if (q.qtype === 'bridgeWord') {
-    const parts = (q.displayAyah || q.ayah).split('___');
-    const htmlQ = parts[0] + '<span class="blank"></span>' + (parts[1] || '');
-    safeHTML('ayahText', htmlQ);
-    document.getElementById('qHint').textContent = 'ما الكلمة التي تصل بين الجزأين؟ 🔗';
-  } else if (q.qtype === 'surahType') {
-    safeHTML('ayahText', q.ayah);
-    document.getElementById('qHint').textContent = 'هل نزلت هذه السورة في مكة أم المدينة؟ 🕌';
   } else if (q.fromApi && q.displayAyah) {
+    const parts = q.displayAyah.split('___');
+    // طبّق الـ fraction على الجزء قبل الفراغ
+    const beforeBlank = applyAyahFraction(parts[0].trimEnd(), frac < 1 ? frac : 1);
+    const afterBlank = frac < 1 ? '' : (parts[1] || '');
+    const htmlQ = beforeBlank + ' <span class="blank" style="min-width:80px;display:inline-block;border-bottom:2px solid var(--gold);margin:0 4px;text-align:center;color:var(--gold-light);font-size:14px;">?</span>' + afterBlank;
+    safeHTML('ayahText', htmlQ);
+    const hintMsgs = {
+      0: 'أكمل الكلمة الأخيرة ✨',
+      1: 'أكمل الكلمة الناقصة من المنتصف 📖',
+      2: 'أكمل أول الآية ⭐',
+      3: 'أكمل الكلمتين الناقصتين 👑',
+      4: 'أكمل عبارة أول الآية 🏅',
+      5: 'أكمل العبارة الناقصة 💎',
+      6: 'اكتب الكلمة الصحيحة 🌟',
+      7: 'اكتب مع التوقيت 🕋',
+    };
+    document.getElementById('qHint').textContent = hintMsgs[lvlNow.id] || 'أكمل الآية الكريمة ✨';
   } else {
+    const blankHTML = '<span class="blank"></span>';
     const displayText = applyAyahFraction(q.ayah, frac);
-    const sourceText = displayText.includes(q.blank) ? displayText : q.ayah;
-    const blankSpan = '<span class="blank"></span>';
-    safeHTML('ayahText', sourceText.replace(q.blank, blankSpan));
+    safeHTML('ayahText', displayText.includes(q.blank)
+      ? displayText.replace(q.blank, blankHTML)
+      : q.ayah.replace(q.blank, blankHTML));
     document.getElementById('qHint').textContent = 'اختر الكلمة الصحيحة';
   }
 
@@ -3858,7 +3667,7 @@ function renderQuestion() {
 
   const activeMode = state.isReviewMode ? 'mcq' : state.mode;
 
-  if (activeMode==='mcq' || q.qtype === 'next' || q.qtype === 'prev' || q.qtype === 'num' || q.qtype === 'firstWord' || q.qtype === 'twoWords' || q.qtype === 'oddOne' || q.qtype === 'order3' || q.qtype === 'whichSurah' || q.qtype === 'countAyahs' || q.qtype === 'lastWord' || q.qtype === 'similarWord' || q.qtype === 'prevWord' || q.qtype === 'juzNum' || q.qtype === 'missingMiddle' || q.qtype === 'surahType' || q.qtype === 'secondHalf' || q.qtype === 'bridgeWord') {
+  if (activeMode==='mcq' || q.qtype === 'next' || q.qtype === 'prev' || q.qtype === 'num') {
     renderMCQ(q);
   } else if (activeMode==='typing') {
     document.getElementById('typingWrap').style.display = 'block';
@@ -3894,11 +3703,6 @@ function renderMCQ(q) {
     audioBtn.className = 'audio-btn-small';
     audioBtn.textContent = '🔊';
     audioBtn.title = 'استمع بصوت مشاري راشد';
-    // إخفاء زر الصوت للأنواع اللي مش آيات
-    const noAudioTypes = ['num','countAyahs','juzNum','surahType','whichSurah'];
-    if (noAudioTypes.includes(q.qtype)) {
-      audioBtn.style.display = 'none';
-    }
     audioBtn.onclick = (ev) => {
       ev.stopPropagation();
       if (isAyahChoice) {
@@ -3908,81 +3712,12 @@ function renderMCQ(q) {
       }
     };
 
-    const isOddOne      = q.qtype === 'oddOne';
-    const isTwoWords    = q.qtype === 'twoWords';
-    const isFirstWord   = q.qtype === 'firstWord';
-    const isOrder3      = q.qtype === 'order3';
-    const isWhichSurah  = q.qtype === 'whichSurah';
-    const isCountAyahs  = q.qtype === 'countAyahs';
-    const isLastWord    = q.qtype === 'lastWord';
-    const isSimilarWord = q.qtype === 'similarWord';
-    const isWordCount   = q.qtype === 'prevWord';
-    const isJuzNum      = q.qtype === 'juzNum';
-    const isMissingMid  = q.qtype === 'missingMiddle';
-    const isSurahType   = q.qtype === 'surahType';
-
-    if (isOrder3) {
-      // عرض خيار الترتيب: كل سطر على حدة بخط عربي
-      btn.style.fontFamily = 'Amiri,serif';
-      btn.style.fontSize = '14px';
-      btn.style.textAlign = 'right';
-      btn.style.lineHeight = '2';
-      btn.style.padding = '10px 14px';
-      btn.style.whiteSpace = 'pre-line';
-      btn.onclick = (e) => checkAnswer(ch, q.blank, e);
-      audioBtn.style.display = 'none';
-      wrapDiv.appendChild(btn);
-      wrap.appendChild(wrapDiv);
-      return;
-    } else if (isAyahChoice || isOddOne) {
-      btn.style.fontFamily = 'Amiri,serif';
-      btn.style.fontSize = '15px';
-      btn.style.textAlign = 'right';
-      btn.style.lineHeight = '1.8';
-      btn.style.padding = '12px 14px';
-    } else if (q.qtype === 'secondHalf') {
+    if (isAyahChoice) {
       btn.style.fontFamily = 'Amiri,serif';
       btn.style.fontSize = '16px';
       btn.style.textAlign = 'right';
       btn.style.lineHeight = '1.8';
       btn.style.padding = '12px 14px';
-    } else if (isTwoWords || isFirstWord || isLastWord || isSimilarWord || isMissingMid) {
-      btn.style.fontFamily = 'Amiri,serif';
-      btn.style.fontSize = '20px';
-      btn.style.textAlign = 'center';
-      btn.style.lineHeight = '1.8';
-    } else if (isWhichSurah || isSurahType) {
-      btn.style.fontFamily = 'Cairo,sans-serif';
-      btn.style.fontSize = '18px';
-      btn.style.fontWeight = '700';
-      btn.style.textAlign = 'center';
-    } else if (isCountAyahs) {
-      btn.style.fontFamily = 'Cairo,sans-serif';
-      btn.style.fontSize = '22px';
-      btn.style.fontWeight = '700';
-      btn.style.textAlign = 'center';
-      btn.textContent = toArabicNum(parseInt(ch)) + ' آية';
-      btn.onclick = (e) => checkAnswer(ch, q.blank, e);
-      wrapDiv.appendChild(audioBtn);
-      wrapDiv.appendChild(btn);
-      wrap.appendChild(wrapDiv);
-      return;
-    } else if (isWordCount) {
-      btn.style.fontFamily = 'Amiri,serif';
-      btn.style.fontSize = '22px';
-      btn.style.textAlign = 'center';
-      btn.style.lineHeight = '1.8';
-    } else if (isJuzNum) {
-      btn.style.fontFamily = 'Cairo,sans-serif';
-      btn.style.fontSize = '22px';
-      btn.style.fontWeight = '700';
-      btn.style.textAlign = 'center';
-      btn.textContent = 'الجزء ' + toArabicNum(parseInt(ch));
-      btn.onclick = (e) => checkAnswer(ch, q.blank, e);
-      wrapDiv.appendChild(audioBtn);
-      wrapDiv.appendChild(btn);
-      wrap.appendChild(wrapDiv);
-      return;
     } else if (isNumChoice) {
       btn.style.fontFamily = 'Cairo,sans-serif';
       btn.style.fontSize = '22px';
@@ -4003,13 +3738,11 @@ function renderMCQ(q) {
     wrap.appendChild(wrapDiv);
   });
 
-  // grid layout حسب نوع السؤال
-  const fullWidthTypes = ['next','prev','oddOne','order3','secondHalf'];
-  const twoColTypes    = ['num','countAyahs','whichSurah','juzNum','surahType'];
-  if (fullWidthTypes.includes(q.qtype)) {
-    wrap.style.gridTemplateColumns = '1fr';
-  } else if (twoColTypes.includes(q.qtype)) {
+  // For num type, adjust grid to 2 cols
+  if (isNumChoice) {
     wrap.style.gridTemplateColumns = '1fr 1fr';
+  } else if (isAyahChoice) {
+    wrap.style.gridTemplateColumns = '1fr';
   } else {
     wrap.style.gridTemplateColumns = '';
   }
@@ -4056,17 +3789,6 @@ function checkAnswer(chosen, correct, e) {
     if (b.textContent===correct) b.classList.add('correct');
     else if (b.textContent===chosen && !isRight) b.classList.add('wrong');
   });
-  // اكتب الجواب في مكان الفراغ
-  const blankEl = document.querySelector('#ayahText .blank');
-  if (blankEl) {
-    blankEl.textContent = correct;
-    blankEl.style.background = isRight ? 'rgba(46,175,120,0.25)' : 'rgba(192,57,43,0.25)';
-    blankEl.style.borderBottom = isRight ? '2px solid #2EAF78' : '2px solid #C0392B';
-    blankEl.style.color = isRight ? '#7DFFC9' : '#FF9E9E';
-    blankEl.style.padding = '0 6px';
-    blankEl.style.borderRadius = '4px';
-    blankEl.style.animation = 'none';
-  }
   handleResult(isRight, e);
 }
 
@@ -4083,17 +3805,6 @@ function checkTyping() {
   input.disabled = true;
   input.className = 'typing-input ' + (isRight?'correct':'wrong');
   document.querySelector('.typing-submit').disabled = true;
-  // اكتب الجواب في مكان الفراغ
-  const blankEl = document.querySelector('#ayahText .blank');
-  if (blankEl) {
-    blankEl.textContent = q.blank;
-    blankEl.style.background = isRight ? 'rgba(46,175,120,0.25)' : 'rgba(192,57,43,0.25)';
-    blankEl.style.borderBottom = isRight ? '2px solid #2EAF78' : '2px solid #C0392B';
-    blankEl.style.color = isRight ? '#7DFFC9' : '#FF9E9E';
-    blankEl.style.padding = '0 6px';
-    blankEl.style.borderRadius = '4px';
-    blankEl.style.animation = 'none';
-  }
   handleResult(isRight, null);
 }
 
@@ -4107,18 +3818,13 @@ function handleResult(isRight, e) {
   updateCombo(isRight);
 
   if (isRight) {
-    // streak celebrations
-    showStreakCelebration(state.combo);
-    if (state.combo >= 5) showMegaCombo(state.combo);
     state.correct++;
     const lvlDef = LEVEL_DEFS[state.level];
     const hasanatMult = lvlDef ? lvlDef.hasanatMult : 1;
     let basePts;
     if (state.isReviewMode) {
       // نقاط المراجعة حسب نوع السؤال
-      const hardTypes = ['next','prev','order3','missingMiddle','similarWord','secondHalf'];
-      const medTypes  = ['num','juzNum','countAyahs','prevWord','twoWords','oddOne','bridgeWord'];
-      basePts = hardTypes.includes(q.qtype) ? 20 : medTypes.includes(q.qtype) ? 15 : 10;
+      basePts = q.qtype === 'num' ? 15 : q.qtype === 'next' || q.qtype === 'prev' ? 20 : 10;
     } else {
       basePts = state.mode==='typing' ? 20 : state.mode==='timed' ? 15 : state.mode==='listen' ? 15 : 10;
     }
@@ -4133,34 +3839,18 @@ function handleResult(isRight, e) {
     const hasanat = baseEarned;
     state.sessionHasanat += hasanat;
     document.getElementById('liveScore').textContent = toArabicNum(state.score);
-    const comboSuffix = state.combo >= 3 ? ` 🔥×${state.combo} سلسلة!` : state.combo >= 2 ? ` 🔥×${state.combo}` : '';
+    const comboSuffix = state.combo >= 2 ? ` 🔥×${state.combo}` : '';
     fb.className = 'feedback correct show';
-    fb.textContent = getCorrectMsg(q.qtype) + comboSuffix;
+    fb.textContent = getCorrectMsg() + comboSuffix;
     if (e) spawnHasanat(e.clientX, e.clientY, hasanat);
   } else {
     fb.className = 'feedback wrong show';
     if (q.qtype === 'num') {
       fb.innerHTML = '❌ الصحيح: آية ' + toArabicNum(parseInt(q.blank));
-    } else if (q.qtype === 'countAyahs') {
-      fb.innerHTML = '❌ الصحيح: ' + toArabicNum(parseInt(q.blank)) + ' آية';
-    } else if (q.qtype === 'prevWord') {
-      fb.innerHTML = '❌ الكلمة التي قبل "' + (q.targetWord||q.blank) + '" هي: <span style="font-family:Amiri,serif;font-size:22px">' + q.blank + '</span>';
-    } else if (q.qtype === 'juzNum') {
-      fb.innerHTML = '❌ الصحيح: الجزء ' + toArabicNum(parseInt(q.blank));
-    } else if (q.qtype === 'surahType') {
-      fb.innerHTML = '❌ الصحيح: السورة ' + q.blank;
-    } else if (q.qtype === 'whichSurah') {
-      fb.innerHTML = '❌ الصحيح: سورة ' + q.blank;
     } else if (q.qtype === 'next') {
       fb.innerHTML = '❌ الآية التالية: <span style="font-family:Amiri,serif;font-size:16px;display:block;margin-top:6px;line-height:1.8">'+q.blank+'</span>';
     } else if (q.qtype === 'prev') {
       fb.innerHTML = '❌ الآية السابقة: <span style="font-family:Amiri,serif;font-size:16px;display:block;margin-top:6px;line-height:1.8">'+q.blank+'</span>';
-    } else if (q.qtype === 'order3') {
-      fb.innerHTML = '❌ الترتيب الصحيح: <span style="font-family:Amiri,serif;font-size:13px;display:block;margin-top:6px;line-height:1.8;direction:rtl">'+q.blank+'</span>';
-    } else if (q.qtype === 'secondHalf') {
-      fb.innerHTML = '❌ النصف الثاني: <span style="font-family:Amiri,serif;font-size:17px;display:block;margin-top:6px;line-height:1.8">'+q.blank+'</span>';
-    } else if (q.qtype === 'bridgeWord') {
-      fb.innerHTML = '❌ الكلمة الرابطة: <span style="font-family:Amiri,serif;font-size:20px">'+q.blank+'</span>';
     } else {
       fb.innerHTML = '❌ الصحيح: <span style="font-family:Amiri,serif;font-size:20px">'+q.blank+'</span>';
     }
@@ -4762,54 +4452,49 @@ function buildReviewQuestions(surahName) {
 
   if (ayahs.length < 2) return [];
 
-  const arabicLen = w => (w||'').replace(/[^؀-ۿ]/g,'').length;
+  // أوزان أنواع الأسئلة حسب المستوى:
+  // 0=المبتدئ: كلمة ناقصة فقط (أسهل)
+  // 3=الحافظ: مزيج 50/50 كلمة+ترتيب
+  // 7=سيد الحفاظ: ترتيب ورقم أكتر (أصعب)
   const lvl = state.level;
-
-  // [blank, next, prev, num, firstWord, twoWords, oddOne, order3, whichSurah, countAyahs,
-  //  lastWord, similarWord, prevWord, juzNum, missingMiddle, surahType]
+  // [blank, next, prev, num] weights per level
   const typeWeights = [
-    [10, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0], // 0: مبتدئ
-    [8,  2, 1, 0, 1, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 0], // 1
-    [6,  2, 2, 0, 2, 1, 0, 1, 0, 0, 2, 2, 1, 0, 1, 1], // 2
-    [5,  2, 2, 1, 2, 2, 1, 2, 1, 0, 1, 2, 2, 1, 2, 2], // 3: حافظ
-    [4,  2, 2, 1, 2, 2, 2, 3, 2, 1, 1, 2, 2, 2, 2, 2], // 4: عالم
-    [3,  2, 2, 2, 2, 3, 3, 4, 3, 2, 1, 3, 3, 3, 3, 3], // 5: حكيم
-    [2,  2, 2, 2, 1, 4, 4, 5, 4, 3, 0, 3, 3, 3, 4, 3], // 6: إمام
-    [1,  2, 2, 2, 1, 5, 5, 6, 5, 4, 0, 4, 4, 4, 5, 4], // 7: سيد الحفاظ
+    [10, 1, 1, 0], // 0: مبتدئ — كلمة ناقصة فقط تقريباً
+    [8,  2, 2, 1], // 1: متوسط
+    [6,  3, 3, 2], // 2: متقدم
+    [5,  4, 4, 3], // 3: حافظ
+    [4,  4, 4, 4], // 4: عالم — متوازن
+    [3,  4, 4, 5], // 5: حكيم — الترتيب والرقم أكتر
+    [2,  4, 4, 6], // 6: إمام
+    [1,  5, 5, 7], // 7: سيد الحفاظ — ترتيب ورقم يسودوا
   ];
-  // في المراجعة: الأوزان بتتغير حسب مستوى المستخدم المختار
-  // [blank, next, prev, num, firstWord, twoWords, oddOne, order3, whichSurah, countAyahs, lastWord, similarWord, prevWord, juzNum, missingMiddle, surahType]
-  const reviewWeightsByLevel = [
-    [8,  0,  0, 0,  4,  0, 0,  0, 0, 0,  6,  0,  0, 0,  0, 0], // 0: مبتدئ — كلمة ناقصة + آخر كلمة
-    [7,  0,  0, 0,  5,  0, 0,  0, 0, 0,  6,  0,  0, 0,  0, 0], // 1 — + أول كلمة
-    [5,  4,  4, 0,  4,  3, 0,  0, 0, 0,  4,  0,  0, 0,  3, 0], // 2 — + ما بعدها/قبلها، كلمتان، وسط
-    [4,  6,  6, 0,  3,  5, 0,  3, 0, 0,  3,  3,  4, 0,  4, 0], // 3 — + ترتيب، الكلمة السابقة
-    [3,  7,  7, 0,  3,  5, 2,  5, 0, 0,  3,  4,  5, 0,  4, 0], // 4 — + الغريبة عنها
-    [3,  7,  7, 0,  3,  6, 3,  6, 0, 0,  2,  5,  5, 0,  5, 0], // 5 — تعمق ترتيبي
-    [2,  7,  7, 0,  2,  6, 4,  7, 0, 0,  2,  5,  6, 0,  5, 0], // 6 — صعب
-    [2,  8,  8, 0,  2,  7, 5,  8, 0, 0,  1,  6,  7, 0,  6, 0], // 7 — سيد الحفاظ
-  ]; // ملاحظة: index 15 (مكية/مدنية) = 0 في المراجعة دايماً
-  const reviewWeights = reviewWeightsByLevel[Math.min(lvl, 7)];
-  // secondHalf و bridgeWord أوزانهم بتتغير بالمستوى كمان
-  const REVIEW_SECONDHALF_W = [0, 0, 4, 5, 6, 7, 7, 8][Math.min(lvl, 7)];
-  const REVIEW_BRIDGE_W     = [0, 0, 0, 3, 4, 5, 6, 7][Math.min(lvl, 7)];
-  const weights = state.isReviewMode ? reviewWeights : typeWeights[Math.min(lvl, 7)];
+  const weights = typeWeights[Math.min(lvl, 7)];
 
   const questions = [];
-  const allCandidates = [];
 
+  // ===== لكل آية: نبني الأنواع الأربعة الممكنة ثم نختار واحد بالأوزان =====
   ayahs.forEach((item, idx) => {
-    const candidates = [];
-    const words = item.text.split(' ').filter(w => w.length > 0);
+    const candidates = []; // [{type, weight, q}]
 
-    // ── نوع ١: كلمة ناقصة ──
+    // نوع ١: الكلمة الناقصة
+    const words = item.text.split(' ').filter(w => w.length > 0);
     if (words.length >= 2) {
+      // في المستويات الأعلى: اختار كلمة من المنتصف أو الأول (مش بس الأخيرة)
       let candidateIdxs;
-      if (lvl <= 1)      candidateIdxs = [words.length - 1];
-      else if (lvl <= 3) candidateIdxs = words.map((_,i) => i).slice(1);
-      else               candidateIdxs = words.map((_,i) => i);
+      if (lvl <= 1) {
+        // آخر كلمة فقط
+        candidateIdxs = [words.length - 1];
+      } else if (lvl <= 3) {
+        // أي كلمة غير الأولى
+        candidateIdxs = words.map((_,i) => i).slice(1);
+      } else {
+        // أي كلمة (مع تفضيل الأول)
+        candidateIdxs = words.map((_,i) => i);
+      }
       const blankWordIdx = candidateIdxs[Math.floor(Math.random() * candidateIdxs.length)];
       const blankWord = words[blankWordIdx];
+      const arabicLen = w => (w||'').replace(/[^؀-ۿ]/g,'').length;
+      // في المستويات الأعلى نشترط كلمة أطول
       const minLen = lvl >= 5 ? 4 : lvl >= 3 ? 3 : 2;
       const otherWords = ayahs
         .filter((_,i) => i !== idx)
@@ -4822,7 +4507,7 @@ function buildReviewQuestions(surahName) {
       }
     }
 
-    // ── نوع ٢: ما بعدها ──
+    // نوع ٢: ما بعدها
     if (idx < ayahs.length - 1) {
       const next = ayahs[idx+1];
       const wrongNexts = ayahs.filter((_,i) => i !== idx+1 && i !== idx).sort(() => Math.random()-0.5).slice(0,3);
@@ -4831,7 +4516,7 @@ function buildReviewQuestions(surahName) {
       }
     }
 
-    // ── نوع ٣: ما قبلها ──
+    // نوع ٣: ما قبلها
     if (idx > 0) {
       const prev = ayahs[idx-1];
       const wrongPrevs = ayahs.filter((_,i) => i !== idx-1 && i !== idx).sort(() => Math.random()-0.5).slice(0,3);
@@ -4840,9 +4525,10 @@ function buildReviewQuestions(surahName) {
       }
     }
 
-    // ── نوع ٤: رقم الآية ──
+    // نوع ٤: رقم الآية
     if (item.num && weights[3] > 0) {
       const otherNums = ayahs.map(x => x.num).filter(n => n && n !== item.num);
+      // في المستويات الأعلى: خليها أرقام قريبة من بعض (أصعب)
       let distractors;
       if (lvl >= 4) {
         const sorted = [...new Set(otherNums)].sort((a,b) => Math.abs(a-item.num) - Math.abs(b-item.num));
@@ -4855,390 +4541,20 @@ function buildReviewQuestions(surahName) {
       }
     }
 
-    // ── نوع ٥: أول كلمة في الآية ──
-    if (words.length >= 3 && weights[4] > 0) {
-      const firstWord = words[0];
-      const wrongFirsts = ayahs
-        .filter((_,i) => i !== idx)
-        .map(x => x.text.split(' ')[0])
-        .filter((w,i,arr) => w && w !== firstWord && arr.indexOf(w) === i && arabicLen(w) >= 2)
-        .sort(() => Math.random()-0.5)
-        .slice(0, 3);
-      if (wrongFirsts.length >= 2) {
-        const ayahWithBlank = '___' + ' ' + words.slice(1).join(' ');
-        candidates.push({ weight: weights[4], q: {
-          surah: surahName, ayah: item.text, blank: firstWord,
-          wrong: wrongFirsts, qtype: 'firstWord',
-          displayAyah: ayahWithBlank, fromApi: true, surahIdx: idx
-        }});
+    if (candidates.length > 0) {
+      // اختيار حسب الأوزان
+      const totalWeight = candidates.reduce((s, c) => s + c.weight, 0);
+      let rand = Math.random() * totalWeight;
+      let chosen = candidates[0].q;
+      for (const c of candidates) {
+        rand -= c.weight;
+        if (rand <= 0) { chosen = c.q; break; }
       }
+      questions.push(chosen);
     }
-
-    // ── نوع ٦: كلمتان ناقصتان متجاورتان ──
-    if (words.length >= 5 && weights[5] > 0) {
-      const startIdx = 1 + Math.floor(Math.random() * (words.length - 3));
-      const twoWords = words[startIdx] + ' ' + words[startIdx+1];
-      const wrongTwos = ayahs
-        .filter((_,i) => i !== idx)
-        .filter(x => x.text.split(' ').length >= 2)
-        .map(x => { const ws = x.text.split(' '); const si = Math.floor(Math.random()*(ws.length-1)); return ws[si]+' '+ws[si+1]; })
-        .filter((w,i,arr) => w !== twoWords && arr.indexOf(w) === i)
-        .sort(() => Math.random()-0.5)
-        .slice(0, 3);
-      if (wrongTwos.length >= 2) {
-        const before = words.slice(0, startIdx).join(' ');
-        const after = words.slice(startIdx+2).join(' ');
-        const displayAyah = (before ? before + ' ' : '') + '___' + (after ? ' ' + after : '');
-        candidates.push({ weight: weights[5], q: {
-          surah: surahName, ayah: item.text, blank: twoWords,
-          wrong: wrongTwos, qtype: 'twoWords',
-          displayAyah, fromApi: true, surahIdx: idx
-        }});
-      }
-    }
-
-    // ── نوع ٧: الغريبة عنها — آية من سورة تانية ──
-    if (ayahs.length >= 4 && weights[6] > 0 && idx % 2 === 0) {
-      const allOtherSurahAyahs = Object.values(QURAN_DB).flat()
-        .filter(q => q.surah !== surahName)
-        .sort(() => Math.random()-0.5)
-        .slice(0, 1);
-      if (allOtherSurahAyahs.length > 0) {
-        const intruder = allOtherSurahAyahs[0].ayah;
-        const correctAyahs = ayahs.filter((_,i) => i !== idx).sort(() => Math.random()-0.5).slice(0,3).map(x => x.text);
-        if (correctAyahs.length >= 2) {
-          candidates.push({ weight: weights[6], q: {
-            surah: surahName,
-            ayah: 'أيٌّ من هذه الآيات ليست من سورة ' + surahName + '؟',
-            blank: intruder,
-            wrong: correctAyahs.slice(0,3),
-            qtype: 'oddOne', surahIdx: idx
-          }});
-        }
-      }
-    }
-
-    // ── نوع ٨: ترتيب الآيات — ٣ آيات مرقمة بشكل غلط، اختار الترتيب الصح ──
-    if (ayahs.length >= 3 && weights[7] > 0 && idx % 2 === 0) {
-      const tripleStart = Math.max(0, Math.min(idx - 1, ayahs.length - 3));
-      const triple = ayahs.slice(tripleStart, tripleStart + 3);
-      if (triple.length === 3) {
-        // نعمل ٤ نسخ من الترتيب: ١ صح و٣ غلط — كل نسخة مرقمة
-        const label = (arr) => arr.map((x,i) => `${i+1}. ${x.text}`).join('\n');
-        const correctOrder = label(triple);
-        const perms = [
-          [triple[2], triple[0], triple[1]],
-          [triple[1], triple[2], triple[0]],
-          [triple[2], triple[1], triple[0]],
-        ].map(p => label(p));
-        // نعرض للمستخدم الآيات الـ ٣ بترتيب مخلوط
-        const shuffledTriple = [...triple].sort(() => Math.random()-0.5);
-        const displayAyah = shuffledTriple.map((x,i)=>`${['أ','ب','ج'][i]}. ${x.text}`).join('\n');
-        candidates.push({ weight: weights[7], q: {
-          surah: surahName,
-          ayah: displayAyah,
-          blank: correctOrder,
-          wrong: perms,
-          qtype: 'order3', surahIdx: idx
-        }});
-      }
-    }
-
-    // ── نوع ٩: أي سورة؟ — آية بدون اسم السورة، اختار السورة الصح ──
-    if (weights[8] > 0 && SURAHS_META.length > 4) {
-      const surahMetaList = SURAHS_META.map(s => s[0]);
-      const wrongSurahs = surahMetaList
-        .filter(s => s !== surahName)
-        .sort(() => Math.random()-0.5)
-        .slice(0, 3);
-      if (wrongSurahs.length >= 2) {
-        candidates.push({ weight: weights[8], q: {
-          surah: surahName,
-          ayah: item.text,
-          blank: surahName,
-          wrong: wrongSurahs,
-          qtype: 'whichSurah', surahIdx: idx
-        }});
-      }
-    }
-
-    // ── نوع ١٠: كم آية في السورة؟ ──
-    if (weights[9] > 0 && idx === 0) {
-      const surahMeta = SURAHS_META.find(s => s[0] === surahName);
-      if (surahMeta) {
-        const correctCount = surahMeta[1];
-        const otherCounts = SURAHS_META
-          .filter(s => s[0] !== surahName)
-          .map(s => s[1])
-          .filter((n,i,arr) => arr.indexOf(n) === i && Math.abs(n - correctCount) <= 20 && n !== correctCount)
-          .sort(() => Math.random()-0.5)
-          .slice(0, 3);
-        if (otherCounts.length >= 2) {
-          candidates.push({ weight: weights[9], q: {
-            surah: surahName,
-            ayah: 'كم عدد آيات سورة ' + surahName + '؟',
-            blank: String(correctCount),
-            wrong: otherCounts.map(String),
-            qtype: 'countAyahs', surahIdx: idx
-          }});
-        }
-      }
-    }
-
-    // ── نوع ١١: آخر كلمة في الآية ──
-    if (words.length >= 3 && weights[10] > 0) {
-      const lastWord = words[words.length - 1];
-      const wrongLasts = ayahs
-        .filter((_,i) => i !== idx)
-        .map(x => { const ws = x.text.split(' '); return ws[ws.length-1]; })
-        .filter((w,i,arr) => w && w !== lastWord && arr.indexOf(w) === i && arabicLen(w) >= 2)
-        .sort(() => Math.random()-0.5)
-        .slice(0, 3);
-      if (wrongLasts.length >= 2) {
-        const ayahWithBlank = words.slice(0, -1).join(' ') + ' ___';
-        candidates.push({ weight: weights[10], q: {
-          surah: surahName, ayah: item.text, blank: lastWord,
-          wrong: wrongLasts, qtype: 'lastWord',
-          displayAyah: ayahWithBlank, fromApi: true, surahIdx: idx, ayahNum: item.num
-        }});
-      }
-    }
-
-    // ── نوع ١٢: ما الكلمة الصحيحة — اختر من بين كلمات متشابهة في المعنى أو الشكل ──
-    if (words.length >= 4 && weights[11] > 0) {
-      // نختار كلمة من منتصف الآية ونقدم خيارات مشابهة لها من آيات السورة نفسها
-      const midIdx = Math.floor(words.length / 2);
-      const targetWord = words[midIdx];
-      // كلمات مشابهة في الطول من نفس السورة (تشتيت حقيقي)
-      const similarWrongs = ayahs
-        .filter((_,i) => i !== idx)
-        .flatMap(x => x.text.split(' '))
-        .filter(w => w !== targetWord && arabicLen(w) >= 3 && Math.abs(arabicLen(w) - arabicLen(targetWord)) <= 2)
-        .filter((w,i,arr) => arr.indexOf(w) === i)
-        .sort(() => Math.random()-0.5)
-        .slice(0, 3);
-      if (similarWrongs.length >= 2 && arabicLen(targetWord) >= 3) {
-        const before = words.slice(0, midIdx).join(' ');
-        const after  = words.slice(midIdx + 1).join(' ');
-        const displayAyah = before + ' ___ ' + after;
-        candidates.push({ weight: weights[11], q: {
-          surah: surahName,
-          ayah: item.text,
-          blank: targetWord,
-          wrong: similarWrongs,
-          qtype: 'similarWord',
-          displayAyah,
-          fromApi: true,
-          surahIdx: idx,
-          ayahNum: item.num
-        }});
-      }
-    }
-
-    // ── نوع ١٣: ما الكلمة التي قبل هذه الكلمة في الآية؟ ──
-    if (words.length >= 4 && weights[12] > 0 && idx % 3 === 0) {
-      // اختار كلمة من منتصف الآية ونسأل عن اللي قبلها
-      const targetIdx = 1 + Math.floor(Math.random() * (words.length - 2));
-      const targetWord = words[targetIdx];
-      const prevWord   = words[targetIdx - 1];
-      if (arabicLen(prevWord) >= 2 && arabicLen(targetWord) >= 2) {
-        const wrongPrevs = ayahs
-          .filter((_,i) => i !== idx)
-          .flatMap(x => x.text.split(' ').filter(w => arabicLen(w) >= 2 && w !== prevWord && w !== targetWord))
-          .filter((w,i,arr) => arr.indexOf(w) === i)
-          .sort(() => Math.random()-0.5)
-          .slice(0, 3);
-        if (wrongPrevs.length >= 2) {
-          candidates.push({ weight: weights[12], q: {
-            surah: surahName,
-            ayah: item.text,
-            blank: prevWord,
-            wrong: wrongPrevs,
-            qtype: 'prevWord',
-            displayAyah: '... ___ ' + targetWord + ' ...',
-            fromApi: false,
-            surahIdx: idx,
-            ayahNum: item.num,
-            targetWord
-          }});
-        }
-      }
-    }
-
-    // ── نوع ١٤: رقم الجزء — في أي جزء تقع الآية؟ ──
-    if (weights[13] > 0 && idx === 0) {
-      const surahMeta = SURAHS_META.find(s => s[0] === surahName);
-      if (surahMeta) {
-        const correctJuz = surahMeta[3];
-        const wrongJuzs = [...new Set(SURAHS_META.map(s => s[3]))]
-          .filter(j => j !== correctJuz)
-          .sort(() => Math.random()-0.5)
-          .slice(0, 3);
-        if (wrongJuzs.length >= 2) {
-          candidates.push({ weight: weights[13], q: {
-            surah: surahName,
-            ayah: 'في أيِّ جزءٍ تقع سورة ' + surahName + '؟',
-            blank: String(correctJuz),
-            wrong: wrongJuzs.map(String),
-            qtype: 'juzNum',
-            surahIdx: idx
-          }});
-        }
-      }
-    }
-
-    // ── نوع ١٥: كلمة من وسط الآية مخفية مع سياق قبلها وبعدها ──
-    if (words.length >= 6 && weights[14] > 0) {
-      const midStart = Math.floor(words.length * 0.3);
-      const midEnd   = Math.floor(words.length * 0.7);
-      const midIdx   = midStart + Math.floor(Math.random() * (midEnd - midStart + 1));
-      const midWord  = words[midIdx];
-      const wrongMids = ayahs
-        .filter((_,i) => i !== idx)
-        .flatMap(x => x.text.split(' ').filter(w => arabicLen(w) >= 3 && w !== midWord))
-        .filter((w,i,arr) => arr.indexOf(w) === i)
-        .sort(() => Math.random()-0.5)
-        .slice(0, 3);
-      if (wrongMids.length >= 2 && arabicLen(midWord) >= 3) {
-        const before = words.slice(0, midIdx).join(' ');
-        const after  = words.slice(midIdx + 1).join(' ');
-        const displayAyah = before + ' ___ ' + after;
-        candidates.push({ weight: weights[14], q: {
-          surah: surahName, ayah: item.text, blank: midWord,
-          wrong: wrongMids, qtype: 'missingMiddle',
-          displayAyah, fromApi: true, surahIdx: idx, ayahNum: item.num
-        }});
-      }
-    }
-
-    // نوع مكية/مدنية محذوف من المراجعة — مش بيقيس الحفظ
-
-    // ── نوع ١٧: أكمل النصف الثاني — يعرض نص النصف الأول ويطلب النصف الثاني ──
-    if (words.length >= 6) {
-      const splitAt = Math.floor(words.length / 2);
-      const firstHalf  = words.slice(0, splitAt).join(' ');
-      const secondHalf = words.slice(splitAt).join(' ');
-      const wrongSeconds = ayahs
-        .filter((_,i) => i !== idx && ayahs[i].text.split(' ').length >= splitAt)
-        .map(x => x.text.split(' ').slice(Math.floor(x.text.split(' ').length/2)).join(' '))
-        .filter((w,i,arr) => w !== secondHalf && arr.indexOf(w) === i && w.length > 5)
-        .sort(() => Math.random()-0.5)
-        .slice(0, 3);
-      if (wrongSeconds.length >= 2) {
-        candidates.push({ weight: state.isReviewMode ? REVIEW_SECONDHALF_W : 5, q: {
-          surah: surahName,
-          ayah: firstHalf + ' ...',
-          blank: secondHalf,
-          wrong: wrongSeconds,
-          qtype: 'secondHalf',
-          surahIdx: idx,
-          ayahNum: item.num
-        }});
-      }
-    }
-
-    // ── نوع ١٨: ما الكلمة التي تصل بين جزأين؟ (كلمة رابطة) ──
-    if (words.length >= 5) {
-      const midIdx = Math.floor(words.length / 2);
-      const bridgeWord = words[midIdx];
-      if (arabicLen(bridgeWord) >= 2) {
-        const before = words.slice(0, midIdx).join(' ');
-        const after  = words.slice(midIdx + 1).join(' ');
-        const wrongBridges = ayahs
-          .filter((_,i) => i !== idx)
-          .flatMap(x => x.text.split(' ').filter(w => arabicLen(w) >= 2 && w !== bridgeWord))
-          .filter((w,i,arr) => arr.indexOf(w) === i)
-          .sort(() => Math.random()-0.5)
-          .slice(0, 3);
-        if (wrongBridges.length >= 2) {
-          candidates.push({ weight: state.isReviewMode ? REVIEW_BRIDGE_W : 4, q: {
-            surah: surahName,
-            ayah: item.text,
-            blank: bridgeWord,
-            wrong: wrongBridges,
-            qtype: 'bridgeWord',
-            displayAyah: before + ' ___ ' + after,
-            fromApi: true,
-            surahIdx: idx,
-            ayahNum: item.num
-          }});
-        }
-      }
-    }
-
-    candidates.forEach(c => allCandidates.push(c));
   });
 
-  // ===== اختيار الأسئلة بنظام وزن حقيقي =====
-  // خلط عشوائي مع الأخذ بالوزن: كل سؤال بيتكرر في الـ pool بعدد وزنه
-  const weightedPool = [];
-  for (const c of allCandidates) {
-    const w = Math.max(1, Math.round(c.weight));
-    for (let i = 0; i < w; i++) weightedPool.push(c.q);
-  }
-  // خلط حقيقي
-  for (let i = weightedPool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [weightedPool[i], weightedPool[j]] = [weightedPool[j], weightedPool[i]];
-  }
-
-  // إزالة المكررات مع الاحتفاظ بالتنوع
-  const seen = new Set();
-  const chosen = [];
-  const typeCounts = {};
-  // حساب الحد الأقصى لكل نوع بناءً على وزنه النسبي
-  const totalWeight = allCandidates.reduce((s, c) => s + c.weight, 0);
-  const targetTotal = Math.min(weightedPool.length, ayahs.length * 2);
-
-  for (const q of weightedPool) {
-    const key = q.qtype + '|' + (q.ayah || '') + '|' + (q.blank || '');
-    if (seen.has(key)) continue;
-    const wEntry = allCandidates.find(c => c.q === q);
-    const w = wEntry ? wEntry.weight : 1;
-    const maxForType = Math.max(1, Math.round((w / Math.max(totalWeight,1)) * targetTotal * 1.8));
-    if ((typeCounts[q.qtype] || 0) >= maxForType) continue;
-    seen.add(key);
-    chosen.push(q);
-    typeCounts[q.qtype] = (typeCounts[q.qtype] || 0) + 1;
-    if (chosen.length >= targetTotal) break;
-  }
-
-  // ترتيب نهائي: تنويع بحيث ما يجيش نفس النوع مرتين متتاليتين
-  const final = [];
-  const byType = {};
-  chosen.forEach(q => { (byType[q.qtype] = byType[q.qtype] || []).push(q); });
-  // رتّب الأنواع تنازلياً حسب عددها عشان الأكتر يتوزع بالتساوي
-  const typeKeys = Object.keys(byType).sort((a,b) => byType[b].length - byType[a].length);
-  let ti = 0;
-  let lastType = null;
-  while (final.length < chosen.length) {
-    let added = false;
-    for (let attempt = 0; attempt < typeKeys.length; attempt++) {
-      const key = typeKeys[(ti + attempt) % typeKeys.length];
-      if (key === lastType && typeKeys.length > 1) continue; // تجنب التكرار المتتالي
-      if (byType[key] && byType[key].length > 0) {
-        final.push(byType[key].shift());
-        lastType = key;
-        ti = (ti + attempt + 1) % typeKeys.length;
-        added = true;
-        break;
-      }
-    }
-    if (!added) {
-      // لو ما لقيناش بسبب lastType، خد أي حاجة
-      for (const key of typeKeys) {
-        if (byType[key] && byType[key].length > 0) {
-          final.push(byType[key].shift());
-          lastType = key;
-          break;
-        }
-      }
-      if (final.length === chosen.length - Object.values(byType).reduce((s,a)=>s+a.length,0)) break;
-      if (!added) break;
-    }
-  }
-
-  return final;
+  return questions;
 }
 
 function startSurahReview(surahName) {
@@ -5282,65 +4598,13 @@ function startSurahReview(surahName) {
 // ============================================================
 function shuffle(arr) { return [...arr].sort(() => Math.random()-0.5); }
 
-// ===== CELEBRATIONS =====
-function showStreakCelebration(streakCount) {
-  const emojis = {3:'🔥',5:'⚡',7:'💎',10:'🌟',15:'🏆',20:'👑'};
-  const labels = {3:'٣ صح متتالية!',5:'سلسلة ٥ 🔥',7:'٧ سلسلة — رهيب!',10:'عشرة!! ماشاءالله',15:'١٥ — حافظ متقن!',20:'٢٠ — أسطورة!!'};
-  if (!emojis[streakCount]) return;
-  const div = document.createElement('div');
-  div.className = 'streak-celebrate';
-  div.innerHTML = `<div class="streak-celebrate-inner"><div class="streak-celebrate-num">${emojis[streakCount]}</div><div class="streak-celebrate-label">${labels[streakCount]}</div></div>`;
-  document.body.appendChild(div);
-  setTimeout(() => div.remove(), 1000);
-}
-
-function showMegaCombo(combo) {
-  if (combo < 5) return;
-  const el = document.createElement('div');
-  el.className = 'mega-combo';
-  el.innerHTML = `<div class="mega-combo-text">×${combo} 🔥 COMBO!</div>`;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 800);
-}
-
-// ===== QUESTION TYPE BADGE (كبير، يتعوض عن الـ pill الصغير) =====
-const QTYPE_META = {
-  blank:      { label:'🔍 كلمة ناقصة',      cls:'qbig-blank'  },
-  lastWord:   { label:'🔚 آخر كلمة',         cls:'qbig-blank'  },
-  firstWord:  { label:'🔤 أول كلمة',          cls:'qbig-blank'  },
-  twoWords:   { label:'✂️ كلمتان ناقصتان',  cls:'qbig-blank'  },
-  similarWord:{ label:'🔎 الكلمة الصحيحة',  cls:'qbig-blank'  },
-  missingMiddle:{label:'🎯 وسط الآية',       cls:'qbig-blank'  },
-  bridgeWord: { label:'🌉 الكلمة الرابطة',  cls:'qbig-blank'  },
-  secondHalf: { label:'📜 النصف الثاني',    cls:'qbig-blank'  },
-  next:       { label:'➡️ ما بعدها؟',        cls:'qbig-next'   },
-  prevWord:   { label:'⬅️ الكلمة السابقة',  cls:'qbig-prev'   },
-  prev:       { label:'⬅️ ما قبلها؟',        cls:'qbig-prev'   },
-  order3:     { label:'🔀 رتّب الآيات',      cls:'qbig-order'  },
-  oddOne:     { label:'🔍 الغريبة عنها',    cls:'qbig-odd'    },
-  whichSurah: { label:'📖 أي سورة؟',         cls:'qbig-next'   },
-  num:        { label:'🔢 رقم الآية',         cls:'qbig-num'    },
-  juzNum:     { label:'📚 أي جزء؟',           cls:'qbig-num'    },
-  countAyahs: { label:'🔢 كم آية؟',           cls:'qbig-num'    },
-  surahType:  { label:'📜 مكية أم مدنية؟',  cls:'qbig-num'    },
-};
-
-function getCorrectMsg(qtype) {
-  const byType = {
-    next:   ['✅ حافظ! عارف ترتيب الآيات 🌟','✅ صح! الآية التالية كانت معاك 💚','✅ ماشاءالله! حفظك ترتيبي ✨'],
-    prev:   ['✅ بارك الله فيك! عارف ما قبلها 🌿','✅ ممتاز! الآيات رسخت في قلبك 💚','✅ صح! استمر في المراجعة ✨'],
-    order3: ['✅ رائع! الترتيب في ذهنك صح 🔀','✅ ماشاءالله! ترتيب منضبط 💎','✅ ممتاز! الآيات متسلسلة في قلبك 🌟'],
-    missingMiddle:['✅ دقيق جداً! الكلمة الوسطى كانت معاك 🔦','✅ ماشاءالله! ما فاتك حرف 💚','✅ بارك الله فيك! حفظ متقن ✨'],
-    lastWord:['✅ آخر كلمة كانت حاضرة في قلبك 🔚','✅ ممتاز! الختام كان معاك 💚','✅ صح! ماشاءالله عليك 🌟'],
-    firstWord:['✅ أول الآية محفوظ 🔤','✅ ممتاز! البداية كانت معاك 💚','✅ ماشاءالله! المطلع كان حاضراً ✨'],
-    similarWord:['✅ دقيق! فرّقت بين الكلمات المتشابهة 🔎','✅ بارك الله فيك! نظرة ثاقبة 💚','✅ ممتاز! الكلمة الصحيحة كانت معاك ✨'],
-    twoWords:['✅ العبارة كاملة كانت في ذهنك 💪','✅ ماشاءالله! كلمتان صح 💚','✅ ممتاز! حفظ متصل ✨'],
-    prevWord:['✅ الكلمة السابقة كانت حاضرة ⬅️','✅ ماشاءالله! فاكر سياق الآية 💚','✅ ممتاز! دقة عالية ✨'],
-  };
-  const generic = ['✅ ممتاز! بارك الله فيك 🌟','✅ صحيح! أحسنت 💚','✅ رائع! ماشاءالله ✨',
-    '✅ صح! جزاك الله خيرًا 🤍','✅ نور قلبك! حافظ كريم 💎','✅ إجابة صحيحة! استمر 🌿'];
-  const pool = (qtype && byType[qtype]) ? byType[qtype] : generic;
-  return pool[Math.floor(Math.random()*pool.length)];
+function getCorrectMsg() {
+  const msgs = [
+    '✅ ممتاز! بارك الله فيك','✅ صحيح! أحسنت','✅ رائع! ماشاءالله',
+    '✅ صح! جزاك الله خيرًا','✅ إجابة صحيحة! 🌟','✅ بالتوفيق! استمر 🤍',
+    '✅ نور قلبك! حافظ كريم ✨',
+  ];
+  return msgs[Math.floor(Math.random()*msgs.length)];
 }
 
 function toArabicNum(n) {
@@ -5535,7 +4799,7 @@ function playAyahAudio() {
   _playMp3(url, btn, stopRatio);
 }
 
-// تشغيل الاختيار — TTS عربي
+// تشغيل الاختيار — TTS يقرأ الكلمة بالظبط بصوت عربي
 function playChoiceAudio(choiceText, btn) {
   if (!choiceText) return;
   if (btn.classList.contains('playing')) {
@@ -5558,7 +4822,8 @@ function _speakArabic(text, btn) {
   btn.textContent = '⏸';
   btn.classList.add('playing');
 
-  // نبقّي التشكيل علشان يساعد في النطق، بس نشيل الرموز غير العربية
+  // تنظيف النص: إبقاء الحروف العربية والتشكيل لأن بعض المتصفحات تقرأه صح
+  // لكن نحذف الرموز الخاصة
   const cleanText = text
     .replace(/[^\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF\s]/g, ' ')
     .replace(/\s+/g, ' ')
@@ -5567,7 +4832,7 @@ function _speakArabic(text, btn) {
   const speak = (voice) => {
     const utt = new SpeechSynthesisUtterance(cleanText);
     utt.lang  = 'ar-SA';
-    utt.rate  = 0.6;
+    utt.rate  = 0.78;
     utt.pitch = 1.0;
     utt.volume = 1;
     if (voice) utt.voice = voice;
@@ -5701,47 +4966,15 @@ function playMistakeAudio(surahName, ayahText, btnId) {
 }
 
 // ===== INIT =====
-// Auto-login: أولاً محلياً، لو ما لقيناش نجيب من Firebase
-(function() {
-  const savedSession = localStorage.getItem('nour_session');
-  if (!savedSession) return;
-  let username;
-  try { username = JSON.parse(savedSession).username; } catch { return; }
-  if (!username) return;
-
-  const localData = getUserData(username);
-  if (localData) {
-    loginSuccess(username, localData);
-    // في الخلفية: محّد البيانات من Firebase لو أحدث
-    if (typeof window.fbGetUserProfile === 'function') {
-      window.fbGetUserProfile(username, (profile) => {
-        if (!profile || !currentUser) return;
-        // خد الأعلى بين المحلي والـ cloud
-        const merged = {
-          totalScore:   Math.max(currentUser.totalScore   || 0, profile.totalScore   || 0),
-          totalGames:   Math.max(currentUser.totalGames   || 0, profile.totalGames   || 0),
-          totalHasanat: Math.max(currentUser.totalHasanat || 0, profile.totalHasanat || 0),
-          streak:       Math.max(currentUser.streak       || 0, profile.streak       || 0),
-          lastPlay:     profile.lastPlay || currentUser.lastPlay,
-        };
-        Object.assign(currentUser, merged);
-        updateHomeStats();
-        saveCurrentUser();
-      });
-    }
-    return;
-  }
-
-  // مش محلي — اجيب من Firebase
-  if (typeof window.fbGetUserProfile === 'function') {
-    window.fbGetUserProfile(username, (profile) => {
-      if (!profile) return;
-      // محتاج كلمة المرور — مش هنعمل auto-login بدونها لأمان الحساب
-      // نحذف الـ session وبس
-      localStorage.removeItem('nour_session');
-    });
-  }
-})();
+// Auto-login if session token exists
+const savedSession = localStorage.getItem('nour_session');
+if (savedSession) {
+  try {
+    const { username } = JSON.parse(savedSession);
+    const data = getUserData(username);
+    if (data) { loginSuccess(username, data); }
+  } catch {}
+}
 </script>
 
 <!-- ===== CONFIRM MODAL ===== -->
