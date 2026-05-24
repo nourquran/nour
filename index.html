@@ -988,12 +988,18 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     const podiumWrap = document.getElementById('lbPodiumWrap');
     const dotsEl    = document.getElementById('lbDots');
     const lb        = document.getElementById('leaderboard');
-    if (!podiumWrap) return;
+    if (!podiumWrap || !document.getElementById('homeScreen')?.classList.contains('show')) return;
 
     // loading state
     podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">⏳ جاري تحميل اللوحة...</div>';
 
     get(ref(db, 'leaderboard')).then(snapshot => {
+      // re-fetch elements — قد تكون اتغيرت أثناء الـ async call
+      const podiumWrap = document.getElementById('lbPodiumWrap');
+      const dotsEl     = document.getElementById('lbDots');
+      const lb         = document.getElementById('leaderboard');
+      if (!podiumWrap || !document.getElementById('homeScreen')?.classList.contains('show')) return;
+
       const data = snapshot.val() || {};
       const list = Object.entries(data)
         .filter(([,d]) => (d.totalHasanat || 0) > 0)
@@ -1084,7 +1090,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
         window.lbPodiumTimer = lbPodiumTimer;
       }
     }).catch(() => {
-      podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:20px;">⚠️ تعذّر تحميل اللوحة</div>';
+      const podiumWrap = document.getElementById('lbPodiumWrap');
+      if (podiumWrap) podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:20px;">⚠️ تعذّر تحميل اللوحة</div>';
     });
   };
 
@@ -1194,6 +1201,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div style="display:flex;gap:12px;align-items:center;">
         <span style="font-size:13px;color:var(--gold);" id="userLevelDisplay">المستوى ١</span>
         <span class="user-logout" onclick="resetScore()" style="color:rgba(255,120,100,0.5);" title="تصفير النقاط">🔄</span>
+        <span class="user-logout" onclick="deleteAccount()" style="color:rgba(255,80,80,0.45);font-size:12px;" title="حذف الحساب">🗑️</span>
         <span class="user-logout" onclick="doLogout()">خروج ↩</span>
       </div>
     </div>
@@ -1763,6 +1771,16 @@ function updateHomeStats() {
 }
 
 // ===== LEADERBOARD PODIUM =====
+// ===== SAFE DOM HELPER =====
+function safeHTML(id, html) {
+  const el = typeof id === 'string' ? document.getElementById(id) : id;
+  if (el) el.innerHTML = html;
+}
+function safeText(id, text) {
+  const el = typeof id === 'string' ? document.getElementById(id) : id;
+  if (el) el.textContent = text;
+}
+
 let lbPodiumTimer = null;
 let lbPodiumIdx = 0;
 let lbRestTimer = null;
@@ -1783,7 +1801,7 @@ function renderLeaderboard() {
   const dotsEl    = document.getElementById('lbDots');
   const lb        = document.getElementById('leaderboard');
 
-  if (!podiumWrap || !lb) return;
+  if (!podiumWrap || !lb || !document.getElementById('homeScreen')?.classList.contains('show')) return;
 
   if (list.length === 0) {
     podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">كن أول من يسجل نقاطه! 🌟</div>';
@@ -2696,7 +2714,7 @@ function onJuzFilterChange() {
   }
   const segs = JUZ_SURAHS[parseInt(selectedJuz)];
   const totalAyahs = segs.reduce((sum,seg)=>sum+(seg.e-seg.a+1), 0);
-  document.getElementById('surahHint').innerHTML = '✅ الجزء ' + toArabicNum(selectedJuz) + ' — <span style="color:var(--gold)">' + toArabicNum(totalAyahs) + ' آية</span> — محلي ⚡ بدون إنترنت';
+  safeHTML('surahHint', '✅ الجزء ' + toArabicNum(selectedJuz) + ' — <span style="color:var(--gold)">' + toArabicNum(totalAyahs) + ' آية</span> — محلي ⚡ بدون إنترنت');
   document.getElementById('surahHint').style.color = 'var(--emerald-light)';
 
   // ضبط الـ slider
@@ -3468,13 +3486,13 @@ function renderQuestion() {
 
   // Render ayah text based on qtype
   if (q.qtype === 'next') {
-    document.getElementById('ayahText').innerHTML = applyAyahFraction(q.ayah, frac);
+    safeHTML('ayahText', applyAyahFraction(q.ayah, frac));
     document.getElementById('qHint').textContent = 'ما الآية التالية بعد هذه؟';
   } else if (q.qtype === 'prev') {
-    document.getElementById('ayahText').innerHTML = applyAyahFraction(q.ayah, frac);
+    safeHTML('ayahText', applyAyahFraction(q.ayah, frac));
     document.getElementById('qHint').textContent = 'ما الآية السابقة لهذه؟';
   } else if (q.qtype === 'num') {
-    document.getElementById('ayahText').innerHTML = q.ayah;
+    safeHTML('ayahText', q.ayah);
     document.getElementById('qHint').textContent = 'ما رقم هذه الآية في السورة؟';
   } else if (q.fromApi && q.displayAyah) {
     const parts = q.displayAyah.split('___');
@@ -3482,7 +3500,7 @@ function renderQuestion() {
     const beforeBlank = applyAyahFraction(parts[0].trimEnd(), frac < 1 ? frac : 1);
     const afterBlank = frac < 1 ? '' : (parts[1] || '');
     const htmlQ = beforeBlank + ' <span class="blank" style="min-width:80px;display:inline-block;border-bottom:2px solid var(--gold);margin:0 4px;text-align:center;color:var(--gold-light);font-size:14px;">?</span>' + afterBlank;
-    document.getElementById('ayahText').innerHTML = htmlQ;
+    safeHTML('ayahText', htmlQ);
     const hintMsgs = {
       0: 'أكمل الكلمة الأخيرة ✨',
       1: 'أكمل الكلمة الناقصة من المنتصف 📖',
@@ -3497,9 +3515,9 @@ function renderQuestion() {
   } else {
     const blankHTML = '<span class="blank"></span>';
     const displayText = applyAyahFraction(q.ayah, frac);
-    document.getElementById('ayahText').innerHTML = displayText.includes(q.blank)
+    safeHTML('ayahText', displayText.includes(q.blank)
       ? displayText.replace(q.blank, blankHTML)
-      : q.ayah.replace(q.blank, blankHTML);
+      : q.ayah.replace(q.blank, blankHTML));
     document.getElementById('qHint').textContent = 'اختر الكلمة الصحيحة';
   }
 
@@ -3508,7 +3526,7 @@ function renderQuestion() {
   document.getElementById('nextBtn').className = 'next-btn';
   state.answered = false; state.listenRevealed = false;
 
-  document.getElementById('mcqWrap').innerHTML = '';
+  safeHTML('mcqWrap', '');
   document.getElementById('typingWrap').style.display = 'none';
   document.getElementById('listenWrap').style.display = 'none';
   if (document.getElementById('typingInput')) {
@@ -3533,9 +3551,9 @@ function renderQuestion() {
     startTimer();
   } else {
     document.getElementById('listenWrap').style.display = 'block';
-    document.getElementById('ayahText').innerHTML = q.qtype ? q.ayah : q.ayah;
+    safeHTML('ayahText', q.qtype ? q.ayah : q.ayah);
     document.getElementById('listenBtn').style.display = '';
-    document.getElementById('listenChoices').innerHTML = '';
+    safeHTML('listenChoices', '');
   }
 }
 
@@ -3606,7 +3624,7 @@ function renderMCQ(q) {
 
 function showListenChoices() {
   const q = state.questions[state.qIndex];
-  document.getElementById('ayahText').innerHTML = q.ayah.replace(q.blank, '<span class="blank"></span>');
+  safeHTML('ayahText', q.ayah.replace(q.blank, '<span class="blank"></span>'));
   document.getElementById('listenBtn').style.display = 'none';
   const choices = shuffle([q.blank, ...q.wrong]);
   const wrap = document.getElementById('listenChoices');
@@ -3792,7 +3810,7 @@ function showResults() {
     { text:'وَنَزَّلْنَا عَلَيْكَ الْكِتَابَ تِبْيَانًا لِّكُلِّ شَيْءٍ', ref:'النحل: ٨٩' },
   ];
   const r = inspo[Math.floor(Math.random()*inspo.length)];
-  document.getElementById('shareAyah').innerHTML = r.text + '<div class="ayah-ref">('+r.ref+')</div>';
+  safeHTML('shareAyah', r.text + '<div class="ayah-ref">('+r.ref+')</div>');
 
   updateHomeStats();
   renderLeaderboard();
@@ -3822,9 +3840,45 @@ function resetScore() {
   });
 }
 
+function deleteAccount() {
+  if (!currentUser) return;
+  const isGuest = currentUser.isGuest;
+  const u = currentUser.username;
+  showConfirm('هيتحذف حسابك وكل بياناتك نهائياً. متأكد؟', () => {
+
+    // مسح من Firebase أولاً (قبل ما نصفر currentUser)
+    if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest);
+
+    // مسح كل بيانات المستخدم من localStorage
+    const keys = [
+      'nour_mistakes_'       + (isGuest ? 'guest' : u),
+      'nour_saved_mistakes_' + (isGuest ? 'guest' : u),
+      'nour_revprog_'        + u,
+      'nour_memorized_'      + u,
+      'nour_session',
+    ];
+    keys.forEach(k => localStorage.removeItem(k));
+
+    // مسح من nour_users
+    if (!isGuest) {
+      const users = getUsers();
+      delete users[u];
+      saveUsers(users);
+    }
+
+    // تسجيل خروج
+    currentUser = null;
+    window.currentUser = null;
+    showScreen('homeScreen');
+    document.getElementById('loginScreen').classList.remove('hide');
+    showToast('✅ تم حذف الحساب');
+  });
+}
+
 function showConfirm(msg, onYes) {
   const modal = document.getElementById('confirmModal');
   document.getElementById('confirmText').textContent = msg;
+  document.getElementById('confirmYes').textContent = 'تأكيد';
   modal.style.display = 'flex';
   document.getElementById('confirmYes').onclick = () => { closeConfirm(); onYes(); };
 }
@@ -3941,7 +3995,7 @@ function showMistakesScreen() {
   const tabsEl = document.getElementById('mistakesDateTabs');
   tabsEl.innerHTML = '';
   if (days.length === 0) {
-    document.getElementById('mistakesList').innerHTML = '<div class="mistakes-empty">🌟 ما عندكش غلطات محفوظة لحد دلوقتي<br>العب وهتظهر هنا الغلطات اللي هتعملها</div>';
+    safeHTML('mistakesList', '<div class="mistakes-empty">🌟 ما عندكش غلطات محفوظة لحد دلوقتي<br>العب وهتظهر هنا الغلطات اللي هتعملها</div>');
     return;
   }
   const DAY_NAMES = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
