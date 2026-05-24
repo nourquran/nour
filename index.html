@@ -1203,28 +1203,39 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
   // مراقبة حالة الـ Auth — دخول تلقائي لو عنده جلسة
   let _authHandled = false;
+
+  function _doAuthLogin(user) {
+    if (!user || window.currentUser || _authHandled) return;
+    _authHandled = true;
+    const emailKey = user.email.replace('@nour-quran.app','').replace('@nour.app','');
+    const tryGetProfile = (path) => get(ref(db, path)).then(s => s.exists() ? s.val() : null).catch(() => null);
+    Promise.all([
+      tryGetProfile('users/' + emailKey + '/profile'),
+      tryGetProfile('nour_users/' + window._makeKey(emailKey, false)),
+    ]).then(([profileNew, profileOld]) => {
+      const profile = profileNew || profileOld;
+      const realUsername = (profile && profile.username) ? profile.username : emailKey;
+      window.fbGetUserData(realUsername, (data) => {
+        // استنى loginSuccess تكون جاهزة (module script بيسبق regular script أحياناً)
+        const tryLogin = () => {
+          if (typeof window.loginSuccess === 'function') {
+            if (!window.currentUser) {
+              window.loginSuccess(realUsername, data || { totalScore:0, totalGames:0, totalHasanat:0, streak:0, lastPlay:null });
+            }
+            _authHandled = false;
+          } else {
+            setTimeout(tryLogin, 50);
+          }
+        };
+        tryLogin();
+      });
+    }).catch(() => { _authHandled = false; });
+  }
+
   onAuthStateChanged(auth, (user) => {
     if (user && !window.currentUser && !_authHandled) {
-      _authHandled = true;
-      // الـ email ممكن يكون @nour.app أو @nour-quran.app
-      const emailKey = user.email.replace('@nour-quran.app','').replace('@nour.app','');
-      // نجرب نجيب الـ profile من المسارين
-      const tryGetProfile = (path) => get(ref(db, path)).then(s => s.exists() ? s.val() : null).catch(() => null);
-      Promise.all([
-        tryGetProfile('users/' + emailKey + '/profile'),
-        tryGetProfile('nour_users/' + window._makeKey(emailKey, false)),
-      ]).then(([profileNew, profileOld]) => {
-        const profile = profileNew || profileOld;
-        const realUsername = (profile && profile.username) ? profile.username : emailKey;
-        window.fbGetUserData(realUsername, (data) => {
-          if (typeof window.loginSuccess === 'function' && !window.currentUser) {
-            window.loginSuccess(realUsername, data || { totalScore:0, totalGames:0, totalHasanat:0, streak:0, lastPlay:null });
-          }
-          _authHandled = false; // reset عشان لو اتعمل logout ورجع login تاني
-        });
-      }).catch(() => { _authHandled = false; });
+      _doAuthLogin(user);
     }
-    // لو خرج المستخدم نرجع screen الـ login
     if (!user) {
       _authHandled = false;
     }
@@ -1508,6 +1519,12 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
         <button class="mistakes-nav-btn" style="margin-bottom:0;" onclick="showMistakesScreen()">❌ الغلطات</button>
       </div>
 
+    </div>
+
+    <!-- IN-PROGRESS SURAHS -->
+    <div id="inProgressSection" style="display:none;margin-bottom:4px;">
+      <div class="section-title">🔥 بدأتها — أكمل من حيث توقفت</div>
+      <div id="inProgressList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
     </div>
 
     <!-- LEADERBOARD -->
@@ -2152,14 +2169,15 @@ function guestLogin() {
   loginSuccess(guestName, data, true);
 }
 
-function loginSuccess(username, data, isGuest=false) {
-  if (window.currentUser) return; // منع الاستدعاء المزدوج
+let _loginInProgress = false;
 
-  // للمستخدمين المسجلين: اجلب أحدث بيانات من Firebase وادمجها
+function loginSuccess(username, data, isGuest=false) {
+  if (window.currentUser || _loginInProgress) return;
+  _loginInProgress = true;
+
   if (!isGuest && typeof window.fbGetUserData === 'function') {
     window.fbGetUserData(username, (fbData) => {
-      if (window.currentUser) return; // تحقق مرة تانية
-      // دمج البيانات — الأكبر فيهم يكسب (مش هنخسر نقاط أبداً)
+      if (window.currentUser) { _loginInProgress = false; return; }
       const localData = data || {};
       const merged = {
         totalScore:   Math.max(fbData?.totalScore   || 0, localData.totalScore   || 0),
@@ -2170,7 +2188,7 @@ function loginSuccess(username, data, isGuest=false) {
       };
       currentUser = { username, isGuest: false, ...merged };
       window.currentUser = currentUser;
-      window.loginSuccess = loginSuccess;
+      _loginInProgress = false;
       _finishLogin(username, isGuest);
     });
     return;
@@ -2178,9 +2196,10 @@ function loginSuccess(username, data, isGuest=false) {
 
   currentUser = { username, isGuest, ...(data || {}) };
   window.currentUser = currentUser;
-  window.loginSuccess = loginSuccess;
+  _loginInProgress = false;
   _finishLogin(username, isGuest);
 }
+window.loginSuccess = loginSuccess;
 
 function _finishLogin(username, isGuest) {
   document.getElementById('loginScreen').classList.add('hide');
@@ -2200,6 +2219,7 @@ function doLogout() {
   saveCurrentUser();
   currentUser = null;
   window.currentUser = null;
+  _loginInProgress = false;
   if (typeof window.fbLogout === 'function') window.fbLogout();
   document.getElementById('loginScreen').classList.remove('hide');
   goHome();
@@ -2309,6 +2329,65 @@ function updateHomeStats() {
     dots.appendChild(d);
   }
   renderLevels();
+  renderInProgressSurahs();
+}
+
+// ===== IN-PROGRESS SURAHS (Home) =====
+function renderInProgressSurahs() {
+  const section = document.getElementById('inProgressSection');
+  const list    = document.getElementById('inProgressList');
+  if (!section || !list) return;
+  if (!currentUser || currentUser.isGuest) { section.style.display = 'none'; return; }
+
+  // اجمع كل السور اللي nextIndex > 0 (بدأها ومش خلصها)
+  const progKey = 'nour_surahprog_' + currentUser.username;
+  let progData = {};
+  try { progData = JSON.parse(localStorage.getItem(progKey) || '{}'); } catch {}
+
+  // السور المتاحة في القاعدة
+  const allPool = typeof QURAN_DB !== 'undefined' ? Object.values(QURAN_DB).flat() : [];
+  const surahTotals = {};
+  allPool.forEach(q => { if(q.surah) surahTotals[q.surah] = (surahTotals[q.surah]||0)+1; });
+
+  const started = Object.entries(progData)
+    .filter(([surah, nextIdx]) => nextIdx > 0 && surahTotals[surah])
+    .map(([surah, nextIdx]) => ({ surah, nextIdx, total: surahTotals[surah] }))
+    .sort((a,b) => a.surah.localeCompare(b.surah, 'ar'));
+
+  if (started.length === 0) { section.style.display = 'none'; return; }
+
+  section.style.display = 'block';
+  list.innerHTML = '';
+
+  started.forEach(({ surah, nextIdx, total }) => {
+    const pct = Math.round((nextIdx / total) * 100);
+    const chip = document.createElement('div');
+    chip.style.cssText = `
+      background:linear-gradient(135deg,rgba(27,107,74,0.22),rgba(46,175,120,0.10));
+      border:1.5px solid rgba(46,175,120,0.45);
+      border-radius:14px; padding:10px 14px; cursor:pointer;
+      transition:all .2s; min-width:120px; position:relative;
+      display:flex; flex-direction:column; gap:5px;
+    `;
+    chip.onmouseenter = () => chip.style.borderColor = 'rgba(46,175,120,0.85)';
+    chip.onmouseleave = () => chip.style.borderColor = 'rgba(46,175,120,0.45)';
+    chip.onclick = () => {
+      // افتح شيت التحدي مع السورة محددة مسبقاً
+      _surahDropdownSelect(surah, SURAHS_META.findIndex(s=>s[0]===surah)+1 + '. سورة ' + surah);
+      openGameSheet();
+    };
+
+    chip.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:#7DFFC9;font-family:'Cairo',sans-serif;">سورة ${surah}</div>
+      <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#2EAF78,#7DFFC9);border-radius:2px;transition:width .4s;"></div>
+      </div>
+      <div style="font-size:10px;color:rgba(125,255,201,0.55);font-family:'Cairo',sans-serif;">
+        ${toArabicNum(nextIdx)} / ${toArabicNum(total)} آية • ${toArabicNum(pct)}٪
+      </div>
+    `;
+    list.appendChild(chip);
+  });
 }
 
 // ===== LEADERBOARD PODIUM =====
@@ -3858,6 +3937,8 @@ function saveSurahProgress(surahName, nextIndex) {
   try { data = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
   data[surahName] = nextIndex;
   localStorage.setItem(key, JSON.stringify(data));
+  // حدّث قائمة "بدأتها" في الـ Home
+  if (typeof renderInProgressSurahs === 'function') renderInProgressSurahs();
 }
 
 function buildQuestions() {
