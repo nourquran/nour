@@ -4799,14 +4799,19 @@ function playAyahAudio() {
   _playMp3(url, btn, stopRatio);
 }
 
-// تشغيل الاختيار — TTS يقرأ الكلمة بالظبط بصوت عربي
+// تشغيل الاختيار — بصوت Google Translate العربي (مجاني)
 function playChoiceAudio(choiceText, btn) {
   if (!choiceText) return;
   if (btn.classList.contains('playing')) {
     stopCurrentAudio();
     return;
   }
-  _speakArabic(choiceText, btn);
+
+  // شيل التشكيل
+  const clean = choiceText.replace(/[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED]/g, '').trim();
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(clean)}&tl=ar&client=tw-ob`;
+
+  _playMp3(url, btn);
 }
 
 // TTS عربي — يقرأ النص المعطى بنطق صحيح
