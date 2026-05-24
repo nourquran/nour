@@ -1665,7 +1665,7 @@ function loginSuccess(username, data, isGuest=false) {
   checkStreak();
   renderLevels();
   updateHomeStats();
-  renderLeaderboard();
+  requestAnimationFrame(() => requestAnimationFrame(() => renderLeaderboard()));
   populateSurahFilter();
   populateJuzFilter();
   loadMemorizedSurahs();
