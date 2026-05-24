@@ -1103,9 +1103,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     signInWithEmailAndPassword(auth, email, password)
       .then(() => onSuccess())
       .catch(e => {
-        if (e.code === 'auth/user-not-found') onError('اسم المستخدم غير موجود');
-        else if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') onError('كلمة المرور خاطئة');
-        else onError('خطأ في الدخول، حاول مجدداً');
+        onError('اسم المستخدم أو كلمة المرور خاطئة');
       });
   };
 
