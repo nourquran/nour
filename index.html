@@ -92,6 +92,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
 <style>
 :root {
   --gold: #C9973A; --gold-light: #F5D98B; --gold-dark: #8B6820;
@@ -347,6 +349,46 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 .qcount-slider { width:100%; accent-color:var(--gold); height:6px; border-radius:3px; cursor:pointer; }
 .qcount-ticks { display:flex; justify-content:space-between; font-size:10px; color:rgba(245,217,139,0.4); margin-top:4px; padding:0 2px; }
 
+/* ===== DUAL SLIDER (نطاق الآيات مدمج) ===== */
+#dualSliderEl { margin: 2px 4px 0; }
+#dualSliderEl .noUi-target {
+  background: rgba(255,254,249,0.08);
+  border: none; box-shadow: none;
+  height: 6px; border-radius: 3px;
+}
+#dualSliderEl .noUi-connect { background: var(--gold); }
+#dualSliderEl .noUi-base .noUi-origin:first-child .noUi-handle {
+  /* نقطة النهاية — ذهبي */
+}
+#dualSliderEl .noUi-handle {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: linear-gradient(135deg, #F5D98B, #C9973A);
+  border: 2px solid #8B6820;
+  box-shadow: 0 2px 8px rgba(201,151,58,0.5);
+  top: -7px; right: -10px; cursor: grab;
+}
+#dualSliderEl .noUi-handle:active { cursor: grabbing; }
+#dualSliderEl .noUi-handle::before,
+#dualSliderEl .noUi-handle::after { display: none; }
+/* نقطة البداية — لون مختلف شوية */
+#dualSliderEl .noUi-origin:last-child .noUi-handle {
+  background: linear-gradient(135deg, #7DFFC9, #2EAF78);
+  border-color: #1B6B4A;
+  box-shadow: 0 2px 8px rgba(46,175,120,0.5);
+}
+#dualSliderEl .noUi-tooltip {
+  background: rgba(26,18,8,0.95);
+  border: 1px solid rgba(201,151,58,0.4);
+  border-radius: 8px; padding: 3px 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 11px; font-weight: 700;
+  color: var(--gold); bottom: 130%;
+  white-space: nowrap;
+}
+#dualSliderEl .noUi-origin:last-child .noUi-tooltip { color: #7DFFC9; border-color: rgba(46,175,120,0.4); }
+.dual-ticks-row { display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px; }
+.dual-range-summary { font-size:11px; color:rgba(245,217,139,0.45); text-align:center; margin-top:5px; min-height:15px; }
+
 /* ===== MEMORIZED SURAHS ===== */
 .memorized-wrap { margin-bottom:18px; }
 .memorized-label { font-size:12px; color:var(--gold); opacity:0.8; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
@@ -540,19 +582,17 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 
 /* بطاقة المتصدر المتحركة */
 .lb-podium-wrap {
-  position:relative; min-height:120px; overflow:hidden; border-radius:20px;
+  position:relative; min-height:140px; overflow:hidden; border-radius:20px;
   background:linear-gradient(135deg, rgba(201,151,58,0.06) 0%, rgba(27,107,74,0.06) 100%);
   border:1px solid rgba(201,151,58,0.18);
-  transition: height 0.4s ease;
 }
 .lb-podium-slide {
   display:flex; align-items:center; gap:16px;
-  padding:16px 20px;
+  padding:20px 20px;
   position:absolute; width:100%; top:0; left:0;
   opacity:0; transform:translateX(60px);
   transition:opacity 0.5s ease, transform 0.5s ease;
   pointer-events:none;
-  box-sizing:border-box;
 }
 .lb-podium-slide.active {
   opacity:1; transform:translateX(0);
@@ -562,21 +602,21 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
   opacity:0; transform:translateX(-60px);
 }
 .lb-podium-rank {
-  font-size:46px; line-height:1; flex-shrink:0;
+  font-size:52px; line-height:1; flex-shrink:0;
   filter:drop-shadow(0 2px 8px rgba(201,151,58,0.4));
 }
-.lb-podium-info { flex:1; min-width:0; overflow:hidden; }
+.lb-podium-info { flex:1; min-width:0; }
 .lb-podium-name {
-  font-size:16px; font-weight:900; color:var(--cream);
+  font-size:19px; font-weight:900; color:var(--cream);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  margin-bottom:3px; max-width:100%;
+  margin-bottom:4px;
 }
 .lb-podium-name.is-me { color:var(--gold); }
 .lb-podium-hasanat {
-  font-size:20px; font-weight:700; color:var(--emerald-light);
+  font-size:22px; font-weight:700; color:var(--emerald-light);
   margin-bottom:2px;
 }
-.lb-podium-score { font-size:11px; color:rgba(245,217,139,0.55); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lb-podium-score { font-size:12px; color:rgba(245,217,139,0.55); }
 
 /* نقاط الـ pagination */
 .lb-dots { display:flex; justify-content:center; gap:6px; padding:10px 0 4px; }
@@ -1050,9 +1090,6 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
         </div>
       </div>`;
     }).join('');
-
-    // ضبط الارتفاع بعد البناء
-    setTimeout(() => { if (typeof lbSyncWrapHeight === 'function') lbSyncWrapHeight(document.getElementById('lbSlide0')); }, 50);
 
     if (dotsEl) dotsEl.innerHTML = top3.map((_,i) =>
       `<div class="lb-dot${i===0?' active':''}" onclick="lbGoTo(${i})"></div>`
@@ -1824,12 +1861,6 @@ function renderLeaderboard() {
       </div>`;
   }).join('');
 
-  // ضبط ارتفاع الـ wrap بعد البناء
-  setTimeout(() => {
-    const firstSlide = document.getElementById('lbSlide0');
-    lbSyncWrapHeight(firstSlide);
-  }, 50);
-
   // Dots
   dotsEl.innerHTML = top3.map((_,i) =>
     `<div class="lb-dot${i===0?' active':''}" onclick="lbGoTo(${i})"></div>`
@@ -1883,15 +1914,6 @@ function renderLeaderboard() {
   }
 }
 
-function lbSyncWrapHeight(activeSlide) {
-  if (!activeSlide) return;
-  const wrap = document.getElementById('lbPodiumWrap');
-  if (!wrap) return;
-  // نحسب الارتفاع الحقيقي للـ slide النشط
-  const h = activeSlide.scrollHeight;
-  wrap.style.height = h + 'px';
-}
-
 function lbGoTo(idx) {
   const slides = document.querySelectorAll('.lb-podium-slide');
   const dots   = document.querySelectorAll('.lb-dot');
@@ -1906,9 +1928,6 @@ function lbGoTo(idx) {
 
   slides[lbPodiumIdx]?.classList.add('active');
   dots.forEach((d,i) => d.classList.toggle('active', i === lbPodiumIdx));
-
-  // ضبط الارتفاع ديناميكياً للـ slide الجديد
-  setTimeout(() => lbSyncWrapHeight(slides[lbPodiumIdx]), 50);
 
   if (lbPodiumTimer) { clearInterval(lbPodiumTimer); lbPodiumTimer = null; }
   if (window.lbPodiumTimer) { clearInterval(window.lbPodiumTimer); window.lbPodiumTimer = null; }
@@ -2752,6 +2771,9 @@ function clearJuzFilter(silent=false) {
 }
 
 let selectedSurah = '';
+let selectedFromAyah = 1;
+let selectedToAyah = null;
+let _dualSlider = null;
 
 
 function populateSurahFilter() {
@@ -2782,39 +2804,112 @@ function populateSurahFilter() {
 
 
 function onSurahFilterChange() {
-  selectedJuz = ''; // clear juz if surah chosen
+  selectedJuz = '';
   selectedSurah = document.getElementById('surahFilter').value;
   updateSurahHint();
   updateQcountSliderMax();
-  // تلقائياً ضبط عدد الأسئلة للعدد الحقيقي لآيات السورة
+
   if (selectedSurah) {
-    // أولاً: من SURAHS_FULL (الأرقام الحقيقية)
     const meta = SURAHS_FULL.find(s => s[0] === selectedSurah);
     const realCount = meta ? meta[1] : 0;
     if (realCount > 0) {
-      const slider = document.getElementById('qcountSlider');
-      slider.max = Math.max(realCount, 50);
-      slider.value = realCount;
+      selectedFromAyah = 1;
+      selectedToAyah = realCount;
       selectedQCount = realCount;
       document.getElementById('qcountDisplay').textContent = toArabicNum(realCount);
-      // تحديث hint
       const hint = document.getElementById('surahHint');
       hint.style.color = 'var(--emerald-light)';
       hint.textContent = '✅ سورة ' + selectedSurah + ' — ' + toArabicNum(realCount) + ' آية — محلي ⚡ بدون إنترنت';
+      _showDualSlider(realCount);
     }
+  } else {
+    _hideDualSlider();
+    selectedFromAyah = 1;
+    selectedToAyah = null;
   }
 }
 
 function clearSurahFilter() {
   selectedSurah = '';
+  selectedFromAyah = 1;
+  selectedToAyah = null;
   document.getElementById('surahFilter').value = '';
   document.getElementById('surahHint').textContent = '';
+  _hideDualSlider();
   updateQcountSliderMax();
-  // إرجاع عدد الأسئلة للافتراضي
   const slider = document.getElementById('qcountSlider');
   slider.value = 20;
   selectedQCount = 20;
   document.getElementById('qcountDisplay').textContent = toArabicNum(20);
+}
+
+function _showDualSlider(total) {
+  document.getElementById('singleSliderWrap').style.display = 'none';
+  document.getElementById('dualSliderWrap').style.display = 'block';
+
+  // دمّر القديم
+  if (_dualSlider) { try { _dualSlider.destroy(); } catch(e){} _dualSlider = null; }
+  const el = document.getElementById('dualSliderEl');
+  el.innerHTML = '';
+
+  if (typeof noUiSlider === 'undefined') { _hideDualSlider(); return; }
+
+  noUiSlider.create(el, {
+    start: [total, 1],          // [النهاية, البداية] — RTL
+    connect: true,
+    step: 1,
+    range: { min: 1, max: total },
+    direction: 'rtl',
+    tooltips: [
+      { to: v => 'آية ' + toArabicNum(Math.round(v)) },
+      { to: v => 'آية ' + toArabicNum(Math.round(v)) }
+    ]
+  });
+  _dualSlider = el.noUiSlider;
+
+  // ticks ديناميكية
+  const ticksEl = document.getElementById('dualTicks');
+  if (total <= 20) {
+    ticksEl.innerHTML = Array.from({length: total}, (_,i) =>
+      `<span>${toArabicNum(i+1)}</span>`
+    ).join('');
+  } else {
+    const steps = [1, Math.round(total*0.25), Math.round(total*0.5), Math.round(total*0.75), total];
+    ticksEl.innerHTML = steps.map(n => `<span>${toArabicNum(n)}</span>`).join('');
+  }
+
+  _dualSlider.on('update', function(values) {
+    const v0 = Math.round(parseFloat(values[0]));
+    const v1 = Math.round(parseFloat(values[1]));
+    const toAyah   = Math.max(v0, v1);
+    const fromAyah = Math.min(v0, v1);
+    selectedFromAyah = fromAyah;
+    selectedToAyah   = toAyah;
+    selectedQCount   = toAyah - fromAyah + 1;
+    document.getElementById('qcountDisplay').textContent = toArabicNum(selectedQCount);
+    const summary = document.getElementById('dualRangeSummary');
+    if (fromAyah === 1 && toAyah === total) {
+      summary.textContent = '📖 كل السورة — ' + toArabicNum(total) + ' آية';
+    } else {
+      summary.textContent = 'من آية ' + toArabicNum(fromAyah) + ' إلى آية ' + toArabicNum(toAyah) + ' — ' + toArabicNum(selectedQCount) + ' آية';
+    }
+  });
+
+  document.getElementById('dualRangeSummary').textContent = '📖 كل السورة — ' + toArabicNum(total) + ' آية';
+}
+
+function _hideDualSlider() {
+  document.getElementById('singleSliderWrap').style.display = 'block';
+  document.getElementById('dualSliderWrap').style.display = 'none';
+  if (_dualSlider) { try { _dualSlider.destroy(); } catch(e){} _dualSlider = null; }
+  document.getElementById('dualSliderEl').innerHTML = '';
+}
+
+function resetDualSlider() {
+  if (!_dualSlider || !selectedSurah) return;
+  const meta = SURAHS_FULL.find(s => s[0] === selectedSurah);
+  const total = meta ? meta[1] : 0;
+  if (total > 0) _dualSlider.set([total, 1]);
 }
 
 function updateSurahHint() {
@@ -3307,7 +3402,7 @@ function startGame() {
     const surahIdx = SURAHS_FULL.findIndex(s => s[0] === selectedSurah);
     if (surahIdx === -1) { showToast('⚠️ السورة مش موجودة'); return; }
     const surahNum = surahIdx + 1;
-    qs = loadAndBuildSurahQuestions(surahNum, selectedSurah);
+    qs = loadAndBuildSurahQuestions(surahNum, selectedSurah, selectedFromAyah, selectedToAyah);
     if (!qs) {
       // fallback للـ DB القديمة
       const allPool = Object.values(QURAN_DB).flat();
@@ -3352,7 +3447,11 @@ function startGame() {
   if (selectedJuz) {
     document.getElementById('levelBadgeGame').textContent = '📚 الجزء ' + toArabicNum(parseInt(selectedJuz));
   } else if (selectedSurah) {
-    document.getElementById('levelBadgeGame').textContent = '📖 سورة ' + selectedSurah + ' — ' + toArabicNum(qs.length) + ' آية';
+    const _smeta = SURAHS_FULL.find(s=>s[0]===selectedSurah);
+    const _full = selectedFromAyah===1 && (!selectedToAyah || selectedToAyah===(_smeta?.[1]||9999));
+    document.getElementById('levelBadgeGame').textContent = '📖 سورة ' + selectedSurah +
+      (_full ? '' : ' (آية '+toArabicNum(selectedFromAyah)+'–'+toArabicNum(selectedToAyah)+')') +
+      ' — ' + toArabicNum(qs.length) + ' آية';
   } else {
     const lvl = LEVEL_DEFS[state.level];
     document.getElementById('levelBadgeGame').textContent = lvl.icon + ' ' + lvl.name;
@@ -4874,13 +4973,25 @@ if (savedSession) {
         <span id="qcountLabelText">اختر عدد الأسئلة في كل جلسة</span>
         <span class="qcount-val" id="qcountDisplay">٢٠</span>
       </div>
-      <input type="range" class="qcount-slider" id="qcountSlider" min="1" max="50" step="1" value="20"
-        oninput="onQcountChange(this.value)" onchange="onQcountChange(this.value)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px;">
-        <div class="qcount-ticks" style="flex:1;" id="qcountTicks">
-          <span>١</span><span>١٠</span><span>٢٠</span><span>٣٠</span><span>٤٠</span><span>٥٠</span>
+      <!-- السلايدر العادي — يظهر لما ما في سورة -->
+      <div id="singleSliderWrap">
+        <input type="range" class="qcount-slider" id="qcountSlider" min="1" max="50" step="1" value="20"
+          oninput="onQcountChange(this.value)" onchange="onQcountChange(this.value)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px;">
+          <div class="qcount-ticks" style="flex:1;" id="qcountTicks">
+            <span>١</span><span>١٠</span><span>٢٠</span><span>٣٠</span><span>٤٠</span><span>٥٠</span>
+          </div>
+          <button id="surahAllQBtn" onclick="setAllSurahQuestions()" style="display:none;background:rgba(46,175,120,0.15);border:1.5px solid rgba(46,175,120,0.4);border-radius:10px;padding:6px 12px;color:#7DFFC9;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s;">📖 كل آيات السورة</button>
         </div>
-        <button id="surahAllQBtn" onclick="setAllSurahQuestions()" style="display:none;background:rgba(46,175,120,0.15);border:1.5px solid rgba(46,175,120,0.4);border-radius:10px;padding:6px 12px;color:#7DFFC9;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s;">📖 كل آيات السورة</button>
+      </div>
+      <!-- الـ dual slider — يظهر لما يختار سورة -->
+      <div id="dualSliderWrap" style="display:none;">
+        <div id="dualSliderEl"></div>
+        <div class="dual-ticks-row">
+          <div class="qcount-ticks" style="flex:1;" id="dualTicks"></div>
+          <button onclick="resetDualSlider()" style="background:rgba(201,151,58,0.1);border:1px solid rgba(201,151,58,0.3);border-radius:8px;padding:5px 10px;color:rgba(245,217,139,0.6);font-family:'Cairo',sans-serif;font-size:11px;cursor:pointer;white-space:nowrap;">📖 كل السورة</button>
+        </div>
+        <div class="dual-range-summary" id="dualRangeSummary"></div>
       </div>
       <div id="qcountHint" style="font-size:11px;color:rgba(245,217,139,0.45);margin-top:6px;text-align:center;min-height:16px;"></div>
     </div>
