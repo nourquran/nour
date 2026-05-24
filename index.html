@@ -558,25 +558,21 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 
 /* بطاقة المتصدر المتحركة */
 .lb-podium-wrap {
-  position:relative; height:140px; overflow:hidden; border-radius:20px;
+  border-radius:20px;
   background:linear-gradient(135deg, rgba(201,151,58,0.06) 0%, rgba(27,107,74,0.06) 100%);
   border:1px solid rgba(201,151,58,0.18);
 }
 .lb-podium-slide {
   display:flex; align-items:center; gap:16px;
-  padding:20px 20px;
-  position:absolute; width:100%; top:0; left:0; height:100%;
-  opacity:0; visibility:hidden; transform:translateX(60px);
-  transition:opacity 0.5s ease, transform 0.5s ease, visibility 0s linear 0.5s;
-  pointer-events:none;
+  padding:20px;
+  border-radius:20px;
+  transition:opacity 0.35s ease, transform 0.35s ease;
 }
 .lb-podium-slide.active {
-  opacity:1; visibility:visible; transform:translateX(0);
-  transition:opacity 0.5s ease, transform 0.5s ease, visibility 0s linear 0s;
-  pointer-events:auto;
+  opacity:1; transform:translateX(0);
 }
 .lb-podium-slide.exit {
-  opacity:0; visibility:hidden; transform:translateX(-60px);
+  opacity:0; transform:translateX(-60px);
 }
 .lb-podium-rank {
   font-size:52px; line-height:1; flex-shrink:0;
@@ -1056,19 +1052,21 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     const borderColors = ['rgba(201,151,58,0.45)','rgba(180,180,180,0.3)','rgba(180,100,40,0.35)'];
     const toA = n => String(Math.round(n)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
 
-    podiumWrap.innerHTML = top3.map(([key, d], i) => {
+    // خزّن الداتا واعرض slide واحد بس
+    window._lbTop3Data = top3.map(([key, d], i) => {
       const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
-      const hiddenStyle = i !== 0 ? 'visibility:hidden;' : '';
-      return `<div class="lb-podium-slide${i===0?' active':''}" id="lbSlide${i}"
-           style="background:${rankColors[i]};border-color:${borderColors[i]};${hiddenStyle}">
-        <div class="lb-podium-rank">${rankEmojis[i]}</div>
-        <div class="lb-podium-info">
-          <div class="lb-podium-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
-          <div class="lb-podium-hasanat">${toA(d.totalHasanat||0)} ⭐</div>
-          <div class="lb-podium-score">${toA(d.totalScore||0)} نقطة • ${toA(d.totalGames||0)} جلسة</div>
-        </div>
-      </div>`;
-    }).join('');
+      return [key, d, rankEmojis[i], rankColors[i], borderColors[i], isMe];
+    });
+    const [key0, d0, emoji0, color0, border0, isMe0] = window._lbTop3Data[0];
+    podiumWrap.innerHTML = `<div class="lb-podium-slide active" id="lbSlide0"
+         style="background:${color0};border-color:${border0};transition:opacity 0.35s ease,transform 0.35s ease;">
+      <div class="lb-podium-rank">${emoji0}</div>
+      <div class="lb-podium-info">
+        <div class="lb-podium-name${isMe0?' is-me':''}">${d0.name}${isMe0?' (أنت)':''}</div>
+        <div class="lb-podium-hasanat">${toA(d0.totalHasanat||0)} ⭐</div>
+        <div class="lb-podium-score">${toA(d0.totalScore||0)} نقطة • ${toA(d0.totalGames||0)} جلسة</div>
+      </div>
+    </div>`;
 
     if (dotsEl) dotsEl.innerHTML = top3.map((_,i) =>
       `<div class="lb-dot${i===0?' active':''}" onclick="lbGoTo(${i})"></div>`
@@ -1826,20 +1824,22 @@ function renderLeaderboard() {
   const borderColors = ['rgba(201,151,58,0.45)','rgba(180,180,180,0.3)','rgba(180,100,40,0.35)'];
 
   // Build podium slides
-  podiumWrap.innerHTML = top3.map(([name,data],i) => {
+  // خزّن الداتا واعرض slide واحد بس
+  window._lbTop3Data = top3.map(([name, data], i) => {
     const isMe = currentUser && name === currentUser.username;
-    const hiddenStyle = i !== 0 ? 'visibility:hidden;' : '';
-    return `
-      <div class="lb-podium-slide${i===0?' active':''}" id="lbSlide${i}"
-           style="background:${rankColors[i]};border-color:${borderColors[i]};${hiddenStyle}">
-        <div class="lb-podium-rank">${rankEmojis[i]}</div>
-        <div class="lb-podium-info">
-          <div class="lb-podium-name${isMe?' is-me':''}">${name}${isMe?' (أنت)':''}</div>
-          <div class="lb-podium-hasanat">${toArabicNum(data.totalHasanat||0)} ⭐</div>
-          <div class="lb-podium-score">${toArabicNum(data.totalScore)} نقطة • ${toArabicNum(data.totalGames||0)} جلسة</div>
-        </div>
-      </div>`;
-  }).join('');
+    return [name, data, rankEmojis[i], rankColors[i], borderColors[i], isMe];
+  });
+  const [, d0, emoji0, color0, border0, isMe0] = window._lbTop3Data[0];
+  const name0 = top3[0][0];
+  podiumWrap.innerHTML = `<div class="lb-podium-slide active" id="lbSlide0"
+       style="background:${color0};border-color:${border0};transition:opacity 0.35s ease,transform 0.35s ease;">
+    <div class="lb-podium-rank">${emoji0}</div>
+    <div class="lb-podium-info">
+      <div class="lb-podium-name${isMe0?' is-me':''}">${name0}${isMe0?' (أنت)':''}</div>
+      <div class="lb-podium-hasanat">${toArabicNum(d0.totalHasanat||0)} ⭐</div>
+      <div class="lb-podium-score">${toArabicNum(d0.totalScore)} نقطة • ${toArabicNum(d0.totalGames||0)} جلسة</div>
+    </div>
+  </div>`;
 
   // Dots
   dotsEl.innerHTML = top3.map((_,i) =>
@@ -1895,24 +1895,40 @@ function renderLeaderboard() {
 }
 
 function lbGoTo(idx) {
-  const slides = document.querySelectorAll('.lb-podium-slide');
-  const dots   = document.querySelectorAll('.lb-dot');
-  if (!slides.length) return;
-
-  slides[lbPodiumIdx]?.classList.remove('active');
-  slides[lbPodiumIdx]?.classList.add('exit');
-  setTimeout(() => slides[lbPodiumIdx]?.classList.remove('exit'), 500);
+  const dots = document.querySelectorAll('.lb-dot');
+  const wrap = document.getElementById('lbPodiumWrap');
+  if (!wrap || !window._lbTop3Data) return;
 
   lbPodiumIdx = idx;
   window.lbPodiumIdx = idx;
 
-  slides[lbPodiumIdx]?.classList.add('active');
-  slides[lbPodiumIdx]?.style.removeProperty('visibility');
-  dots.forEach((d,i) => d.classList.toggle('active', i === lbPodiumIdx));
+  const slide = wrap.querySelector('.lb-podium-slide');
+  if (!slide) return;
+
+  // fade out
+  slide.style.opacity = '0';
+  slide.style.transform = 'translateX(60px)';
+
+  setTimeout(() => {
+    const [key, d, rankEmoji, rankColor, borderColor, isMe] = window._lbTop3Data[idx];
+    slide.style.background = rankColor;
+    slide.style.borderColor = borderColor;
+    slide.querySelector('.lb-podium-rank').textContent = rankEmoji;
+    slide.querySelector('.lb-podium-name').textContent = d.name + (isMe ? ' (أنت)' : '');
+    slide.querySelector('.lb-podium-name').className = 'lb-podium-name' + (isMe ? ' is-me' : '');
+    const toA = n => String(Math.round(n)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+    slide.querySelector('.lb-podium-hasanat').textContent = toA(d.totalHasanat||0) + ' ⭐';
+    slide.querySelector('.lb-podium-score').textContent = toA(d.totalScore||0) + ' نقطة • ' + toA(d.totalGames||0) + ' جلسة';
+    // fade in
+    slide.style.opacity = '1';
+    slide.style.transform = 'translateX(0)';
+  }, 350);
+
+  dots.forEach((dot, i) => dot.classList.toggle('active', i === idx));
 
   if (lbPodiumTimer) { clearInterval(lbPodiumTimer); lbPodiumTimer = null; }
   if (window.lbPodiumTimer) { clearInterval(window.lbPodiumTimer); window.lbPodiumTimer = null; }
-  const total = slides.length;
+  const total = window._lbTop3Data.length;
   if (total > 1) {
     lbPodiumTimer = setInterval(() => lbGoTo((lbPodiumIdx + 1) % total), 3000);
     window.lbPodiumTimer = lbPodiumTimer;
