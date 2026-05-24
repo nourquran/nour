@@ -1104,10 +1104,28 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     const emailNew = toFbEmail(username);
     signInWithEmailAndPassword(auth, emailOld, password)
       .then(() => onSuccess())
-      .catch(() => {
-        signInWithEmailAndPassword(auth, emailNew, password)
-          .then(() => onSuccess())
-          .catch(() => onError('اسم المستخدم أو كلمة المرور خاطئة'));
+      .catch((e1) => {
+        if (e1.code === 'auth/user-not-found' || e1.code === 'auth/invalid-credential' || e1.code === 'auth/wrong-password') {
+          signInWithEmailAndPassword(auth, emailNew, password)
+            .then(() => onSuccess())
+            .catch((e2) => {
+              if (e2.code === 'auth/wrong-password' || e2.code === 'auth/invalid-credential') {
+                onError('كلمة المرور خاطئة');
+              } else if (e2.code === 'auth/user-not-found') {
+                onError('الحساب غير موجود، تحقق من الاسم أو أنشئ حساباً جديداً');
+              } else if (e2.code === 'auth/too-many-requests') {
+                onError('تم تجميد الحساب مؤقتاً بسبب محاولات كثيرة، حاول بعد قليل');
+              } else {
+                onError('اسم المستخدم أو كلمة المرور خاطئة');
+              }
+            });
+        } else if (e1.code === 'auth/too-many-requests') {
+          onError('تم تجميد الحساب مؤقتاً بسبب محاولات كثيرة، حاول بعد قليل');
+        } else {
+          signInWithEmailAndPassword(auth, emailNew, password)
+            .then(() => onSuccess())
+            .catch(() => onError('اسم المستخدم أو كلمة المرور خاطئة'));
+        }
       });
   };
 
@@ -1129,8 +1147,10 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   };
 
   // مراقبة حالة الـ Auth — دخول تلقائي لو عنده جلسة
+  let _authHandled = false;
   onAuthStateChanged(auth, (user) => {
-    if (user && !window.currentUser) {
+    if (user && !window.currentUser && !_authHandled) {
+      _authHandled = true;
       // الـ email ممكن يكون @nour.app أو @nour-quran.app
       const emailKey = user.email.replace('@nour-quran.app','').replace('@nour.app','');
       // نجرب نجيب الـ profile من المسارين
@@ -1145,8 +1165,13 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
           if (typeof window.loginSuccess === 'function' && !window.currentUser) {
             window.loginSuccess(realUsername, data || { totalScore:0, totalGames:0, totalHasanat:0, streak:0, lastPlay:null });
           }
+          _authHandled = false; // reset عشان لو اتعمل logout ورجع login تاني
         });
-      });
+      }).catch(() => { _authHandled = false; });
+    }
+    // لو خرج المستخدم نرجع screen الـ login
+    if (!user) {
+      _authHandled = false;
     }
   });
 
@@ -1155,7 +1180,11 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   // ============================================================
   const ROOMS_PATH = 'nour_rooms/';
 
-  window.fbMulti = {
+    window._expandMultiQ = (q) => ({
+      surah: q.s, ayah: q.a, blank: q.b,
+      wrong: q.w || [], qtype: q.t || 'blank', ayahNum: q.n || null,
+    });
+    window.fbMulti = {
     _listeners: {},
 
     createRoom: function(roomCode, roomData) {
@@ -1181,7 +1210,11 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     },
 
     listenRoom: function(roomCode, callback) {
-      if (this._listeners[roomCode]) return; // بالفعل بيسمع
+      // وقف الـ listener القديم لو موجود عشان ما يبقاش فيه تكرار
+      if (this._listeners[roomCode]) {
+        this._listeners[roomCode]();
+        delete this._listeners[roomCode];
+      }
       const unsubscribe = onValue(ref(db, ROOMS_PATH + roomCode), (snap) => {
         callback(snap.exists() ? snap.val() : null);
       });
@@ -2006,7 +2039,9 @@ function doLogin() {
         // نجح: جيب البيانات من Firebase
         window.fbGetUserData(user, (data) => {
           resetBtn();
-          loginSuccess(user, data || createDefaultUserData());
+          if (!window.currentUser) {
+            loginSuccess(user, data || createDefaultUserData());
+          }
         });
       },
       (errMsg) => {
@@ -5722,10 +5757,6 @@ function multiCreateRoom() {
       if (q.ayahNum) obj.n = q.ayahNum;
       return obj;
     };
-    window._expandMultiQ = (q) => ({
-      surah: q.s, ayah: q.a, blank: q.b,
-      wrong: q.w || [], qtype: q.t || 'blank', ayahNum: q.n || null,
-    });
     // نشيل أي قيمة null/undefined من الـ room
     const rawRoom = { ...room, questions: questions.map(compressQ) };
     delete rawRoom.startedAt; // null values بتسبب مشكلة في Firebase
@@ -5757,7 +5788,7 @@ function multiCreateRoom() {
 function multiJoinRoom() {
   if (!currentUser) { showToast('⚠️ سجّل دخولك الأول'); return; }
   const code = document.getElementById('multiJoinCode').value.trim().toUpperCase();
-  if (code.length < 4) { showToast('⚠️ أدخل كود صحيح'); return; }
+  if (code.length < 4) { showToast('⚠️ أدخل كود الغرفة كامل (٥ حروف)'); return; }
 
   const joinBtn = document.querySelector('#multiLobby button[onclick="multiJoinRoom()"]');
   if (joinBtn) { joinBtn.textContent = '⏳ جاري الانضمام...'; joinBtn.disabled = true; }
@@ -5768,8 +5799,8 @@ function multiJoinRoom() {
     : currentUser.username;
 
   const doJoin = (room) => {
-    if (!room) { resetJoinBtn(); showToast('⚠️ الغرفة مش موجودة أو انتهت'); return; }
-    if (room.phase === 'playing') { resetJoinBtn(); showToast('⚠️ اللعبة بدأت بالفعل'); return; }
+    if (!room) { resetJoinBtn(); showToast('⚠️ الغرفة مش موجودة — تأكد من الكود أو اطلب من صاحبك يشاركه تاني'); return; }
+    if (room.phase === 'playing') { resetJoinBtn(); showToast('⚠️ اللعبة بدأت بالفعل، استنى الجولة الجاية'); return; }
     const playerCount = Object.keys(room.players || {}).length;
     const maxPl = room.maxPlayers || 4;
     if (playerCount >= maxPl) { resetJoinBtn(); showToast('⚠️ الغرفة مكتملة (' + toArabicNum(maxPl) + ' لاعبين)'); return; }
@@ -5783,10 +5814,7 @@ function multiJoinRoom() {
           room.players[playerKey] = playerData;
           // توسيع الأسئلة المضغوطة
           if (room.questions && room.questions.length > 0 && room.questions[0].s !== undefined) {
-            const expand = typeof window._expandMultiQ === 'function'
-              ? window._expandMultiQ
-              : (q) => ({ surah: q.s, ayah: q.a, blank: q.b, wrong: q.w || [], qtype: q.t || 'blank', ayahNum: q.n || null });
-            room.questions = room.questions.map(expand);
+            room.questions = room.questions.map(window._expandMultiQ);
           }
           window._multiRoomCache = room;
           window.fbMulti.setDisconnect(code, playerKey);
@@ -6225,10 +6253,7 @@ function _startPolling() {
       if (!room) return;
       // توسيع الأسئلة المضغوطة لو جاية من Firebase
       if (room.questions && room.questions.length > 0 && room.questions[0].s !== undefined) {
-        const expand = typeof window._expandMultiQ === 'function'
-          ? window._expandMultiQ
-          : (q) => ({ surah: q.s, ayah: q.a, blank: q.b, wrong: q.w || [], qtype: q.t || 'blank', ayahNum: q.n || null });
-        room.questions = room.questions.map(expand);
+        room.questions = room.questions.map(window._expandMultiQ);
       }
       window._multiRoomCache = room;
       // Keep alive
