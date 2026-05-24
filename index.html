@@ -1128,35 +1128,24 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
   // مراقبة حالة الـ Auth — دخول تلقائي لو عنده جلسة
   onAuthStateChanged(auth, (user) => {
-    if (!user || window.currentUser) return;
-    const emailKey = user.email.replace('@nour.app', '');
-    const tryLogin = () => {
-      if (!window.currentUser) {
-        get(ref(db, 'users/' + emailKey + '/profile'))
-          .then(snap => {
-            const realUsername = snap.exists() ? snap.val().username : emailKey;
-            window.fbGetUserData(realUsername, (data) => {
-              if (!window.currentUser && typeof window.loginSuccess === 'function') {
-                window.loginSuccess(realUsername, data || {
-                  totalScore: 0, totalGames: 0, totalHasanat: 0, streak: 0, lastPlay: null
-                });
-              }
-            });
-          }).catch(() => {});
-      }
-    };
-    // ننتظر لحد ما الصفحة تخلص تحميل وتعرّف loginSuccess
-    if (typeof window.loginSuccess === 'function') {
-      tryLogin();
-    } else {
-      window.addEventListener('load', tryLogin, { once: true });
+    if (user && !window.currentUser) {
+      const emailKey = user.email.replace('@nour.app', '');
+      get(ref(db, 'users/' + emailKey + '/profile'))
+        .then(snap => {
+          const realUsername = snap.exists() ? snap.val().username : emailKey;
+          window.fbGetUserData(realUsername, (data) => {
+            if (data && typeof window.loginSuccess === 'function') {
+              window.loginSuccess(realUsername, data);
+            }
+          });
+        }).catch(() => {});
     }
   });
 
   // ============================================================
   // ===== FIREBASE MULTIPLAYER — غرف اللعب الأونلاين =====
   // ============================================================
-  const ROOMS_PATH = 'multiRooms/';
+  const ROOMS_PATH = 'nour_rooms/';
 
   window.fbMulti = {
     _listeners: {},
@@ -2078,10 +2067,6 @@ function loginSuccess(username, data, isGuest=false) {
   currentUser = { username, isGuest, ...data };
   window.currentUser = currentUser;
   window.loginSuccess = loginSuccess; // expose للـ Firebase module
-  // احفظ الجلسة في localStorage كـ fallback
-  if (!isGuest) {
-    try { localStorage.setItem('nour_session', JSON.stringify({ username })); } catch {}
-  }
   document.getElementById('loginScreen').classList.add('hide');
   document.getElementById('userNameDisplay').textContent = '👤 ' + username;
   checkStreak();
@@ -2098,7 +2083,6 @@ function doLogout() {
   window.currentUser = null;
   saveCurrentUser(); // save guests too for leaderboard
   currentUser = null;
-  try { localStorage.removeItem('nour_session'); } catch {}
   if (typeof window.fbLogout === 'function') window.fbLogout();
   document.getElementById('loginScreen').classList.remove('hide');
   goHome();
@@ -5156,12 +5140,6 @@ function buildReviewQuestions(surahName) {
 function startSurahReview(surahName) {
   if (!currentUser) return;
 
-  const questions = buildReviewQuestions(surahName);
-  if (questions.length < 1) {
-    showToast('⚠️ السورة دي محتاجة آيات كافية لبناء الأسئلة');
-    return;
-  }
-
   showScreen('gameScreen');
   document.getElementById('liveScore').textContent = '٠';
   document.getElementById('timerWrap').style.display = 'none';
@@ -5170,19 +5148,22 @@ function startSurahReview(surahName) {
   document.getElementById('nextBtn').className = 'next-btn';
   document.getElementById('feedback').className = 'feedback';
 
-  state.reviewSurah = surahName;
-  state.reviewTotal = questions.length;
-  state.isReviewMode = true;
-  state.questions = questions;
-  state.qIndex = 0; state.score = 0; state.correct = 0;
-  state.sessionHasanat = 0; state.answered = false;
-  state.combo = 0;
-  state.hints = { h1:2, h2:2, h3:2 };
-  state.mode = 'mcq';
-  stopTimer();
-
-  markSurahReviewStarted(surahName, questions.length);
-  renderQuestion();
+  setTimeout(() => {
+    const questions = buildReviewQuestions(surahName);
+    if (questions.length < 1) { goHome(); return; }
+    state.reviewSurah = surahName;
+    state.reviewTotal = questions.length;
+    state.isReviewMode = true;
+    state.questions = questions;
+    state.qIndex = 0; state.score = 0; state.correct = 0;
+    state.sessionHasanat = 0; state.answered = false;
+    state.combo = 0;
+    state.hints = { h1:2, h2:2, h3:2 };
+    state.mode = 'mcq';
+    stopTimer();
+    markSurahReviewStarted(surahName, questions.length);
+    renderQuestion();
+  }, 0);
 }
 
 // ============================================================
@@ -6286,7 +6267,6 @@ function _stopPolling() {
 }
 
 // ===== INIT =====
-window.loginSuccess = loginSuccess;
 </script>
 
 <!-- ===== CONFIRM MODAL ===== -->
