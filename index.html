@@ -527,6 +527,25 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 .btn-home { background:rgba(255,254,249,0.05); border:1px solid rgba(201,151,58,0.25); border-radius:14px; padding:14px; font-family:'Cairo',sans-serif; font-size:15px; font-weight:700; color:var(--gold-light); cursor:pointer; transition:all .2s; }
 .btn-home:hover { background:rgba(201,151,58,0.1); }
 
+/* ===== AYAH RANGE ===== */
+.ayah-range-wrap { display:none; margin-top:2px; }
+.ayah-range-wrap.show { display:block; }
+.ayah-range-label { font-size:12px; color:rgba(245,217,139,0.55); text-transform:uppercase; letter-spacing:.5px; margin-bottom:7px; }
+.ayah-range-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.ayah-range-field { display:flex; flex-direction:column; gap:5px; }
+.ayah-range-field label { font-size:11px; color:rgba(245,217,139,0.45); }
+.ayah-range-field input[type=number] {
+  background:rgba(255,254,249,0.05); border:1.5px solid rgba(201,151,58,0.22);
+  border-radius:10px; padding:10px 12px; font-family:'Cairo',sans-serif;
+  font-size:16px; font-weight:700; color:var(--cream); text-align:center;
+  outline:none; transition:border-color .2s; width:100%;
+  -moz-appearance:textfield;
+}
+.ayah-range-field input[type=number]::-webkit-outer-spin-button,
+.ayah-range-field input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+.ayah-range-field input[type=number]:focus { border-color:rgba(201,151,58,0.6); background:rgba(201,151,58,0.05); }
+.ayah-range-hint { font-size:11px; color:var(--gold); margin-top:7px; text-align:center; min-height:14px; opacity:0.8; }
+
 /* ===== TOAST ===== */
 .toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(100px); background:rgba(27,18,8,0.95); border:1px solid rgba(201,151,58,0.4); border-radius:14px; padding:14px 24px; font-size:14px; color:var(--cream); transition:transform .4s cubic-bezier(.34,1.56,.64,1); z-index:500; text-align:center; white-space:nowrap; }
 .toast.show { transform:translateX(-50%) translateY(0); }
@@ -2729,6 +2748,8 @@ function clearJuzFilter(silent=false) {
 }
 
 let selectedSurah = '';
+let selectedFromAyah = 1;
+let selectedToAyah = null;
 
 
 function populateSurahFilter() {
@@ -2763,9 +2784,10 @@ function onSurahFilterChange() {
   selectedSurah = document.getElementById('surahFilter').value;
   updateSurahHint();
   updateQcountSliderMax();
-  // تلقائياً ضبط عدد الأسئلة للعدد الحقيقي لآيات السورة
+
+  const rangeWrap = document.getElementById('ayahRangeWrap');
+
   if (selectedSurah) {
-    // أولاً: من SURAHS_FULL (الأرقام الحقيقية)
     const meta = SURAHS_FULL.find(s => s[0] === selectedSurah);
     const realCount = meta ? meta[1] : 0;
     if (realCount > 0) {
@@ -2774,24 +2796,75 @@ function onSurahFilterChange() {
       slider.value = realCount;
       selectedQCount = realCount;
       document.getElementById('qcountDisplay').textContent = toArabicNum(realCount);
-      // تحديث hint
       const hint = document.getElementById('surahHint');
       hint.style.color = 'var(--emerald-light)';
       hint.textContent = '✅ سورة ' + selectedSurah + ' — ' + toArabicNum(realCount) + ' آية — محلي ⚡ بدون إنترنت';
+
+      // إعداد حقول نطاق الآيات
+      const fromInput = document.getElementById('ayahFromInput');
+      const toInput   = document.getElementById('ayahToInput');
+      fromInput.max = realCount; fromInput.value = 1;
+      toInput.max   = realCount; toInput.value   = realCount;
+      toInput.placeholder = String(realCount);
+      selectedFromAyah = 1;
+      selectedToAyah   = realCount;
+      document.getElementById('ayahRangeHint').textContent = '';
     }
+    rangeWrap.classList.add('show');
+  } else {
+    rangeWrap.classList.remove('show');
+    selectedFromAyah = 1;
+    selectedToAyah   = null;
   }
 }
 
 function clearSurahFilter() {
   selectedSurah = '';
+  selectedFromAyah = 1;
+  selectedToAyah   = null;
   document.getElementById('surahFilter').value = '';
   document.getElementById('surahHint').textContent = '';
+  document.getElementById('ayahRangeWrap').classList.remove('show');
+  document.getElementById('ayahRangeHint').textContent = '';
   updateQcountSliderMax();
-  // إرجاع عدد الأسئلة للافتراضي
   const slider = document.getElementById('qcountSlider');
   slider.value = 20;
   selectedQCount = 20;
   document.getElementById('qcountDisplay').textContent = toArabicNum(20);
+}
+
+function onAyahRangeChange() {
+  if (!selectedSurah) return;
+  const meta = SURAHS_FULL.find(s => s[0] === selectedSurah);
+  const totalAyahs = meta ? meta[1] : 999;
+
+  const fromInput = document.getElementById('ayahFromInput');
+  const toInput   = document.getElementById('ayahToInput');
+  const hint      = document.getElementById('ayahRangeHint');
+
+  let from = parseInt(fromInput.value) || 1;
+  let to   = parseInt(toInput.value)   || totalAyahs;
+
+  from = Math.max(1, Math.min(from, totalAyahs));
+  to   = Math.max(from, Math.min(to, totalAyahs));
+
+  selectedFromAyah = from;
+  selectedToAyah   = to;
+
+  const count = to - from + 1;
+
+  // ضبط عدد الأسئلة تلقائياً حسب النطاق
+  const slider = document.getElementById('qcountSlider');
+  slider.max   = Math.max(count, 50);
+  slider.value = count;
+  selectedQCount = count;
+  document.getElementById('qcountDisplay').textContent = toArabicNum(count);
+
+  if (from === 1 && to === totalAyahs) {
+    hint.textContent = '';
+  } else {
+    hint.textContent = '📍 من آية ' + toArabicNum(from) + ' إلى آية ' + toArabicNum(to) + ' — ' + toArabicNum(count) + ' آية';
+  }
 }
 
 function updateSurahHint() {
@@ -3284,7 +3357,7 @@ function startGame() {
     const surahIdx = SURAHS_FULL.findIndex(s => s[0] === selectedSurah);
     if (surahIdx === -1) { showToast('⚠️ السورة مش موجودة'); return; }
     const surahNum = surahIdx + 1;
-    qs = loadAndBuildSurahQuestions(surahNum, selectedSurah);
+    qs = loadAndBuildSurahQuestions(surahNum, selectedSurah, selectedFromAyah, selectedToAyah);
     if (!qs) {
       // fallback للـ DB القديمة
       const allPool = Object.values(QURAN_DB).flat();
@@ -3329,7 +3402,10 @@ function startGame() {
   if (selectedJuz) {
     document.getElementById('levelBadgeGame').textContent = '📚 الجزء ' + toArabicNum(parseInt(selectedJuz));
   } else if (selectedSurah) {
-    document.getElementById('levelBadgeGame').textContent = '📖 سورة ' + selectedSurah + ' — ' + toArabicNum(qs.length) + ' آية';
+    document.getElementById('levelBadgeGame').textContent = '📖 سورة ' + selectedSurah +
+      ((selectedFromAyah > 1 || (selectedToAyah && selectedToAyah < (SURAHS_FULL.find(s=>s[0]===selectedSurah)?.[1]||9999)))
+        ? ' (آية ' + toArabicNum(selectedFromAyah) + '–' + toArabicNum(selectedToAyah) + ')' : '')
+      + ' — ' + toArabicNum(qs.length) + ' آية';
   } else {
     const lvl = LEVEL_DEFS[state.level];
     document.getElementById('levelBadgeGame').textContent = lvl.icon + ' ' + lvl.name;
@@ -4862,7 +4938,23 @@ if (savedSession) {
       <div id="qcountHint" style="font-size:11px;color:rgba(245,217,139,0.45);margin-top:6px;text-align:center;min-height:16px;"></div>
     </div>
 
-    <!-- نوع التحدي -->
+    <!-- نطاق الآيات — يظهر فقط عند اختيار سورة -->
+    <div id="ayahRangeWrap" class="ayah-range-wrap">
+      <div class="sheet-section">📍 نطاق الآيات</div>
+      <div class="ayah-range-row">
+        <div class="ayah-range-field">
+          <label>من آية</label>
+          <input type="number" id="ayahFromInput" min="1" value="1"
+            oninput="onAyahRangeChange()" onchange="onAyahRangeChange()">
+        </div>
+        <div class="ayah-range-field">
+          <label>إلى آية</label>
+          <input type="number" id="ayahToInput" min="1"
+            oninput="onAyahRangeChange()" onchange="onAyahRangeChange()">
+        </div>
+      </div>
+      <div class="ayah-range-hint" id="ayahRangeHint"></div>
+    </div>
     <div class="sheet-section">🎮 نوع التحدي</div>
     <div class="modes-row">
       <div class="mode-btn active" onclick="selectMode('mcq')" id="mode-mcq">
