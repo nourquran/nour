@@ -5198,7 +5198,7 @@ function startSurahReview(surahName) {
   document.getElementById('nextBtn').className = 'next-btn';
   document.getElementById('feedback').className = 'feedback';
 
-  requestAnimationFrame(() => {
+  setTimeout(() => {
     let questions = buildReviewQuestions(surahName);
     if (questions.length < 1) { showScreen('reviewScreen'); return; }
 
