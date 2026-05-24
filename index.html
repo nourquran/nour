@@ -1126,22 +1126,30 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     set(ref(db, 'users/' + key + '/data'), { ...cleanData, updatedAt: Date.now() }).catch(() => {});
   };
 
-  // مراقبة حالة الـ Auth — للدخول التلقائي فقط لو عنده جلسة محفوظة
+  // مراقبة حالة الـ Auth — دخول تلقائي لو عنده جلسة
   onAuthStateChanged(auth, (user) => {
-    if (user && !window.currentUser) {
-      const emailKey = user.email.replace('@nour.app', '');
-      get(ref(db, 'users/' + emailKey + '/profile'))
-        .then(snap => {
-          const realUsername = snap.exists() ? snap.val().username : emailKey;
-          window.fbGetUserData(realUsername, (data) => {
-            // ندخل بس لو loginSuccess جاهزة (يعني الصفحة خلصت تحميل)
-            if (typeof window.loginSuccess === 'function' && !window.currentUser) {
-              window.loginSuccess(realUsername, data || {
-                totalScore: 0, totalGames: 0, totalHasanat: 0, streak: 0, lastPlay: null
-              });
-            }
-          });
-        }).catch(() => {});
+    if (!user || window.currentUser) return;
+    const emailKey = user.email.replace('@nour.app', '');
+    const tryLogin = () => {
+      if (!window.currentUser) {
+        get(ref(db, 'users/' + emailKey + '/profile'))
+          .then(snap => {
+            const realUsername = snap.exists() ? snap.val().username : emailKey;
+            window.fbGetUserData(realUsername, (data) => {
+              if (!window.currentUser && typeof window.loginSuccess === 'function') {
+                window.loginSuccess(realUsername, data || {
+                  totalScore: 0, totalGames: 0, totalHasanat: 0, streak: 0, lastPlay: null
+                });
+              }
+            });
+          }).catch(() => {});
+      }
+    };
+    // ننتظر لحد ما الصفحة تخلص تحميل وتعرّف loginSuccess
+    if (typeof window.loginSuccess === 'function') {
+      tryLogin();
+    } else {
+      window.addEventListener('load', tryLogin, { once: true });
     }
   });
 
@@ -5729,8 +5737,10 @@ function multiCreateRoom() {
       surah: q.s, ayah: q.a, blank: q.b,
       wrong: q.w || [], qtype: q.t || 'blank', ayahNum: q.n || null,
     });
-    // نشيل أي قيمة undefined من الـ room
-    const cleanRoom = JSON.parse(JSON.stringify({ ...room, questions: questions.map(compressQ) }));
+    // نشيل أي قيمة null/undefined من الـ room
+    const rawRoom = { ...room, questions: questions.map(compressQ) };
+    delete rawRoom.startedAt; // null values بتسبب مشكلة في Firebase
+    const cleanRoom = JSON.parse(JSON.stringify(rawRoom));
     console.log('Creating room, questions count:', cleanRoom.questions.length, 'payload size ~', JSON.stringify(cleanRoom).length, 'bytes');
     window.fbMulti.createRoom(code, cleanRoom)
       .then(() => {
