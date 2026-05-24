@@ -1050,7 +1050,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, set, remove, onValue, get, update, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDHoGH9K-xFvZfrYGsViDe0NC4c1o0MPrQ",
@@ -1072,6 +1072,12 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     return isGuest ? ('guest__' + clean) : clean;
   }
   window._makeKey = makeKey;
+
+  // تسجيل دخول مجهول للـ Firebase (يسمح بالكتابة على DB بدون Auth)
+  window.fbSignInAnon = function() {
+    if (auth.currentUser) return Promise.resolve(auth.currentUser);
+    return signInAnonymously(auth).catch(() => {});
+  };
 
   // ============================================================
   // ===== FIREBASE AUTH — login على كل الأجهزة =====
@@ -1980,8 +1986,6 @@ const LEVEL_DEFS = [
   { id:5, name:"الحكيم",      icon:"💎", desc:"ثلاث كلمات ناقصة — مزيج كل السور",         reqScore:0, dataKey:"all",    hasanatMult:8,  qs:20, blankPos:'rand',  blankCount:3, choiceDiff:'hard',   hints:0, forcedMode:null,     forcedRandom:true,  noHintsH3:true,  timerSeconds:10, showAyahFraction:0.5,  minBlankWordLen:4, extraBlankApart:false },
   { id:6, name:"الإمام",      icon:"🌟", desc:"كتابة حرة — لا خيارات ولا hints",           reqScore:0, dataKey:"all",    hasanatMult:12, qs:20, blankPos:'rand',  blankCount:1, choiceDiff:'hard',   hints:0, forcedMode:'typing', noHintsH3:true,  timerSeconds:20, showAyahFraction:0.6,  minBlankWordLen:5, extraBlankApart:false },
   { id:7, name:"سيد الحفاظ", icon:"🕋", desc:"كتابة + توقيت — أعلى تحدي",               reqScore:0, dataKey:"all",    hasanatMult:20, qs:20, blankPos:'rand',  blankCount:2, choiceDiff:'hard',   hints:0, forcedMode:'timed',  noHintsH3:true,  timerSeconds:8,  showAyahFraction:0.45, minBlankWordLen:5, extraBlankApart:true  },
-  { id:8, name:"العارف بالله", icon:"🌙", desc:"ثلاث كلمات + توقيت — تحدي الخبراء",      reqScore:0, dataKey:"all",    hasanatMult:30, qs:25, blankPos:'rand',  blankCount:3, choiceDiff:'hard',   hints:0, forcedMode:'timed',  noHintsH3:true,  timerSeconds:6,  showAyahFraction:0.4,  minBlankWordLen:5, extraBlankApart:true  },
-  { id:9, name:"نور القرآن",  icon:"☀️", desc:"أصعب تحدي — ٣ كلمات + كتابة + ٥ ثوانٍ",  reqScore:0, dataKey:"all",    hasanatMult:50, qs:25, blankPos:'rand',  blankCount:3, choiceDiff:'hard',   hints:0, forcedMode:'typing', noHintsH3:true,  timerSeconds:5,  showAyahFraction:0.35, minBlankWordLen:6, extraBlankApart:true  },
 ];
 
 // ============================================================
@@ -2054,6 +2058,8 @@ function loginSuccess(username, data, isGuest=false) {
   window.loginSuccess = loginSuccess;
   document.getElementById('loginScreen').classList.add('hide');
   document.getElementById('userNameDisplay').textContent = '👤 ' + username;
+  // نعمل Firebase anonymous auth مبكراً عشان الـ multiplayer يشتغل بدون تأخير
+  if (typeof window.fbSignInAnon === 'function') window.fbSignInAnon();
   checkStreak();
   renderLevels();
   updateHomeStats();
@@ -3123,14 +3129,33 @@ function populateSurahFilter() {
   const list = document.getElementById('surahDropdownList');
   if (!list) return;
   list.innerHTML = '';
+
+  // ===== Search input =====
+  const searchWrap = document.createElement('div');
+  searchWrap.style.cssText = 'padding:8px 10px;border-bottom:1px solid rgba(201,151,58,0.15);position:sticky;top:0;background:#1e1b10;z-index:2;';
+  const searchInp = document.createElement('input');
+  searchInp.type = 'text';
+  searchInp.placeholder = '🔍 ابحث عن سورة...';
+  searchInp.id = 'surahDropdownSearch';
+  searchInp.style.cssText = 'width:100%;background:rgba(255,254,249,0.06);border:1px solid rgba(201,151,58,0.25);border-radius:8px;padding:7px 10px;font-family:Cairo,sans-serif;font-size:13px;color:var(--cream);direction:rtl;outline:none;box-sizing:border-box;';
+  searchInp.onclick = e => e.stopPropagation();
+  searchInp.oninput = () => _filterSurahDropdown(searchInp.value.trim());
+  searchWrap.appendChild(searchInp);
+  list.appendChild(searchWrap);
+
   // خيار "كل السور"
   const allItem = document.createElement('div');
+  allItem.className = 'sdrop-item sdrop-all';
   allItem.textContent = '🌿 كل السور (عشوائي)';
   allItem.style.cssText = 'padding:10px 14px;font-family:Cairo,sans-serif;font-size:14px;color:rgba(245,217,139,0.7);cursor:pointer;direction:rtl;border-bottom:1px solid rgba(201,151,58,0.1);';
   allItem.onclick = () => { _surahDropdownSelect('', '🌿 كل السور (عشوائي)'); };
   list.appendChild(allItem);
+
   _ALL_SURAHS.forEach((s, i) => {
     const item = document.createElement('div');
+    item.className = 'sdrop-item';
+    item.dataset.name = s;
+    item.dataset.idx = i + 1;
     item.textContent = (i+1) + '. سورة ' + s;
     item.style.cssText = 'padding:10px 14px;font-family:Cairo,sans-serif;font-size:14px;color:var(--cream);cursor:pointer;direction:rtl;';
     item.onmouseenter = () => item.style.background = 'rgba(201,151,58,0.1)';
@@ -3140,6 +3165,17 @@ function populateSurahFilter() {
   });
   // إغلاق عند الضغط خارج القائمة
   document.addEventListener('click', _closeSurahDropdownOutside);
+}
+
+function _filterSurahDropdown(q) {
+  const items = document.querySelectorAll('#surahDropdownList .sdrop-item:not(.sdrop-all)');
+  const qNorm = q.replace(/\s/g, '');
+  items.forEach(item => {
+    const name = item.dataset.name || '';
+    const idx  = item.dataset.idx  || '';
+    const match = !qNorm || name.includes(q) || idx.includes(q);
+    item.style.display = match ? '' : 'none';
+  });
 }
 
 function _closeSurahDropdownOutside(e) {
@@ -3153,7 +3189,13 @@ function _closeSurahDropdownOutside(e) {
 function toggleSurahDropdown() {
   const list = document.getElementById('surahDropdownList');
   if (!list) return;
-  list.style.display = list.style.display === 'none' ? 'block' : 'none';
+  const isOpen = list.style.display !== 'none';
+  list.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    // focus على الـ search ومسح القيمة القديمة
+    const inp = document.getElementById('surahDropdownSearch');
+    if (inp) { inp.value = ''; _filterSurahDropdown(''); setTimeout(() => inp.focus(), 50); }
+  }
 }
 
 function _surahDropdownSelect(value, label) {
@@ -4397,7 +4439,7 @@ function showResults() {
 
 function resetScore() {
   if (!currentUser) return;
-  showConfirm('هتتصفر النقاط والحسنات وعدد الجلسات. متأكد؟', () => {
+  showConfirm('هتتصفر النقاط وعدد الجلسات. متأكد؟', () => {
     currentUser.totalScore = 0;
     currentUser.totalGames = 0;
     currentUser.totalHasanat = 0;
@@ -4415,7 +4457,7 @@ function resetScore() {
     if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(currentUser.username, currentUser.isGuest);
     updateHomeStats();
     renderLeaderboard();
-    showToast('✅ تم تصفير النقاط والحسنات');
+    showToast('✅ تم تصفير النقاط');
   });
 }
 
@@ -4896,6 +4938,9 @@ function renderReviewGrid() {
     card.onclick = (e) => {
       // مش بنسمح لأي حاجة تمنع الضغط على الكارت غير زرار التصفير
       if (e.target.classList.contains('src-reset-btn')) return;
+      // visual feedback فوري على الموبايل
+      card.style.opacity = '0.6';
+      card.style.transform = 'scale(0.96)';
       startSurahReview(s.name);
     };
 
@@ -5030,10 +5075,8 @@ function buildReviewQuestions(surahName) {
     [3,  4, 4, 5], // 5: حكيم — الترتيب والرقم أكتر
     [2,  4, 4, 6], // 6: إمام
     [1,  5, 5, 7], // 7: سيد الحفاظ — ترتيب ورقم يسودوا
-    [1,  5, 6, 8], // 8: العارف بالله
-    [1,  4, 6, 9], // 9: نور القرآن — الأصعب
   ];
-  const weights = typeWeights[Math.min(lvl, 9)];
+  const weights = typeWeights[Math.min(lvl, 7)];
 
   const questions = [];
 
@@ -5125,6 +5168,16 @@ function buildReviewQuestions(surahName) {
 function startSurahReview(surahName) {
   if (!currentUser) return;
 
+  const MAX_REVIEW_Q = 50;
+  let questions = buildReviewQuestions(surahName);
+  if (questions.length > MAX_REVIEW_Q) {
+    const step = questions.length / MAX_REVIEW_Q;
+    const sampled = [];
+    for (let i = 0; i < MAX_REVIEW_Q; i++) sampled.push(questions[Math.floor(i * step)]);
+    questions = sampled;
+  }
+  if (questions.length < 1) return;
+
   showScreen('gameScreen');
   document.getElementById('liveScore').textContent = '٠';
   document.getElementById('timerWrap').style.display = 'none';
@@ -5133,22 +5186,18 @@ function startSurahReview(surahName) {
   document.getElementById('nextBtn').className = 'next-btn';
   document.getElementById('feedback').className = 'feedback';
 
-  setTimeout(() => {
-    const questions = buildReviewQuestions(surahName);
-    if (questions.length < 1) { goHome(); return; }
-    state.reviewSurah = surahName;
-    state.reviewTotal = questions.length;
-    state.isReviewMode = true;
-    state.questions = questions;
-    state.qIndex = 0; state.score = 0; state.correct = 0;
-    state.sessionHasanat = 0; state.answered = false;
-    state.combo = 0;
-    state.hints = { h1:2, h2:2, h3:2 };
-    state.mode = 'mcq';
-    stopTimer();
-    markSurahReviewStarted(surahName, questions.length);
-    renderQuestion();
-  }, 0);
+  state.reviewSurah = surahName;
+  state.reviewTotal = questions.length;
+  state.isReviewMode = true;
+  state.questions = questions;
+  state.qIndex = 0; state.score = 0; state.correct = 0;
+  state.sessionHasanat = 0; state.answered = false;
+  state.combo = 0;
+  state.hints = { h1:2, h2:2, h3:2 };
+  state.mode = 'mcq';
+  stopTimer();
+  markSurahReviewStarted(surahName, questions.length);
+  renderQuestion();
 }
 
 // ============================================================
@@ -5693,32 +5742,36 @@ function multiCreateRoom() {
   multiState.phase = 'waiting';
 
   if (typeof window.fbMulti !== 'undefined') {
-    // نضغط الأسئلة: نخلي بس الحقول المهمة عشان Firebase ما يرفضش الـ payload
-    const compressQ = (q) => {
-      const obj = { s: q.surah||'', a: q.ayah||'', b: q.blank||'', w: (q.wrong||[]).slice(0,3), t: q.qtype||'blank' };
-      if (q.ayahNum) obj.n = q.ayahNum;
-      return obj;
-    };
-    // نشيل أي قيمة null/undefined من الـ room
-    const rawRoom = { ...room, questions: questions.map(compressQ) };
-    delete rawRoom.startedAt; // null values بتسبب مشكلة في Firebase
-    const cleanRoom = JSON.parse(JSON.stringify(rawRoom));
-    console.log('Creating room, questions count:', cleanRoom.questions.length, 'payload size ~', JSON.stringify(cleanRoom).length, 'bytes');
-    window.fbMulti.createRoom(code, cleanRoom)
-      .then(() => {
-        window.fbMulti.setDisconnect(code, playerKey);
-        _showWaitingRoom(code);
-        _startPolling();
-        showToast('✅ تم إنشاء الغرفة — شارك الكود: ' + code, 4000);
-      })
-      .catch((err) => {
-        console.error('createRoom error:', err.code, err.message);
-        if (err.code === 'PERMISSION_DENIED') {
-          showToast('⚠️ Firebase: افتح قواعد قاعدة البيانات (Rules) واسمح بالكتابة');
-        } else {
+    // نضمن Firebase Auth (anonymous) عشان DB rules تقبل الكتابة
+    const _doCreate = () => {
+      // نضغط الأسئلة: نخلي بس الحقول المهمة عشان Firebase ما يرفضش الـ payload
+      const compressQ = (q) => {
+        const obj = { s: q.surah||'', a: q.ayah||'', b: q.blank||'', w: (q.wrong||[]).slice(0,3), t: q.qtype||'blank' };
+        if (q.ayahNum) obj.n = q.ayahNum;
+        return obj;
+      };
+      // نشيل أي قيمة null/undefined من الـ room
+      const rawRoom = { ...room, questions: questions.map(compressQ) };
+      delete rawRoom.startedAt; // null values بتسبب مشكلة في Firebase
+      const cleanRoom = JSON.parse(JSON.stringify(rawRoom));
+      window.fbMulti.createRoom(code, cleanRoom)
+        .then(() => {
+          window.fbMulti.setDisconnect(code, playerKey);
+          _showWaitingRoom(code);
+          _startPolling();
+          showToast('✅ تم إنشاء الغرفة — شارك الكود: ' + code, 4000);
+        })
+        .catch((err) => {
+          console.error('createRoom error:', err.code, err.message);
           showToast('⚠️ خطأ في إنشاء الغرفة: ' + (err.message || 'تأكد من الاتصال'));
-        }
-      });
+        });
+    };
+    // نضمن وجود Firebase Auth قبل الكتابة
+    if (typeof window.fbSignInAnon === 'function') {
+      window.fbSignInAnon().then(_doCreate).catch(_doCreate);
+    } else {
+      _doCreate();
+    }
   } else {
     _setRoomData(code, room);
     _showWaitingRoom(code);
@@ -5791,7 +5844,13 @@ function multiJoinRoom() {
   };
 
   if (typeof window.fbMulti !== 'undefined') {
-    window.fbMulti.getRoom(code, doJoin);
+    // نضمن وجود Firebase Auth قبل القراءة والكتابة
+    const _doFbJoin = () => window.fbMulti.getRoom(code, doJoin);
+    if (typeof window.fbSignInAnon === 'function') {
+      window.fbSignInAnon().then(_doFbJoin).catch(_doFbJoin);
+    } else {
+      _doFbJoin();
+    }
   } else {
     try { doJoin(JSON.parse(localStorage.getItem(MULTI_PREFIX + code) || 'null')); } catch { doJoin(null); }
   }
