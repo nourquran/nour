@@ -2027,11 +2027,10 @@ function doRegister() {
   const pass2 = document.getElementById('regPass2').value;
   if (!user || !pass) { showLoginErr('أدخل جميع البيانات'); return; }
   if (user.length < 3) { showLoginErr('الاسم يجب أن يكون ٣ أحرف على الأقل'); return; }
-  if (pass.length < 6) { showLoginErr('كلمة المرور يجب أن تكون ٦ أحرف على الأقل'); return; }
+
   if (pass !== pass2) { showLoginErr('كلمتا المرور غير متطابقتين'); return; }
 
-  document.querySelector('#registerForm .login-btn').textContent = '⏳ جاري الإنشاء...';
-  document.querySelector('#registerForm .login-btn').disabled = true;
+
 
   const resetBtn = () => {
     const btn = document.querySelector('#registerForm .login-btn');
