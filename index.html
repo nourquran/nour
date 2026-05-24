@@ -1099,11 +1099,15 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   };
 
   window.fbLogin = function(username, password, onSuccess, onError) {
-    const email = toFbEmail(username);
-    signInWithEmailAndPassword(auth, email, password)
+    // نجرب الـ email القديم أولاً (@nour-quran.app) ثم الجديد (@nour.app)
+    const emailOld = makeKey(username, false).toLowerCase() + '@nour-quran.app';
+    const emailNew = toFbEmail(username);
+    signInWithEmailAndPassword(auth, emailOld, password)
       .then(() => onSuccess())
-      .catch(e => {
-        onError('اسم المستخدم أو كلمة المرور خاطئة');
+      .catch(() => {
+        signInWithEmailAndPassword(auth, emailNew, password)
+          .then(() => onSuccess())
+          .catch(() => onError('اسم المستخدم أو كلمة المرور خاطئة'));
       });
   };
 
@@ -1127,16 +1131,22 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   // مراقبة حالة الـ Auth — دخول تلقائي لو عنده جلسة
   onAuthStateChanged(auth, (user) => {
     if (user && !window.currentUser) {
-      const emailKey = user.email.replace('@nour.app', '');
-      get(ref(db, 'users/' + emailKey + '/profile'))
-        .then(snap => {
-          const realUsername = snap.exists() ? snap.val().username : emailKey;
-          window.fbGetUserData(realUsername, (data) => {
-            if (data && typeof window.loginSuccess === 'function') {
-              window.loginSuccess(realUsername, data);
-            }
-          });
-        }).catch(() => {});
+      // الـ email ممكن يكون @nour.app أو @nour-quran.app
+      const emailKey = user.email.replace('@nour-quran.app','').replace('@nour.app','');
+      // نجرب نجيب الـ profile من المسارين
+      const tryGetProfile = (path) => get(ref(db, path)).then(s => s.exists() ? s.val() : null).catch(() => null);
+      Promise.all([
+        tryGetProfile('users/' + emailKey + '/profile'),
+        tryGetProfile('nour_users/' + window._makeKey(emailKey, false)),
+      ]).then(([profileNew, profileOld]) => {
+        const profile = profileNew || profileOld;
+        const realUsername = (profile && profile.username) ? profile.username : emailKey;
+        window.fbGetUserData(realUsername, (data) => {
+          if (typeof window.loginSuccess === 'function' && !window.currentUser) {
+            window.loginSuccess(realUsername, data || { totalScore:0, totalGames:0, totalHasanat:0, streak:0, lastPlay:null });
+          }
+        });
+      });
     }
   });
 
@@ -6433,18 +6443,7 @@ const _FIREBASE_CONFIG = {
     // ─── helper: تحويل اسم المستخدم لمفتاح Firebase آمن ───
     window._makeKey = (u) => (u||'anon').replace(/[.#$/\[\]]/g,'_');
 
-    // ─── fbMulti: واجهة اللعب الجماعي ───────────────────────
-    window.fbMulti = {
-      createRoom:   (code, data)      => db.ref('nour_rooms/'+code).set(data),
-      updateRoom:   (code, data)      => db.ref('nour_rooms/'+code).update(data),
-      getRoom:      (code, cb)        => db.ref('nour_rooms/'+code).once('value').then(s => cb(s.val())).catch(() => cb(null)),
-      updatePlayer: (code, pk, data)  => db.ref(`nour_rooms/${code}/players/${pk}`).update(data),
-      removePlayer: (code, pk)        => db.ref(`nour_rooms/${code}/players/${pk}`).remove(),
-      deleteRoom:   (code)            => db.ref('nour_rooms/'+code).remove(),
-      listenRoom:   (code, cb)        => db.ref('nour_rooms/'+code).on('value', s => cb(s.val())),
-      stopListen:   (code)            => { if (code) db.ref('nour_rooms/'+code).off(); },
-      setDisconnect:(code, pk)        => db.ref(`nour_rooms/${code}/players/${pk}`).onDisconnect().remove(),
-    };
+    // fbMulti معرّف في الـ module script أعلى — مش هنعيّضه
 
     // ─── مسح الغرف القديمة (أقدم من ساعتين) ─────────────────
     function cleanOldRooms() {
@@ -6458,42 +6457,7 @@ const _FIREBASE_CONFIG = {
     }
     cleanOldRooms();
 
-    // ─── Firebase Auth (للـ Leaderboard والـ Login) ──────────
-    firebase.auth().onAuthStateChanged(fbUser => {
-      if (fbUser) {
-        const uname = fbUser.displayName || fbUser.email?.split('@')[0] || 'مستخدم';
-        db.ref('nour_users/'+window._makeKey(uname)).once('value').then(snap => {
-          const data = snap.val();
-          if (data && typeof loginSuccess === 'function') {
-            loginSuccess(uname, data);
-          }
-        });
-      }
-    });
-
-    // ─── fbLogin & fbRegister ────────────────────────────────
-    window.fbLogin = (user, pass, onOk, onErr) => {
-      // نستخدم email وهمي بناءً على username
-      const email = window._makeKey(user) + '@nour-quran.app';
-      firebase.auth().signInWithEmailAndPassword(email, pass)
-        .then(cred => {
-          db.ref('nour_users/'+window._makeKey(user)).once('value').then(s => onOk(s.val()));
-        })
-        .catch(() => onErr('اسم المستخدم أو كلمة المرور خاطئة'));
-    };
-
-    window.fbRegister = (user, pass, onOk, onErr) => {
-      const email = window._makeKey(user) + '@nour-quran.app';
-      firebase.auth().createUserWithEmailAndPassword(email, pass)
-        .then(cred => cred.user.updateProfile({ displayName: user }).then(onOk))
-        .catch(e => {
-          if (e.code === 'auth/email-already-in-use') onErr('اسم المستخدم محجوز');
-          else if (e.code === 'auth/weak-password') onErr('كلمة المرور ضعيفة جداً');
-          else onErr('خطأ في إنشاء الحساب');
-        });
-    };
-
-    window.fbLogout = () => firebase.auth().signOut().catch(() => {});
+    // Auth معرّف في الـ module script أعلى
 
     // ─── Leaderboard ─────────────────────────────────────────
     window.fbSaveUser = (username, data) => {
