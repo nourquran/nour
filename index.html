@@ -1099,34 +1099,28 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   };
 
   window.fbLogin = function(username, password, onSuccess, onError) {
-    // نجرب الـ email القديم أولاً (@nour-quran.app) ثم الجديد (@nour.app)
     const emailOld = makeKey(username, false).toLowerCase() + '@nour-quran.app';
-    const emailNew = toFbEmail(username);
-    signInWithEmailAndPassword(auth, emailOld, password)
-      .then(() => onSuccess())
-      .catch((e1) => {
-        if (e1.code === 'auth/user-not-found' || e1.code === 'auth/invalid-credential' || e1.code === 'auth/wrong-password') {
-          signInWithEmailAndPassword(auth, emailNew, password)
-            .then(() => onSuccess())
-            .catch((e2) => {
-              if (e2.code === 'auth/wrong-password' || e2.code === 'auth/invalid-credential') {
-                onError('كلمة المرور خاطئة');
-              } else if (e2.code === 'auth/user-not-found') {
-                onError('الحساب غير موجود، تحقق من الاسم أو أنشئ حساباً جديداً');
-              } else if (e2.code === 'auth/too-many-requests') {
-                onError('تم تجميد الحساب مؤقتاً بسبب محاولات كثيرة، حاول بعد قليل');
-              } else {
-                onError('اسم المستخدم أو كلمة المرور خاطئة');
-              }
-            });
-        } else if (e1.code === 'auth/too-many-requests') {
-          onError('تم تجميد الحساب مؤقتاً بسبب محاولات كثيرة، حاول بعد قليل');
-        } else {
-          signInWithEmailAndPassword(auth, emailNew, password)
-            .then(() => onSuccess())
-            .catch(() => onError('اسم المستخدم أو كلمة المرور خاطئة'));
-        }
-      });
+    const emailNew = toFbEmail(username); // username@nour.app
+
+    // نجرب الاتنين بالتوازي — أسرع وبيحل مشكلة Firebase الجديد
+    // اللي بيرجع auth/invalid-credential لكل الأخطاء
+    Promise.any([
+      signInWithEmailAndPassword(auth, emailNew, password),
+      signInWithEmailAndPassword(auth, emailOld, password),
+    ])
+    .then(() => onSuccess())
+    .catch((aggregateError) => {
+      // كل المحاولات فشلت — نشوف سبب الخطأ
+      const errors = aggregateError.errors || [];
+      const codes = errors.map(e => e && e.code).filter(Boolean);
+      if (codes.includes('auth/too-many-requests')) {
+        onError('تم تجميد الحساب مؤقتاً بسبب محاولات كثيرة، حاول بعد قليل');
+      } else if (codes.includes('auth/user-not-found') && !codes.includes('auth/wrong-password')) {
+        onError('الحساب غير موجود، تحقق من الاسم أو أنشئ حساباً جديداً');
+      } else {
+        onError('اسم المستخدم أو كلمة المرور خاطئة');
+      }
+    });
   };
 
   window.fbLogout = function() { signOut(auth).catch(() => {}); };
@@ -2065,13 +2059,13 @@ function doRegister() {
   const pass2 = document.getElementById('regPass2').value;
   if (!user || !pass) { showLoginErr('أدخل جميع البيانات'); return; }
   if (user.length < 3) { showLoginErr('الاسم يجب أن يكون ٣ أحرف على الأقل'); return; }
-
+  if (pass.length < 6) { showLoginErr('كلمة المرور يجب أن تكون ٦ أحرف على الأقل'); return; }
   if (pass !== pass2) { showLoginErr('كلمتا المرور غير متطابقتين'); return; }
 
-
+  const btn = document.querySelector('#registerForm .login-btn');
+  if (btn) { btn.textContent = '⏳ جاري الإنشاء...'; btn.disabled = true; }
 
   const resetBtn = () => {
-    const btn = document.querySelector('#registerForm .login-btn');
     if (btn) { btn.textContent = 'إنشاء الحساب 🌟'; btn.disabled = false; }
   };
 
@@ -2107,9 +2101,10 @@ function guestLogin() {
 }
 
 function loginSuccess(username, data, isGuest=false) {
+  if (window.currentUser) return; // منع الاستدعاء المزدوج
   currentUser = { username, isGuest, ...data };
   window.currentUser = currentUser;
-  window.loginSuccess = loginSuccess; // expose للـ Firebase module
+  window.loginSuccess = loginSuccess;
   document.getElementById('loginScreen').classList.add('hide');
   document.getElementById('userNameDisplay').textContent = '👤 ' + username;
   checkStreak();
@@ -2123,9 +2118,9 @@ function loginSuccess(username, data, isGuest=false) {
 }
 
 function doLogout() {
-  window.currentUser = null;
-  saveCurrentUser(); // save guests too for leaderboard
+  saveCurrentUser();
   currentUser = null;
+  window.currentUser = null;
   if (typeof window.fbLogout === 'function') window.fbLogout();
   document.getElementById('loginScreen').classList.remove('hide');
   goHome();
@@ -5900,10 +5895,15 @@ function _updateWaitingUI() {
     waitMsg.textContent = room.phase === 'playing' ? '🎯 اللعبة بدأت!' : '⏳ في انتظار المضيف...';
   }
 
-  // لو المضيف بدأ اللعبة
-  if (room.phase === 'playing' && multiState.phase === 'waiting') {
+  // لو المضيف بدأ اللعبة (للـ non-host عبر cache polling — الـ Firebase listener يتعامل منفرداً)
+  if (room.phase === 'playing' && multiState.phase === 'waiting' && !multiState.isHost) {
+    // نوسّع الأسئلة لو مضغوطة
+    if (room.questions && room.questions.length > 0 && room.questions[0].s !== undefined) {
+      room.questions = room.questions.map(window._expandMultiQ);
+      window._multiRoomCache = room;
+    }
     multiState.questions = room.questions;
-    multiState.totalQ = room.totalQ;
+    multiState.totalQ = room.totalQ || room.questions.length;
     _startMultiGame();
   }
 }
@@ -5925,7 +5925,13 @@ function multiStartGame() {
   Object.keys(room.players).forEach(u => { room.players[u].score = 0; room.players[u].answered = false; });
   window._multiRoomCache = room;
   if (typeof window.fbMulti !== 'undefined') {
-    window.fbMulti.updateRoom(multiState.roomCode, { phase: 'playing', startedAt: room.startedAt, currentQ: 0 });
+    // نبعت phase + totalQ عشان اللاعبين التانيين يعرفوا عدد الأسئلة
+    window.fbMulti.updateRoom(multiState.roomCode, {
+      phase: 'playing',
+      startedAt: room.startedAt,
+      currentQ: 0,
+      totalQ: room.totalQ || multiState.totalQ,
+    });
   } else {
     _setRoomData(multiState.roomCode, room);
   }
@@ -6256,10 +6262,14 @@ function _startPolling() {
         room.questions = room.questions.map(window._expandMultiQ);
       }
       window._multiRoomCache = room;
-      // Keep alive
+      // Keep alive — كل ٣٠ ثانية بس عشان ما نسبّبش rate limiting
       const pk = multiState.playerKey || multiState.playerName;
       if (room.players && room.players[pk]) {
-        window.fbMulti.updatePlayer(multiState.roomCode, pk, { lastSeen: Date.now() });
+        const now = Date.now();
+        if (!window._lastKeepAlive || now - window._lastKeepAlive > 30000) {
+          window._lastKeepAlive = now;
+          window.fbMulti.updatePlayer(multiState.roomCode, pk, { lastSeen: now });
+        }
       }
       if (multiState.phase === 'waiting') {
         // لو الـ host بدأ اللعبة
@@ -6267,8 +6277,12 @@ function _startPolling() {
           multiState.phase = 'playing';
           multiState.myScore = 0;
           multiState.qIndex = 0;
+          // نتأكد إن الأسئلة اتوسّعت وتعدّت لـ multiState
+          multiState.questions = room.questions; // room.questions اتوسّعت فوق
+          multiState.totalQ = room.totalQ || room.questions.length;
           document.getElementById('multiWaiting').style.display = 'none';
           document.getElementById('multiGameArea').style.display = 'block';
+          document.getElementById('multiQTotal').textContent = toArabicNum(multiState.totalQ);
           _renderMultiQuestion();
         } else {
           _updateWaitingUI();
