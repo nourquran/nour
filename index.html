@@ -3789,6 +3789,17 @@ function checkAnswer(chosen, correct, e) {
     if (b.textContent===correct) b.classList.add('correct');
     else if (b.textContent===chosen && !isRight) b.classList.add('wrong');
   });
+  // اكتب الجواب في مكان الفراغ
+  const blankEl = document.querySelector('#ayahText .blank');
+  if (blankEl) {
+    blankEl.textContent = correct;
+    blankEl.style.background = isRight ? 'rgba(46,175,120,0.25)' : 'rgba(192,57,43,0.25)';
+    blankEl.style.borderBottom = isRight ? '2px solid #2EAF78' : '2px solid #C0392B';
+    blankEl.style.color = isRight ? '#7DFFC9' : '#FF9E9E';
+    blankEl.style.padding = '0 6px';
+    blankEl.style.borderRadius = '4px';
+    blankEl.style.animation = 'none';
+  }
   handleResult(isRight, e);
 }
 
@@ -3805,6 +3816,17 @@ function checkTyping() {
   input.disabled = true;
   input.className = 'typing-input ' + (isRight?'correct':'wrong');
   document.querySelector('.typing-submit').disabled = true;
+  // اكتب الجواب في مكان الفراغ
+  const blankEl = document.querySelector('#ayahText .blank');
+  if (blankEl) {
+    blankEl.textContent = q.blank;
+    blankEl.style.background = isRight ? 'rgba(46,175,120,0.25)' : 'rgba(192,57,43,0.25)';
+    blankEl.style.borderBottom = isRight ? '2px solid #2EAF78' : '2px solid #C0392B';
+    blankEl.style.color = isRight ? '#7DFFC9' : '#FF9E9E';
+    blankEl.style.padding = '0 6px';
+    blankEl.style.borderRadius = '4px';
+    blankEl.style.animation = 'none';
+  }
   handleResult(isRight, null);
 }
 
