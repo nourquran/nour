@@ -1142,8 +1142,44 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   window.fbSaveFullUserData = function(username, data) {
     if (!username) return;
     const key = makeKey(username, false);
-    const { password, ...cleanData } = data; // ما نحفظش الـ password في DB
-    set(ref(db, 'users/' + key + '/data'), { ...cleanData, updatedAt: Date.now() }).catch(() => {});
+    const { password, ...cleanData } = data;
+    update(ref(db, 'users/' + key + '/data'), { ...cleanData, updatedAt: Date.now() }).catch(() => {});
+  };
+
+  // دالة جديدة لإضافة النقاط بشكل atomic (بدون race condition)
+  window.fbIncrementScore = function(username, scoreAdd, hasanatAdd, gamesAdd) {
+    if (!username || (!scoreAdd && !hasanatAdd && !gamesAdd)) return;
+    const key = makeKey(username, false);
+    const { increment } = window._fbServerValue || {};
+    // نستخدم get ثم update عشان نضمن الـ consistency
+    const dataRef = ref(db, 'users/' + key + '/data');
+    get(dataRef).then(snap => {
+      const curr = snap.exists() ? snap.val() : {};
+      const newData = {
+        totalScore:   (curr.totalScore   || 0) + (scoreAdd   || 0),
+        totalGames:   (curr.totalGames   || 0) + (gamesAdd   || 0),
+        totalHasanat: (curr.totalHasanat || 0) + (hasanatAdd || 0),
+        streak:       curr.streak    || 0,
+        lastPlay:     curr.lastPlay  || null,
+        updatedAt:    Date.now(),
+      };
+      update(dataRef, newData).catch(() => {});
+      // sync currentUser مع القيم الجديدة من Firebase
+      if (window.currentUser && window.currentUser.username === username) {
+        window.currentUser.totalScore   = newData.totalScore;
+        window.currentUser.totalGames   = newData.totalGames;
+        window.currentUser.totalHasanat = newData.totalHasanat;
+        if (typeof updateHomeStats === 'function') updateHomeStats();
+      }
+    }).catch(() => {
+      // fallback لو Firebase مش متاح
+      update(dataRef, {
+        totalScore:   (scoreAdd   || 0),
+        totalGames:   (gamesAdd   || 0),
+        totalHasanat: (hasanatAdd || 0),
+        updatedAt:    Date.now(),
+      }).catch(() => {});
+    });
   };
 
   // مراقبة حالة الـ Auth — دخول تلقائي لو عنده جلسة
@@ -2023,10 +2059,31 @@ function doLogin() {
   const user = document.getElementById('loginUser').value.trim();
   const pass = document.getElementById('loginPass').value;
   if (!user || !pass) { showLoginErr('أدخل اسم المستخدم وكلمة المرور'); return; }
-  const users = getUsers();
-  if (!users[user]) { showLoginErr('اسم المستخدم غير موجود'); return; }
-  if (users[user].password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
-  loginSuccess(user, users[user]);
+
+  const btn = document.querySelector('#loginForm .login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الدخول...'; }
+  const resetBtn = () => { if (btn) { btn.disabled = false; btn.textContent = 'دخول ✨'; } };
+
+  if (typeof window.fbLogin === 'function') {
+    // Firebase Auth — يشتغل على كل الأجهزة
+    window.fbLogin(user, pass,
+      () => {
+        // onAuthStateChanged هيستدعي loginSuccess تلقائياً
+        resetBtn();
+      },
+      (errMsg) => {
+        resetBtn();
+        showLoginErr(errMsg);
+      }
+    );
+  } else {
+    // fallback محلي لو Firebase مش متاح
+    resetBtn();
+    const users = getUsers();
+    if (!users[user]) { showLoginErr('اسم المستخدم غير موجود'); return; }
+    if (users[user].password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
+    loginSuccess(user, users[user]);
+  }
 }
 
 function doRegister() {
@@ -2037,12 +2094,37 @@ function doRegister() {
   if (user.length < 3) { showLoginErr('الاسم يجب أن يكون ٣ أحرف على الأقل'); return; }
   if (pass.length < 4) { showLoginErr('كلمة المرور يجب أن تكون ٤ أحرف على الأقل'); return; }
   if (pass !== pass2) { showLoginErr('كلمتا المرور غير متطابقتين'); return; }
-  const users = getUsers();
-  if (users[user]) { showLoginErr('اسم المستخدم محجوز، اختر اسماً آخر'); return; }
-  const newData = { ...createDefaultUserData(), password: btoa(pass) };
-  users[user] = newData;
-  saveUsers(users);
-  loginSuccess(user, newData);
+
+  const btn = document.querySelector('#registerForm .login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الإنشاء...'; }
+  const resetBtn = () => { if (btn) { btn.disabled = false; btn.textContent = 'إنشاء الحساب 🌟'; } };
+
+  if (typeof window.fbRegister === 'function') {
+    // Firebase Auth — حساب على كل الأجهزة
+    window.fbRegister(user, pass,
+      () => {
+        // بعد الإنشاء: تسجيل دخول تلقائي عبر onAuthStateChanged
+        resetBtn();
+        // احفظ البيانات الأولية في Firebase DB
+        if (typeof window.fbSaveFullUserData === 'function') {
+          window.fbSaveFullUserData(user, createDefaultUserData());
+        }
+      },
+      (errMsg) => {
+        resetBtn();
+        showLoginErr(errMsg);
+      }
+    );
+  } else {
+    // fallback محلي
+    resetBtn();
+    const users = getUsers();
+    if (users[user]) { showLoginErr('اسم المستخدم محجوز، اختر اسماً آخر'); return; }
+    const newData = { ...createDefaultUserData(), password: btoa(pass) };
+    users[user] = newData;
+    saveUsers(users);
+    loginSuccess(user, newData);
+  }
 }
 
 function guestLogin() {
@@ -2053,12 +2135,37 @@ function guestLogin() {
 
 function loginSuccess(username, data, isGuest=false) {
   if (window.currentUser) return; // منع الاستدعاء المزدوج
-  currentUser = { username, isGuest, ...data };
+
+  // للمستخدمين المسجلين: اجلب أحدث بيانات من Firebase وادمجها
+  if (!isGuest && typeof window.fbGetUserData === 'function') {
+    window.fbGetUserData(username, (fbData) => {
+      if (window.currentUser) return; // تحقق مرة تانية
+      // دمج البيانات — الأكبر فيهم يكسب (مش هنخسر نقاط أبداً)
+      const localData = data || {};
+      const merged = {
+        totalScore:   Math.max(fbData?.totalScore   || 0, localData.totalScore   || 0),
+        totalGames:   Math.max(fbData?.totalGames   || 0, localData.totalGames   || 0),
+        totalHasanat: Math.max(fbData?.totalHasanat || 0, localData.totalHasanat || 0),
+        streak:       fbData?.streak   ?? localData.streak   ?? 0,
+        lastPlay:     fbData?.lastPlay ?? localData.lastPlay ?? null,
+      };
+      currentUser = { username, isGuest: false, ...merged };
+      window.currentUser = currentUser;
+      window.loginSuccess = loginSuccess;
+      _finishLogin(username, isGuest);
+    });
+    return;
+  }
+
+  currentUser = { username, isGuest, ...(data || {}) };
   window.currentUser = currentUser;
   window.loginSuccess = loginSuccess;
+  _finishLogin(username, isGuest);
+}
+
+function _finishLogin(username, isGuest) {
   document.getElementById('loginScreen').classList.add('hide');
   document.getElementById('userNameDisplay').textContent = '👤 ' + username;
-  // نعمل Firebase anonymous auth مبكراً عشان الـ multiplayer يشتغل بدون تأخير
   if (typeof window.fbSignInAnon === 'function') window.fbSignInAnon();
   checkStreak();
   renderLevels();
@@ -2081,18 +2188,21 @@ function doLogout() {
 
 function saveCurrentUser() {
   if (!currentUser) return;
+
+  // حفظ محلي كـ cache
   const users = getUsers();
   users[currentUser.username] = {
     ...(users[currentUser.username] || {}),
-    totalScore: currentUser.totalScore,
-    totalGames: currentUser.totalGames,
+    totalScore:   currentUser.totalScore,
+    totalGames:   currentUser.totalGames,
     totalHasanat: currentUser.totalHasanat,
-    streak: currentUser.streak || 0,
-    lastPlay: currentUser.lastPlay,
-    isGuest: currentUser.isGuest || false,
+    streak:       currentUser.streak || 0,
+    lastPlay:     currentUser.lastPlay,
+    isGuest:      currentUser.isGuest || false,
   };
   saveUsers(users);
-  // رفع البيانات الكاملة على Firebase DB (للمستخدمين المسجلين)
+
+  // رفع على Firebase DB — للمستخدمين المسجلين فقط
   if (!currentUser.isGuest && typeof window.fbSaveFullUserData === 'function') {
     window.fbSaveFullUserData(currentUser.username, {
       totalScore:   currentUser.totalScore,
@@ -2102,6 +2212,7 @@ function saveCurrentUser() {
       lastPlay:     currentUser.lastPlay,
     });
   }
+
   // رفع على Leaderboard
   if (typeof window.fbSaveUser === 'function' && (currentUser.totalHasanat || 0) > 0) {
     window.fbSaveUser(currentUser.username, {
@@ -4371,9 +4482,13 @@ function showResults() {
   const total = state.questions.length;
   const accuracy = Math.round((state.correct/total)*100);
 
-  currentUser.totalScore += state.score;
+  // احفظ القيم القديمة عشان نحسب الفرق
+  const _scoreAdd   = state.score;
+  const _hasanatAdd = state.sessionHasanat;
+
+  currentUser.totalScore   += _scoreAdd;
   currentUser.totalGames++;
-  currentUser.totalHasanat += state.sessionHasanat;
+  currentUser.totalHasanat += _hasanatAdd;
 
   const today = new Date().toDateString();
   if (currentUser.lastPlay !== today) {
@@ -4381,7 +4496,43 @@ function showResults() {
     currentUser.streak = (currentUser.lastPlay === yesterday) ? currentUser.streak+1 : 1;
     currentUser.lastPlay = today;
   }
-  saveCurrentUser();
+
+  // حفظ محلي فوري
+  const _localUsers = getUsers();
+  _localUsers[currentUser.username] = {
+    ...(_localUsers[currentUser.username] || {}),
+    totalScore:   currentUser.totalScore,
+    totalGames:   currentUser.totalGames,
+    totalHasanat: currentUser.totalHasanat,
+    streak:       currentUser.streak || 0,
+    lastPlay:     currentUser.lastPlay,
+    isGuest:      currentUser.isGuest || false,
+  };
+  saveUsers(_localUsers);
+
+  // حفظ على Firebase بشكل atomic (يجمع صح مع أي جهاز تاني)
+  if (!currentUser.isGuest && typeof window.fbIncrementScore === 'function') {
+    window.fbIncrementScore(currentUser.username, _scoreAdd, _hasanatAdd, 1);
+    // حفظ streak وlastPlay منفصلاً
+    if (typeof window.fbSaveFullUserData === 'function') {
+      window.fbSaveFullUserData(currentUser.username, {
+        streak:   currentUser.streak || 0,
+        lastPlay: currentUser.lastPlay,
+      });
+    }
+  } else {
+    saveCurrentUser();
+  }
+
+  // رفع على Leaderboard
+  if (typeof window.fbSaveUser === 'function' && (currentUser.totalHasanat || 0) > 0) {
+    window.fbSaveUser(currentUser.username, {
+      totalHasanat: currentUser.totalHasanat,
+      totalScore:   currentUser.totalScore,
+      totalGames:   currentUser.totalGames,
+      isGuest:      currentUser.isGuest || false,
+    });
+  }
 
   const levelUpBox = document.getElementById('levelUpBox');
   levelUpBox.classList.remove('show');
@@ -5184,37 +5335,45 @@ function buildReviewQuestions(surahName) {
     }
   });
 
-  return questions;
+  // فلتر أمان: تأكيد إن كل الأسئلة من نفس السورة المطلوبة
+  return questions.filter(q => q.surah === surahName);
 }
 
 function startSurahReview(surahName) {
   if (!currentUser) return;
 
+  // تأكيد إن اسم السورة صحيح قبل البدء
+  const _targetSurah = String(surahName);
+
   showScreen('gameScreen');
   document.getElementById('liveScore').textContent = '٠';
   document.getElementById('timerWrap').style.display = 'none';
-  document.getElementById('levelBadgeGame').textContent = '📖 مراجعة سورة ' + surahName;
+  document.getElementById('levelBadgeGame').textContent = '📖 مراجعة سورة ' + _targetSurah;
   document.getElementById('mcqWrap').innerHTML = '';
   document.getElementById('nextBtn').className = 'next-btn';
   document.getElementById('feedback').className = 'feedback';
 
-  setTimeout(() => {
-    let questions = buildReviewQuestions(surahName);
-    if (questions.length < 1) { showScreen('reviewScreen'); return; }
+  // بناء الأسئلة مباشرةً بدون setTimeout لتجنب أي race condition
+  state.questions = []; // تصفير الأسئلة القديمة أولاً
+  let questions = buildReviewQuestions(_targetSurah);
 
-    state.reviewSurah = surahName;
-    state.reviewTotal = questions.length;
-    state.isReviewMode = true;
-    state.questions = questions;
-    state.qIndex = 0; state.score = 0; state.correct = 0;
-    state.sessionHasanat = 0; state.answered = false;
-    state.combo = 0;
-    state.hints = { h1:2, h2:2, h3:2 };
-    state.mode = 'mcq';
-    stopTimer();
-    markSurahReviewStarted(surahName, questions.length);
-    renderQuestion();
-  });
+  // تحقق إضافي: كل الأسئلة من نفس السورة المطلوبة
+  questions = questions.filter(q => q.surah === _targetSurah);
+
+  if (questions.length < 1) { showScreen('reviewScreen'); showToast('⚠️ لم يتم العثور على أسئلة لهذه السورة'); return; }
+
+  state.reviewSurah = _targetSurah;
+  state.reviewTotal = questions.length;
+  state.isReviewMode = true;
+  state.questions = questions;
+  state.qIndex = 0; state.score = 0; state.correct = 0;
+  state.sessionHasanat = 0; state.answered = false;
+  state.combo = 0;
+  state.hints = { h1:2, h2:2, h3:2 };
+  state.mode = 'mcq';
+  stopTimer();
+  markSurahReviewStarted(_targetSurah, questions.length);
+  renderQuestion();
 }
 
 // ============================================================
@@ -6074,19 +6233,27 @@ function _renderMultiQuestion() {
       }
       _updateMultiLiveScores();
       clearTimeout(multiState.answerTimer);
-      multiState.answerTimer = setTimeout(() => {
-        const nextQ = multiState.qIndex + 1;
-        if (typeof window.fbMulti !== 'undefined' && multiState.roomCode) {
-          const room = window._multiRoomCache;
-          if (!room || room.currentQ === undefined || room.currentQ === multiState.qIndex) {
-            window.fbMulti.updateRoom(multiState.roomCode, { currentQ: nextQ });
+      // انتهى الوقت — اكتب في Firebase فوراً لنقل كل اللاعبين للسؤال التالي
+      const _nextQT = multiState.qIndex + 1;
+      if (typeof window.fbMulti !== 'undefined' && multiState.roomCode) {
+        const _roomT = window._multiRoomCache;
+        if (!_roomT || _roomT.currentQ === undefined || _roomT.currentQ === multiState.qIndex) {
+          window.fbMulti.updateRoom(multiState.roomCode, { currentQ: _nextQT });
+        }
+        multiState.answerTimer = setTimeout(() => {
+          if (multiState.qIndex < _nextQT) {
+            multiState.qIndex = _nextQT;
+            if (multiState.qIndex >= multiState.totalQ) _showMultiResults();
+            else _renderMultiQuestion();
           }
-        } else {
-          multiState.qIndex = nextQ;
+        }, 700);
+      } else {
+        multiState.answerTimer = setTimeout(() => {
+          multiState.qIndex = _nextQT;
           if (multiState.qIndex >= multiState.totalQ) _showMultiResults();
           else _renderMultiQuestion();
-        }
-      }, 1500);
+        }, 700);
+      }
     }
   }, 1000);
 }
@@ -6157,21 +6324,30 @@ function _multiAnswer(chosen, correct, q, clickedBtn, e) {
   _updateMultiLiveScores();
 
   clearTimeout(multiState.answerTimer);
-  multiState.answerTimer = setTimeout(() => {
-    const nextQ = multiState.qIndex + 1;
-    if (typeof window.fbMulti !== 'undefined' && multiState.roomCode) {
-      // كتابة currentQ في Firebase — كل اللاعبين هيشوفوا التغيير ويتحركوا
-      const room = window._multiRoomCache;
-      if (!room || room.currentQ === undefined || room.currentQ === multiState.qIndex) {
-        window.fbMulti.updateRoom(multiState.roomCode, { currentQ: nextQ });
+
+  // اكتب currentQ في Firebase فوراً عشان كل اللاعبين يتحركوا لحظياً
+  const _nextQ = multiState.qIndex + 1;
+  if (typeof window.fbMulti !== 'undefined' && multiState.roomCode) {
+    const _room = window._multiRoomCache;
+    if (!_room || _room.currentQ === undefined || _room.currentQ === multiState.qIndex) {
+      window.fbMulti.updateRoom(multiState.roomCode, { currentQ: _nextQ });
+    }
+    // اللاعب اللي أجاب يتحرك بعد 700ms للـ feedback — التانيين هيتحركوا عبر onValue فوراً
+    multiState.answerTimer = setTimeout(() => {
+      if (multiState.qIndex < _nextQ) {
+        clearInterval(multiState.questionTimer);
+        multiState.qIndex = _nextQ;
+        if (multiState.qIndex >= multiState.totalQ) _showMultiResults();
+        else _renderMultiQuestion();
       }
-      // الانتقال المحلي هيتم عبر الـ listener تلقائياً
-    } else {
-      multiState.qIndex = nextQ;
+    }, 700);
+  } else {
+    multiState.answerTimer = setTimeout(() => {
+      multiState.qIndex = _nextQ;
       if (multiState.qIndex >= multiState.totalQ) _showMultiResults();
       else _renderMultiQuestion();
-    }
-  }, 1500);
+    }, 700);
+  }
 }
 
 function _updateMultiLiveScores() {
