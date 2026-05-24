@@ -92,8 +92,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
+
 <style>
 :root {
   --gold: #C9973A; --gold-light: #F5D98B; --gold-dark: #8B6820;
@@ -349,43 +348,20 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 .qcount-slider { width:100%; accent-color:var(--gold); height:6px; border-radius:3px; cursor:pointer; }
 .qcount-ticks { display:flex; justify-content:space-between; font-size:10px; color:rgba(245,217,139,0.4); margin-top:4px; padding:0 2px; }
 
-/* ===== DUAL SLIDER (نطاق الآيات مدمج) ===== */
-#dualSliderEl { margin: 2px 4px 0; }
-#dualSliderEl .noUi-target {
-  background: rgba(255,254,249,0.08);
-  border: none; box-shadow: none;
-  height: 6px; border-radius: 3px;
+/* ===== DUAL SLIDER CUSTOM ===== */
+.dual-slider-track-wrap { position:relative; height:28px; display:flex; align-items:center; margin:4px 0 0; user-select:none; }
+.dual-slider-rail { position:absolute; left:0; right:0; height:6px; background:rgba(255,254,249,0.08); border-radius:3px; }
+.dual-slider-fill { position:absolute; height:6px; background:var(--gold); border-radius:3px; pointer-events:none; }
+.dual-slider-thumb {
+  position:absolute; width:22px; height:22px; border-radius:50%;
+  background:linear-gradient(135deg,#F5D98B,#C9973A);
+  border:2px solid #8B6820;
+  box-shadow:0 2px 8px rgba(201,151,58,0.5);
+  cursor:grab; transform:translate(-50%,-50%); top:50%;
+  touch-action:none; z-index:3;
 }
-#dualSliderEl .noUi-connect { background: var(--gold); }
-#dualSliderEl .noUi-base .noUi-origin:first-child .noUi-handle {
-  /* نقطة النهاية — ذهبي */
-}
-#dualSliderEl .noUi-handle {
-  width: 20px; height: 20px; border-radius: 50%;
-  background: linear-gradient(135deg, #F5D98B, #C9973A);
-  border: 2px solid #8B6820;
-  box-shadow: 0 2px 8px rgba(201,151,58,0.5);
-  top: -7px; right: -10px; cursor: grab;
-}
-#dualSliderEl .noUi-handle:active { cursor: grabbing; }
-#dualSliderEl .noUi-handle::before,
-#dualSliderEl .noUi-handle::after { display: none; }
-/* نقطة البداية — لون مختلف شوية */
-#dualSliderEl .noUi-origin:last-child .noUi-handle {
-  background: linear-gradient(135deg, #7DFFC9, #2EAF78);
-  border-color: #1B6B4A;
-  box-shadow: 0 2px 8px rgba(46,175,120,0.5);
-}
-#dualSliderEl .noUi-tooltip {
-  background: rgba(26,18,8,0.95);
-  border: 1px solid rgba(201,151,58,0.4);
-  border-radius: 8px; padding: 3px 8px;
-  font-family: 'Cairo', sans-serif;
-  font-size: 11px; font-weight: 700;
-  color: var(--gold); bottom: 130%;
-  white-space: nowrap;
-}
-#dualSliderEl .noUi-origin:last-child .noUi-tooltip { color: #7DFFC9; border-color: rgba(46,175,120,0.4); }
+.dual-slider-thumb:active { cursor:grabbing; box-shadow:0 3px 14px rgba(201,151,58,0.75); }
+
 .dual-ticks-row { display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px; }
 .dual-range-summary { font-size:11px; color:rgba(245,217,139,0.45); text-align:center; margin-top:5px; min-height:15px; }
 
@@ -1974,34 +1950,18 @@ function onQcountChange(val) {
 }
 
 function updateQcountSliderMax() {
-  const slider = document.getElementById('qcountSlider');
-  const btn = document.getElementById('surahAllQBtn');
-  const ticks = document.getElementById('qcountTicks');
   const label = document.getElementById('qcountLabelText');
   const hint = document.getElementById('qcountHint');
 
   if (selectedSurah) {
-    // استخدم العدد الحقيقي من SURAHS_FULL أو من الـ DB كـ fallback
     const meta = SURAHS_FULL.find(s => s[0] === selectedSurah);
     const surahCount = meta ? meta[1] : (() => {
       const allPool = Object.values(QURAN_DB).flat();
       return allPool.filter(q => q.surah === selectedSurah).length;
     })();
     if (surahCount > 0) {
-      const maxQ = Math.max(surahCount, 50);
-      slider.max = maxQ;
-      btn.style.display = 'inline-block';
-      btn.textContent = '📖 كل آيات السورة (' + toArabicNum(surahCount) + ')';
-
-      // تحديث علامات الـ slider
-      const step = Math.ceil(surahCount / 5);
-      const marks = [];
-      for (let i = 1; i <= 5; i++) marks.push(Math.min(i * step, surahCount));
-      ticks.innerHTML = marks.map(m => `<span>${toArabicNum(m)}</span>`).join('');
-
-      // تحديث label وhint
       label.textContent = 'عدد الأسئلة من سورة ' + selectedSurah;
-      hint.textContent = '💡 اختار عدد الأسئلة من آيات السورة';
+      hint.textContent = '💡 اختار نطاق الآيات من السورة';
       return;
     }
   }
@@ -2009,12 +1969,6 @@ function updateQcountSliderMax() {
     const segs = JUZ_SURAHS[parseInt(selectedJuz)] || [];
     const total = segs.reduce((s,seg)=>s+(seg.e-seg.a+1), 0);
     if (total > 0) {
-      slider.max = Math.max(total, 50);
-      btn.style.display = 'none';
-      const step = Math.ceil(total/5);
-      const marks = [];
-      for (let i=1;i<=5;i++) marks.push(Math.min(i*step,total));
-      ticks.innerHTML = marks.map(m=>`<span>${toArabicNum(m)}</span>`).join('');
       label.textContent = 'عدد الأسئلة من الجزء ' + toArabicNum(selectedJuz);
       hint.textContent = '💡 اختار عدد الأسئلة من آيات الجزء';
       return;
@@ -2022,9 +1976,6 @@ function updateQcountSliderMax() {
   }
 
   // إعادة الافتراضي
-  slider.max = 50;
-  btn.style.display = 'none';
-  ticks.innerHTML = '<span>١</span><span>١٠</span><span>٢٠</span><span>٣٠</span><span>٤٠</span><span>٥٠</span>';
   label.textContent = 'اختر عدد الأسئلة في كل جلسة';
   hint.textContent = '';
 }
@@ -2037,11 +1988,8 @@ function setAllSurahQuestions() {
     return allPool.filter(q => q.surah === selectedSurah).length;
   })();
   if (surahCount < 1) return;
-  const slider = document.getElementById('qcountSlider');
-  slider.max = Math.max(surahCount, 50);
-  slider.value = surahCount;
-  selectedQCount = surahCount;
-  document.getElementById('qcountDisplay').textContent = toArabicNum(surahCount);
+  _dsFrom = 1; _dsTo = surahCount;
+  _dsRender(); _dsUpdate();
   showToast('✅ كل آيات سورة ' + selectedSurah + ' — ' + toArabicNum(surahCount) + ' آية');
 }
 
@@ -2744,9 +2692,6 @@ function onJuzFilterChange() {
   document.getElementById('surahHint').style.color = 'var(--emerald-light)';
 
   // ضبط الـ slider
-  const slider = document.getElementById('qcountSlider');
-  slider.max = Math.max(totalAyahs, 50);
-  slider.value = totalAyahs;
   selectedQCount = totalAyahs;
   document.getElementById('qcountDisplay').textContent = toArabicNum(totalAyahs);
   const qcountLbl = document.getElementById('qcountLabelText');
@@ -2761,10 +2706,7 @@ function clearJuzFilter(silent=false) {
   if (sel) sel.value = '';
   if (!silent) {
     document.getElementById('surahHint').textContent = '';
-    const slider = document.getElementById('qcountSlider');
-    slider.max = 50; slider.value = 20;
-    selectedQCount = 20;
-    document.getElementById('qcountDisplay').textContent = toArabicNum(20);
+    _hideDualSlider();
     const lbl = document.getElementById('qcountLabelText');
     if (lbl) lbl.textContent = 'اختر عدد الأسئلة في كل جلسة';
   }
@@ -2773,7 +2715,6 @@ function clearJuzFilter(silent=false) {
 let selectedSurah = '';
 let selectedFromAyah = 1;
 let selectedToAyah = null;
-let _dualSlider = null;
 
 
 function populateSurahFilter() {
@@ -2835,82 +2776,139 @@ function clearSurahFilter() {
   selectedToAyah = null;
   document.getElementById('surahFilter').value = '';
   document.getElementById('surahHint').textContent = '';
-  _hideDualSlider();
   updateQcountSliderMax();
-  const slider = document.getElementById('qcountSlider');
-  slider.value = 20;
-  selectedQCount = 20;
-  document.getElementById('qcountDisplay').textContent = toArabicNum(20);
+  _hideDualSlider();
+}
+
+// ============================================================
+// ===== CUSTOM DUAL SLIDER =====
+// ============================================================
+let _dsMin = 1, _dsMax = 50, _dsFrom = 1, _dsTo = 20;
+
+function _dsInit() {
+  const wrap  = document.getElementById('dualTrackWrap');
+  const tFrom = document.getElementById('dualThumbFrom');
+  const tTo   = document.getElementById('dualThumbTo');
+  if (!wrap || !tFrom || !tTo) return;
+
+  function makedragger(thumb, isFrom) {
+    function onMove(clientX) {
+      const rect = wrap.getBoundingClientRect();
+      // RTL: القيمة الكبيرة على اليمين
+      let pct = 1 - (clientX - rect.left) / rect.width;
+      pct = Math.max(0, Math.min(1, pct));
+      let val = Math.round(_dsMin + pct * (_dsMax - _dsMin));
+      if (isFrom) {
+        _dsFrom = Math.min(val, _dsTo);
+      } else {
+        _dsTo = Math.max(val, _dsFrom);
+      }
+      _dsRender();
+      _dsUpdate();
+    }
+    thumb.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const mm = e2 => onMove(e2.clientX);
+      const mu = () => { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); };
+      document.addEventListener('mousemove', mm);
+      document.addEventListener('mouseup', mu);
+    });
+    thumb.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const tm = e2 => onMove(e2.touches[0].clientX);
+      const te = () => { document.removeEventListener('touchmove', tm); document.removeEventListener('touchend', te); };
+      document.addEventListener('touchmove', tm, {passive:false});
+      document.addEventListener('touchend', te);
+    }, {passive:false});
+    // keyboard
+    thumb.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight') { isFrom ? (_dsFrom = Math.max(_dsMin, _dsFrom-1)) : (_dsTo = Math.max(_dsFrom, _dsTo-1)); _dsRender(); _dsUpdate(); }
+      if (e.key === 'ArrowLeft')  { isFrom ? (_dsFrom = Math.min(_dsTo, _dsFrom+1)) : (_dsTo = Math.min(_dsMax, _dsTo+1)); _dsRender(); _dsUpdate(); }
+    });
+  }
+
+  makedragger(tFrom, true);
+  makedragger(tTo, false);
+}
+
+function _dsRender() {
+  const wrap  = document.getElementById('dualTrackWrap');
+  const tFrom = document.getElementById('dualThumbFrom');
+  const tTo   = document.getElementById('dualThumbTo');
+  const fill  = document.getElementById('dualRangeFill');
+  if (!wrap || !tFrom || !tTo || !fill) return;
+  const range = _dsMax - _dsMin || 1;
+  // RTL: القيمة الأكبر = يمين = left% أصغر
+  const fromPct = 1 - (_dsFrom - _dsMin) / range; // % من اليسار للـ from (RTL)
+  const toPct   = 1 - (_dsTo   - _dsMin) / range; // % من اليسار للـ to
+  tFrom.style.left = (fromPct * 100) + '%';
+  tTo.style.left   = (toPct   * 100) + '%';
+  // الـ fill بين النقطتين
+  const fillLeft  = Math.min(fromPct, toPct) * 100;
+  const fillRight = (1 - Math.max(fromPct, toPct)) * 100;
+  fill.style.left  = fillLeft  + '%';
+  fill.style.right = fillRight + '%';
+}
+
+function _dsUpdate() {
+  selectedFromAyah = _dsFrom;
+  selectedToAyah   = _dsTo;
+  selectedQCount   = _dsTo - _dsFrom + 1;
+  document.getElementById('qcountDisplay').textContent = toArabicNum(selectedQCount);
+  const summary = document.getElementById('dualRangeSummary');
+  if (_dsFrom === _dsMin && _dsTo === _dsMax) {
+    summary.textContent = selectedSurah
+      ? ('📖 كل السورة — ' + toArabicNum(_dsMax) + ' ' + ayatWord(_dsMax))
+      : ('📖 كل النطاق — ' + toArabicNum(_dsMax) + ' سؤال');
+  } else {
+    summary.textContent = selectedSurah
+      ? ('من آية ' + toArabicNum(_dsFrom) + ' إلى آية ' + toArabicNum(_dsTo) + ' ـ ' + toArabicNum(selectedQCount) + ' ' + ayatWord(selectedQCount))
+      : ('من سؤال ' + toArabicNum(_dsFrom) + ' إلى سؤال ' + toArabicNum(_dsTo) + ' — ' + toArabicNum(selectedQCount) + ' سؤال');
+  }
+}
+
+function ayatWord(n) {
+  if (n === 1) return 'آية';
+  if (n === 2) return 'آيتان';
+  return 'آيات';
 }
 
 function _showDualSlider(total) {
-  document.getElementById('singleSliderWrap').style.display = 'none';
   document.getElementById('dualSliderWrap').style.display = 'block';
+  const resetBtn = document.getElementById('resetDualBtn');
+  if (resetBtn) resetBtn.textContent = selectedSurah ? '📖 كل السورة' : '📖 كل النطاق';
 
-  // دمّر القديم
-  if (_dualSlider) { try { _dualSlider.destroy(); } catch(e){} _dualSlider = null; }
-  const el = document.getElementById('dualSliderEl');
-  el.innerHTML = '';
+  _dsMin = 1; _dsMax = total; _dsFrom = 1; _dsTo = total;
 
-  if (typeof noUiSlider === 'undefined') { _hideDualSlider(); return; }
-
-  noUiSlider.create(el, {
-    start: [total, 1],          // [النهاية, البداية] — RTL
-    connect: true,
-    step: 1,
-    range: { min: 1, max: total },
-    direction: 'rtl',
-    tooltips: [
-      { to: v => 'آية ' + toArabicNum(Math.round(v)) },
-      { to: v => 'آية ' + toArabicNum(Math.round(v)) }
-    ]
-  });
-  _dualSlider = el.noUiSlider;
-
-  // ticks ديناميكية
+  // ticks
   const ticksEl = document.getElementById('dualTicks');
   if (total <= 20) {
-    ticksEl.innerHTML = Array.from({length: total}, (_,i) =>
-      `<span>${toArabicNum(i+1)}</span>`
-    ).join('');
+    ticksEl.innerHTML = Array.from({length: total}, (_,i) => `<span>${toArabicNum(i+1)}</span>`).join('');
   } else {
     const steps = [1, Math.round(total*0.25), Math.round(total*0.5), Math.round(total*0.75), total];
     ticksEl.innerHTML = steps.map(n => `<span>${toArabicNum(n)}</span>`).join('');
   }
 
-  _dualSlider.on('update', function(values) {
-    const v0 = Math.round(parseFloat(values[0]));
-    const v1 = Math.round(parseFloat(values[1]));
-    const toAyah   = Math.max(v0, v1);
-    const fromAyah = Math.min(v0, v1);
-    selectedFromAyah = fromAyah;
-    selectedToAyah   = toAyah;
-    selectedQCount   = toAyah - fromAyah + 1;
-    document.getElementById('qcountDisplay').textContent = toArabicNum(selectedQCount);
-    const summary = document.getElementById('dualRangeSummary');
-    if (fromAyah === 1 && toAyah === total) {
-      summary.textContent = '📖 كل السورة — ' + toArabicNum(total) + ' آية';
-    } else {
-      summary.textContent = 'من آية ' + toArabicNum(fromAyah) + ' إلى آية ' + toArabicNum(toAyah) + ' — ' + toArabicNum(selectedQCount) + ' آية';
-    }
-  });
-
-  document.getElementById('dualRangeSummary').textContent = '📖 كل السورة — ' + toArabicNum(total) + ' آية';
+  _dsRender();
+  _dsUpdate();
 }
 
 function _hideDualSlider() {
-  document.getElementById('singleSliderWrap').style.display = 'block';
-  document.getElementById('dualSliderWrap').style.display = 'none';
-  if (_dualSlider) { try { _dualSlider.destroy(); } catch(e){} _dualSlider = null; }
-  document.getElementById('dualSliderEl').innerHTML = '';
+  _dsMin = 1; _dsMax = 50; _dsFrom = 1; _dsTo = 20;
+  _showDualSlider(50);
+  _dsTo = 20; _dsFrom = 1;
+  _dsRender();
+  _dsUpdate();
 }
 
 function resetDualSlider() {
-  if (!_dualSlider || !selectedSurah) return;
-  const meta = SURAHS_FULL.find(s => s[0] === selectedSurah);
-  const total = meta ? meta[1] : 0;
-  if (total > 0) _dualSlider.set([total, 1]);
+  _dsFrom = _dsMin; _dsTo = _dsMax;
+  _dsRender(); _dsUpdate();
 }
+
+// شيل الـ onDualSliderChange القديمة (مش محتاجها)
+function onDualSliderChange() {}
+function _updateDualFill() {}
 
 function updateSurahHint() {
   const hint = document.getElementById('surahHint');
@@ -3997,6 +3995,14 @@ function openGameSheet() {
   document.getElementById('gameSheet').classList.add('open');
   document.body.style.overflow = 'hidden';
 
+  // تهيئة الـ dual slider إذا لم يكن مهيأ بعد
+  const wrap = document.getElementById('dualTrackWrap');
+  if (wrap && !wrap.dataset.init) {
+    wrap.dataset.init = '1';
+    _dsInit();
+    _hideDualSlider();
+  }
+
   // مزامنة الـ mode buttons مع المستوى الحالي
   const lvlOpen = LEVEL_DEFS[state.level];
   const modeBtns = document.querySelectorAll('.mode-btn');
@@ -4973,23 +4979,19 @@ if (savedSession) {
         <span id="qcountLabelText">اختر عدد الأسئلة في كل جلسة</span>
         <span class="qcount-val" id="qcountDisplay">٢٠</span>
       </div>
-      <!-- السلايدر العادي — يظهر لما ما في سورة -->
-      <div id="singleSliderWrap">
-        <input type="range" class="qcount-slider" id="qcountSlider" min="1" max="50" step="1" value="20"
-          oninput="onQcountChange(this.value)" onchange="onQcountChange(this.value)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px;">
-          <div class="qcount-ticks" style="flex:1;" id="qcountTicks">
+      <!-- الـ dual slider — دايمًا ظاهر -->
+      <div id="dualSliderWrap">
+        <div class="dual-slider-track-wrap" id="dualTrackWrap">
+          <div class="dual-slider-rail"></div>
+          <div class="dual-slider-fill" id="dualRangeFill"></div>
+          <div class="dual-slider-thumb" id="dualThumbFrom" tabindex="0"></div>
+          <div class="dual-slider-thumb" id="dualThumbTo"   tabindex="0"></div>
+        </div>
+        <div class="dual-ticks-row">
+          <div class="qcount-ticks" style="flex:1;" id="dualTicks">
             <span>١</span><span>١٠</span><span>٢٠</span><span>٣٠</span><span>٤٠</span><span>٥٠</span>
           </div>
-          <button id="surahAllQBtn" onclick="setAllSurahQuestions()" style="display:none;background:rgba(46,175,120,0.15);border:1.5px solid rgba(46,175,120,0.4);border-radius:10px;padding:6px 12px;color:#7DFFC9;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s;">📖 كل آيات السورة</button>
-        </div>
-      </div>
-      <!-- الـ dual slider — يظهر لما يختار سورة -->
-      <div id="dualSliderWrap" style="display:none;">
-        <div id="dualSliderEl"></div>
-        <div class="dual-ticks-row">
-          <div class="qcount-ticks" style="flex:1;" id="dualTicks"></div>
-          <button onclick="resetDualSlider()" style="background:rgba(201,151,58,0.1);border:1px solid rgba(201,151,58,0.3);border-radius:8px;padding:5px 10px;color:rgba(245,217,139,0.6);font-family:'Cairo',sans-serif;font-size:11px;cursor:pointer;white-space:nowrap;">📖 كل السورة</button>
+          <button id="resetDualBtn" onclick="resetDualSlider()" style="background:rgba(201,151,58,0.1);border:1px solid rgba(201,151,58,0.3);border-radius:8px;padding:5px 10px;color:rgba(245,217,139,0.6);font-family:'Cairo',sans-serif;font-size:11px;cursor:pointer;white-space:nowrap;">📖 كل النطاق</button>
         </div>
         <div class="dual-range-summary" id="dualRangeSummary"></div>
       </div>
