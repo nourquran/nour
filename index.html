@@ -5163,14 +5163,12 @@ function buildReviewQuestions(surahName) {
 function startSurahReview(surahName) {
   if (!currentUser) return;
 
-  // بناء الأسئلة أولاً قبل عرض أي شاشة لتجنب الـ flash
   const questions = buildReviewQuestions(surahName);
   if (questions.length < 1) {
     showToast('⚠️ السورة دي محتاجة آيات كافية لبناء الأسئلة');
     return;
   }
 
-  // عرض شاشة اللعبة بعد التأكد من الأسئلة
   showScreen('gameScreen');
   document.getElementById('liveScore').textContent = '٠';
   document.getElementById('timerWrap').style.display = 'none';
@@ -5179,26 +5177,19 @@ function startSurahReview(surahName) {
   document.getElementById('nextBtn').className = 'next-btn';
   document.getElementById('feedback').className = 'feedback';
 
-  requestAnimationFrame(function() {
-    // Save progress tracking
-    state.reviewSurah = surahName;
-    state.reviewTotal = questions.length;
-    state.isReviewMode = true;
-    state.questions = questions;
-    state.qIndex = 0; state.score = 0; state.correct = 0;
-    state.sessionHasanat = 0; state.answered = false;
-    state.combo = 0;
-    state.hints = { h1:2, h2:2, h3:2 }; // أكتر hints في مود المراجعة
-    state.mode = 'mcq'; // مراجعة دايماً MCQ
-    stopTimer();
+  state.reviewSurah = surahName;
+  state.reviewTotal = questions.length;
+  state.isReviewMode = true;
+  state.questions = questions;
+  state.qIndex = 0; state.score = 0; state.correct = 0;
+  state.sessionHasanat = 0; state.answered = false;
+  state.combo = 0;
+  state.hints = { h1:2, h2:2, h3:2 };
+  state.mode = 'mcq';
+  stopTimer();
 
-    // حفظ بدء المراجعة فوراً حتى لو خرج في النص
-    markSurahReviewStarted(surahName, questions.length);
-
-    renderQuestion();
-    const actualQ = questions.length;
-    showToast('📖 مراجعة سورة ' + surahName + ' — ' + toArabicNum(actualQ) + ' سؤال بكل أنواعها');
-  }, 30);
+  markSurahReviewStarted(surahName, questions.length);
+  renderQuestion();
 }
 
 // ============================================================
@@ -5743,14 +5734,34 @@ function multiCreateRoom() {
   multiState.phase = 'waiting';
 
   if (typeof window.fbMulti !== 'undefined') {
-    window.fbMulti.createRoom(code, room)
+    // نضغط الأسئلة: نخلي بس الحقول المهمة عشان Firebase ما يرفضش الـ payload
+    const compressQ = (q) => {
+      const obj = { s: q.surah||'', a: q.ayah||'', b: q.blank||'', w: (q.wrong||[]).slice(0,3), t: q.qtype||'blank' };
+      if (q.ayahNum) obj.n = q.ayahNum;
+      return obj;
+    };
+    window._expandMultiQ = (q) => ({
+      surah: q.s, ayah: q.a, blank: q.b,
+      wrong: q.w || [], qtype: q.t || 'blank', ayahNum: q.n || null,
+    });
+    // نشيل أي قيمة undefined من الـ room
+    const cleanRoom = JSON.parse(JSON.stringify({ ...room, questions: questions.map(compressQ) }));
+    console.log('Creating room, questions count:', cleanRoom.questions.length, 'payload size ~', JSON.stringify(cleanRoom).length, 'bytes');
+    window.fbMulti.createRoom(code, cleanRoom)
       .then(() => {
         window.fbMulti.setDisconnect(code, playerKey);
         _showWaitingRoom(code);
         _startPolling();
         showToast('✅ تم إنشاء الغرفة — شارك الكود: ' + code, 4000);
       })
-      .catch(() => showToast('⚠️ خطأ في إنشاء الغرفة، تأكد من الاتصال'));
+      .catch((err) => {
+        console.error('createRoom error:', err.code, err.message);
+        if (err.code === 'PERMISSION_DENIED') {
+          showToast('⚠️ Firebase: افتح قواعد قاعدة البيانات (Rules) واسمح بالكتابة');
+        } else {
+          showToast('⚠️ خطأ في إنشاء الغرفة: ' + (err.message || 'تأكد من الاتصال'));
+        }
+      });
   } else {
     _setRoomData(code, room);
     _showWaitingRoom(code);
@@ -5786,6 +5797,13 @@ function multiJoinRoom() {
         .then(() => {
           room.players = room.players || {};
           room.players[playerKey] = playerData;
+          // توسيع الأسئلة المضغوطة
+          if (room.questions && room.questions.length > 0 && room.questions[0].s !== undefined) {
+            const expand = typeof window._expandMultiQ === 'function'
+              ? window._expandMultiQ
+              : (q) => ({ surah: q.s, ayah: q.a, blank: q.b, wrong: q.w || [], qtype: q.t || 'blank', ayahNum: q.n || null });
+            room.questions = room.questions.map(expand);
+          }
           window._multiRoomCache = room;
           window.fbMulti.setDisconnect(code, playerKey);
           resetJoinBtn();
@@ -6221,6 +6239,13 @@ function _startPolling() {
     window.fbMulti.stopListen(multiState.roomCode);
     window.fbMulti.listenRoom(multiState.roomCode, (room) => {
       if (!room) return;
+      // توسيع الأسئلة المضغوطة لو جاية من Firebase
+      if (room.questions && room.questions.length > 0 && room.questions[0].s !== undefined) {
+        const expand = typeof window._expandMultiQ === 'function'
+          ? window._expandMultiQ
+          : (q) => ({ surah: q.s, ayah: q.a, blank: q.b, wrong: q.w || [], qtype: q.t || 'blank', ayahNum: q.n || null });
+        room.questions = room.questions.map(expand);
+      }
       window._multiRoomCache = room;
       // Keep alive
       const pk = multiState.playerKey || multiState.playerName;
