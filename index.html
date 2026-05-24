@@ -488,8 +488,7 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 
 .choices-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
 .choices-grid > div { display:flex; align-items:stretch; gap:0; }
-.choices-grid > div .choice-btn { flex:1; border-radius:0 14px 14px 0; }
-.choices-grid > div .audio-btn-small { border-radius:14px 0 0 14px; border-left:none; height:auto; align-self:stretch; width:36px; }
+.choices-grid > div .choice-btn { flex:1; }
 .choice-btn {
   background:rgba(255,254,249,0.05); border:1.5px solid rgba(201,151,58,0.2);
   border-radius:14px; padding:14px 12px; font-family:'Amiri',serif;
@@ -769,6 +768,19 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 }
 .audio-btn-small:hover { background:rgba(201,151,58,0.25); }
 .audio-btn-small.playing { background:rgba(46,175,120,0.2); border-color:var(--emerald-light); color:#7DFFC9; }
+/* زرار الصوت بعد الإجابة — يظهر داخل زر الاختيار */
+.post-audio-btn {
+  position:absolute; top:6px; left:8px;
+  width:26px; height:26px; border-radius:50%;
+  background:rgba(201,151,58,0.15); border:1px solid rgba(201,151,58,0.3);
+  color:var(--gold); font-size:12px; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  transition:all .2s; flex-shrink:0;
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+  z-index:5;
+}
+.post-audio-btn:hover { background:rgba(201,151,58,0.35); }
+.post-audio-btn.playing { background:rgba(46,175,120,0.2); border-color:var(--emerald-light); color:#7DFFC9; }
 
 /* Ayah row with audio btn */
 .ayah-audio-row {
@@ -1265,6 +1277,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
         <button class="review-nav-btn" style="margin-bottom:0;" onclick="showReviewScreen()">📖 مراجعة السور</button>
         <button class="mistakes-nav-btn" style="margin-bottom:0;" onclick="showMistakesScreen()">❌ الغلطات</button>
       </div>
+
     </div>
 
     <!-- LEADERBOARD -->
@@ -1357,6 +1370,134 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
       <div id="reviewEmpty" class="review-empty" style="display:none">
         🔍 ما فيش سور بهذا الفلتر
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MULTIPLAYER SCREEN -->
+  <div class="screen" id="multiScreen">
+    <div class="app">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+        <button onclick="goHome()" style="background:none;border:1px solid rgba(201,151,58,0.3);border-radius:10px;padding:6px 14px;color:var(--gold-light);font-family:'Cairo',sans-serif;cursor:pointer;font-size:13px;">→ رجوع</button>
+        <div style="font-family:'Amiri',serif;font-size:22px;color:var(--gold);">🎮 تحدي الأصدقاء</div>
+      </div>
+
+      <!-- Room Create/Join -->
+      <div id="multiLobby">
+        <div style="background:rgba(201,151,58,0.07);border:1px solid rgba(201,151,58,0.2);border-radius:18px;padding:20px;margin-bottom:14px;">
+          <div style="font-size:13px;color:var(--gold);margin-bottom:4px;font-weight:700;">📡 إنشاء غرفة جديدة</div>
+          <div style="font-size:11px;color:rgba(245,217,139,0.45);margin-bottom:14px;">سيُولَّد كود خاص تشاركه مع أصدقائك</div>
+
+          <!-- اختيار السورة — custom dropdown مع بحث -->
+          <div style="font-size:11px;color:rgba(245,217,139,0.55);margin-bottom:6px;">📖 السورة</div>
+          <div id="multiSurahWrap" style="position:relative;margin-bottom:10px;">
+            <div id="multiSurahTrigger" onclick="toggleMultiSurahDropdown()"
+              style="background:rgba(255,254,249,0.05);border:1.5px solid rgba(201,151,58,0.25);border-radius:12px;padding:10px 36px 10px 14px;font-family:'Cairo',sans-serif;font-size:14px;color:var(--cream);direction:rtl;cursor:pointer;position:relative;user-select:none;transition:border-color .2s;">
+              <span id="multiSurahLabel">🌿 عشوائي من كل القرآن</span>
+              <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:11px;opacity:0.45;">▼</span>
+            </div>
+            <div id="multiSurahDropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;left:0;z-index:9999;background:#1e1b10;border:1.5px solid rgba(201,151,58,0.35);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.6);">
+              <div style="padding:8px;">
+                <input id="multiSurahSearch" placeholder="🔍 ابحث عن سورة..." oninput="filterMultiSurah(this.value)"
+                  style="width:100%;background:rgba(255,254,249,0.06);border:1px solid rgba(201,151,58,0.2);border-radius:8px;padding:8px 12px;font-family:'Cairo',sans-serif;font-size:13px;color:var(--cream);direction:rtl;outline:none;">
+              </div>
+              <div id="multiSurahList" style="max-height:200px;overflow-y:auto;padding:0 4px 6px;"></div>
+            </div>
+          </div>
+          <input type="hidden" id="multiSurahSelect" value="">
+
+          <!-- عدد الأسئلة -->
+          <div style="font-size:11px;color:rgba(245,217,139,0.55);margin-bottom:6px;">🔢 عدد الأسئلة</div>
+          <div id="multiQCountWrap" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+            <button class="mqc-btn" onclick="setMultiQCount(this,10)" style="flex:1;min-width:60px;padding:9px 6px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">١٠</button>
+            <button class="mqc-btn active-mqc" onclick="setMultiQCount(this,20)" style="flex:1;min-width:60px;padding:9px 6px;background:rgba(201,151,58,0.15);border:1.5px solid var(--gold);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;transition:all .2s;">٢٠</button>
+            <button class="mqc-btn" onclick="setMultiQCount(this,30)" style="flex:1;min-width:60px;padding:9px 6px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٣٠</button>
+            <button class="mqc-btn" id="mqcAllBtn" onclick="setMultiQCount(this,'all')" style="flex:1;min-width:60px;padding:9px 6px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;display:none;">كل السورة</button>
+          </div>
+          <input type="hidden" id="multiQCount" value="20">
+
+          <!-- عدد اللاعبين -->
+          <div style="font-size:11px;color:rgba(245,217,139,0.55);margin-bottom:6px;">👥 الحد الأقصى للاعبين</div>
+          <div style="display:flex;gap:6px;margin-bottom:14px;">
+            <button class="mpl-btn" onclick="setMultiMaxPlayers(this,2)" style="flex:1;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٢</button>
+            <button class="mpl-btn" onclick="setMultiMaxPlayers(this,3)" style="flex:1;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٣</button>
+            <button class="mpl-btn active-mpl" onclick="setMultiMaxPlayers(this,4)" style="flex:1;padding:9px 4px;background:rgba(201,151,58,0.15);border:1.5px solid var(--gold);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;transition:all .2s;">٤</button>
+            <button class="mpl-btn" onclick="setMultiMaxPlayers(this,6)" style="flex:1;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٦</button>
+            <button class="mpl-btn" onclick="setMultiMaxPlayers(this,8)" style="flex:1;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٨</button>
+          </div>
+          <input type="hidden" id="multiMaxPlayers" value="4">
+
+          <button onclick="multiCreateRoom()" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),#E8B84B);border:none;border-radius:14px;font-family:'Cairo',sans-serif;font-size:16px;font-weight:900;color:var(--ink);cursor:pointer;">🚀 إنشاء الغرفة</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin:10px 0;">
+          <div style="flex:1;height:1px;background:rgba(201,151,58,0.15);"></div>
+          <span style="font-size:11px;color:rgba(245,217,139,0.3);">أو</span>
+          <div style="flex:1;height:1px;background:rgba(201,151,58,0.15);"></div>
+        </div>
+
+        <div style="background:rgba(255,254,249,0.03);border:1px solid rgba(201,151,58,0.15);border-radius:18px;padding:20px;">
+          <div style="font-size:13px;color:var(--gold);margin-bottom:10px;font-weight:700;">🔑 انضم لغرفة</div>
+          <input id="multiJoinCode" placeholder="أدخل كود الغرفة..." maxlength="6"
+            style="width:100%;background:rgba(255,254,249,0.05);border:1.5px solid rgba(201,151,58,0.25);border-radius:12px;padding:12px 16px;font-family:'Cairo',sans-serif;font-size:18px;font-weight:900;color:var(--gold);direction:ltr;text-align:center;letter-spacing:4px;outline:none;margin-bottom:10px;text-transform:uppercase;"
+            oninput="this.value=this.value.toUpperCase()">
+          <button onclick="multiJoinRoom()" style="width:100%;padding:14px;background:rgba(46,175,120,0.15);border:1.5px solid var(--emerald-light);border-radius:14px;font-family:'Cairo',sans-serif;font-size:16px;font-weight:700;color:#7DFFC9;cursor:pointer;">🔗 انضم</button>
+        </div>
+      </div>
+
+      <!-- Waiting Room -->
+      <div id="multiWaiting" style="display:none;">
+        <div style="background:rgba(201,151,58,0.07);border:1px solid rgba(201,151,58,0.3);border-radius:18px;padding:24px;text-align:center;margin-bottom:16px;">
+          <div style="font-size:13px;color:rgba(245,217,139,0.5);margin-bottom:8px;">كود الغرفة</div>
+          <div id="multiRoomCode" style="font-size:42px;font-weight:900;color:var(--gold);letter-spacing:8px;font-family:'Cairo',sans-serif;"></div>
+          <div style="font-size:11px;color:rgba(245,217,139,0.4);margin-top:6px;">شارك الكود مع أصدقائك</div>
+          <button onclick="multiCopyCode()" style="margin-top:10px;background:rgba(201,151,58,0.15);border:1px solid rgba(201,151,58,0.3);border-radius:10px;padding:7px 18px;color:var(--gold);font-family:'Cairo',sans-serif;font-size:12px;cursor:pointer;">📋 نسخ الكود</button>
+        </div>
+        <div style="background:rgba(255,254,249,0.03);border:1px solid rgba(201,151,58,0.15);border-radius:16px;padding:16px;margin-bottom:14px;">
+          <div style="font-size:12px;color:var(--gold);margin-bottom:10px;font-weight:700;">👥 اللاعبون (<span id="multiPlayerCount">١</span>/<span id="multiMaxDisplay">٤</span>)</div>
+          <div id="multiPlayersList" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+        <div id="multiWaitMsg" style="text-align:center;font-size:13px;color:rgba(245,217,139,0.4);margin-bottom:14px;">⏳ في انتظار اللاعبين...</div>
+        <button id="multiStartBtn" onclick="multiStartGame()" style="display:none;width:100%;padding:16px;background:linear-gradient(135deg,var(--emerald-light),var(--emerald-mid));border:none;border-radius:14px;font-family:'Cairo',sans-serif;font-size:17px;font-weight:700;color:white;cursor:pointer;">🎯 ابدأ التحدي!</button>
+        <button onclick="multiLeaveRoom()" style="width:100%;padding:12px;margin-top:10px;background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.3);border-radius:12px;font-family:'Cairo',sans-serif;font-size:14px;color:rgba(255,120,100,0.7);cursor:pointer;">🚪 مغادرة الغرفة</button>
+      </div>
+
+      <!-- Live Game Area -->
+      <div id="multiGameArea" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-size:13px;color:rgba(245,217,139,0.5);">سؤال <span id="multiQNum">١</span> من <span id="multiQTotal">٢٠</span></div>
+          <div style="font-size:13px;color:var(--gold);font-weight:700;">نقاطك: <span id="multiMyScore">٠</span></div>
+        </div>
+        <!-- Progress bar -->
+        <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;margin-bottom:16px;overflow:hidden;">
+          <div id="multiProgressFill" style="height:100%;background:linear-gradient(90deg,var(--emerald-light),var(--gold));border-radius:2px;transition:width .4s;width:0%;"></div>
+        </div>
+        <div id="multiAyahCard" style="background:rgba(255,254,249,0.04);border:1px solid rgba(201,151,58,0.2);border-radius:20px;padding:24px;margin-bottom:14px;text-align:center;">
+          <div id="multiSurahLbl" style="font-size:12px;color:var(--gold);margin-bottom:10px;"></div>
+          <div id="multiAyahText" style="font-family:'Amiri',serif;font-size:24px;line-height:2;color:var(--cream);direction:rtl;"></div>
+        </div>
+        <div id="multiChoicesWrap" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;"></div>
+        <div id="multiFeedback" style="display:none;text-align:center;padding:12px;border-radius:14px;font-size:15px;font-weight:700;margin-bottom:10px;"></div>
+        <!-- Scoreboard live -->
+        <div style="background:rgba(255,254,249,0.03);border:1px solid rgba(201,151,58,0.12);border-radius:14px;padding:12px;">
+          <div style="font-size:11px;color:rgba(245,217,139,0.4);margin-bottom:8px;">🏆 النتائج اللحظية</div>
+          <div id="multiLiveScores" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
+      </div>
+
+      <!-- Final Results -->
+      <div id="multiResults" style="display:none;">
+        <div style="text-align:center;padding:24px 0;">
+          <div style="font-size:52px;margin-bottom:10px;" id="multiTrophyEmoji">🏆</div>
+          <div style="font-family:'Amiri',serif;font-size:26px;color:var(--gold);margin-bottom:6px;" id="multiWinnerName"></div>
+          <div style="font-size:13px;color:rgba(245,217,139,0.6);" id="multiWinnerMsg"></div>
+        </div>
+        <div id="multiFinalScores" style="background:rgba(255,254,249,0.03);border:1px solid rgba(201,151,58,0.15);border-radius:16px;padding:16px;margin-bottom:20px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <button onclick="multiPlayAgain()" style="padding:14px;background:linear-gradient(135deg,var(--gold),#E8B84B);border:none;border-radius:14px;font-family:'Cairo',sans-serif;font-size:15px;font-weight:700;color:var(--ink);cursor:pointer;">🔄 مرة تانية</button>
+          <button onclick="goHome()" style="padding:14px;background:rgba(255,254,249,0.05);border:1px solid rgba(201,151,58,0.25);border-radius:14px;font-family:'Cairo',sans-serif;font-size:15px;font-weight:700;color:var(--gold-light);cursor:pointer;">🏠 الرئيسية</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1511,7 +1652,7 @@ const QURAN_DB = {
     { surah:"يونس", ayah:"قُلْ بِفَضْلِ اللَّهِ وَبِرَحْمَتِهِ فَبِذَٰلِكَ فَلْيَفْرَحُوا", blank:"فَلْيَفْرَحُوا", wrong:["فَلْيَشْكُرُوا","فَلْيُبَشِّرُوا","فَلْيَحْمَدُوا"] },
     { surah:"يوسف", ayah:"إِنَّهُ مَن يَتَّقِ وَيَصْبِرْ فَإِنَّ اللَّهَ لَا يُضِيعُ أَجْرَ الْمُحْسِنِينَ", blank:"الْمُحْسِنِينَ", wrong:["الصَّابِرِينَ","الْمُؤْمِنِينَ","الشَّاكِرِينَ"] },
     { surah:"إبراهيم", ayah:"وَإِذْ تَأَذَّنَ رَبُّكُمْ لَئِن شَكَرْتُمْ لَأَزِيدَنَّكُمْ", blank:"لَأَزِيدَنَّكُمْ", wrong:["لَأُكْرِمَنَّكُمْ","لَأُبَارِكَنَّكُمْ","لَأَرْحَمَنَّكُمْ"] },
-    { surah:"الكهف", ayah:"وَقُل رَّبِّ زِدْنِي عِلْمًا", blank:"عِلْمًا", wrong:["إِيمَانًا","صَبْرًا","يَقِينًا"] },
+    { surah:"طه", ayah:"وَقُل رَّبِّ زِدْنِي عِلْمًا", blank:"عِلْمًا", wrong:["إِيمَانًا","صَبْرًا","يَقِينًا"] },
     { surah:"الكهف", ayah:"وَلَا تَقُولَنَّ لِشَيْءٍ إِنِّي فَاعِلٌ ذَٰلِكَ غَدًا", blank:"غَدًا", wrong:["الْيَوْمَ","بَعْدَهُ","قَرِيبًا"] },
     { surah:"مريم", ayah:"وَكَانَ رَبُّكَ قَدِيرًا", blank:"قَدِيرًا", wrong:["عَلِيمًا","رَحِيمًا","بَصِيرًا"] },
     { surah:"الأنبياء", ayah:"وَمَا أَرْسَلْنَاكَ إِلَّا رَحْمَةً لِّلْعَالَمِينَ", blank:"رَحْمَةً", wrong:["نِعْمَةً","بُشْرَىٰ","هِدَايَةً"] },
@@ -1523,7 +1664,7 @@ const QURAN_DB = {
     { surah:"القصص", ayah:"وَابْتَغِ فِيمَا آتَاكَ اللَّهُ الدَّارَ الْآخِرَةَ", blank:"الدَّارَ الْآخِرَةَ", wrong:["الرِّضْوَانَ","الْجَنَّةَ","الثَّوَابَ"] },
     { surah:"العنكبوت", ayah:"وَمَا الْحَيَاةُ الدُّنْيَا إِلَّا لَعِبٌ وَلَهْوٌ", blank:"وَلَهْوٌ", wrong:["وَزَهْرَةٌ","وَغُرُورٌ","وَبَهْجَةٌ"] },
     { surah:"لقمان", ayah:"وَلَقَدْ آتَيْنَا لُقْمَانَ الْحِكْمَةَ", blank:"الْحِكْمَةَ", wrong:["الْعِلْمَ","النُّبُوَّةَ","الْفَهْمَ"] },
-    { surah:"السجدة", ayah:"وَنُفِخَ فِي الصُّورِ فَصَعِقَ مَن فِي السَّمَاوَاتِ وَمَن فِي الْأَرْضِ", blank:"فَصَعِقَ", wrong:["فَخَرَّ","فَسَقَطَ","فَمَاتَ"] },
+    { surah:"الزمر", ayah:"وَنُفِخَ فِي الصُّورِ فَصَعِقَ مَن فِي السَّمَاوَاتِ وَمَن فِي الْأَرْضِ", blank:"فَصَعِقَ", wrong:["فَخَرَّ","فَسَقَطَ","فَمَاتَ"] },
     { surah:"الأحزاب", ayah:"وَاذْكُرُوا اللَّهَ كَثِيرًا لَّعَلَّكُمْ تُفْلِحُونَ", blank:"تُفْلِحُونَ", wrong:["تَنْجَحُونَ","تَسْعَدُونَ","تُرْحَمُونَ"] },
   ],
 
@@ -1656,6 +1797,8 @@ const LEVEL_DEFS = [
   { id:5, name:"الحكيم",      icon:"💎", desc:"ثلاث كلمات ناقصة — مزيج كل السور",         reqScore:0, dataKey:"all",    hasanatMult:8,  qs:20, blankPos:'rand',  blankCount:3, choiceDiff:'hard',   hints:0, forcedMode:null,     forcedRandom:true,  noHintsH3:true,  timerSeconds:10, showAyahFraction:0.5,  minBlankWordLen:4, extraBlankApart:false },
   { id:6, name:"الإمام",      icon:"🌟", desc:"كتابة حرة — لا خيارات ولا hints",           reqScore:0, dataKey:"all",    hasanatMult:12, qs:20, blankPos:'rand',  blankCount:1, choiceDiff:'hard',   hints:0, forcedMode:'typing', noHintsH3:true,  timerSeconds:20, showAyahFraction:0.6,  minBlankWordLen:5, extraBlankApart:false },
   { id:7, name:"سيد الحفاظ", icon:"🕋", desc:"كتابة + توقيت — أعلى تحدي",               reqScore:0, dataKey:"all",    hasanatMult:20, qs:20, blankPos:'rand',  blankCount:2, choiceDiff:'hard',   hints:0, forcedMode:'timed',  noHintsH3:true,  timerSeconds:8,  showAyahFraction:0.45, minBlankWordLen:5, extraBlankApart:true  },
+  { id:8, name:"العارف بالله", icon:"🌙", desc:"ثلاث كلمات + توقيت — تحدي الخبراء",      reqScore:0, dataKey:"all",    hasanatMult:30, qs:25, blankPos:'rand',  blankCount:3, choiceDiff:'hard',   hints:0, forcedMode:'timed',  noHintsH3:true,  timerSeconds:6,  showAyahFraction:0.4,  minBlankWordLen:5, extraBlankApart:true  },
+  { id:9, name:"نور القرآن",  icon:"☀️", desc:"أصعب تحدي — ٣ كلمات + كتابة + ٥ ثوانٍ",  reqScore:0, dataKey:"all",    hasanatMult:50, qs:25, blankPos:'rand',  blankCount:3, choiceDiff:'hard',   hints:0, forcedMode:'typing', noHintsH3:true,  timerSeconds:5,  showAyahFraction:0.35, minBlankWordLen:6, extraBlankApart:true  },
 ];
 
 // ============================================================
@@ -1800,10 +1943,10 @@ function renderLevels() {
 
     const multLabel = lvl.hasanatMult > 1 ? `×${lvl.hasanatMult} نقاط` : 'نقاط عادية';
     const dots = '●'.repeat(Math.min(lvl.id+1,4)) + '○'.repeat(Math.max(0,4-lvl.id-1));
-    const dotColors = ['#4CAF50','#8BC34A','#FFC107','#FF9800','#F44336','#E91E63','#9C27B0','#3F51B5'];
+    const dotColors = ['#4CAF50','#8BC34A','#FFC107','#FF9800','#F44336','#E91E63','#9C27B0','#3F51B5','#1A237E','#0D0D0D'];
     const dotColor = dotColors[lvl.id] || '#ccc';
     const timerLabel = lvl.timerSeconds ? `⏱ ${lvl.timerSeconds}ث` : '';
-    const diffBar = ['🟢','🟡','🟠','🔴','🔴🔴','🔴🔴','⚫','⚫⚫'][lvl.id] || '';
+    const diffBar = ['🟢','🟡','🟠','🔴','🔴🔴','🔴🔴','⚫','⚫⚫','💀','💀💀'][lvl.id] || '';
     const forcedBadge = lvl.forcedRandom ? `<div style="font-size:10px;color:rgba(245,217,139,0.5);margin-top:2px;">🌐 مزيج كل السور</div>` : '';
     card.innerHTML = `
       <div class="level-icon">${lvl.icon}</div>
@@ -3804,27 +3947,8 @@ function renderMCQ(q) {
   const isNumChoice = q.qtype === 'num';
 
   choices.forEach(ch => {
-    // wrapper div للزر + أيقونة الصوت
-    const wrapDiv = document.createElement('div');
-    wrapDiv.style.cssText = 'display:flex;align-items:center;gap:0;width:100%;';
-
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
-    btn.style.flex = '1';
-
-    // زر الصوت الصغير
-    const audioBtn = document.createElement('button');
-    audioBtn.className = 'audio-btn-small';
-    audioBtn.textContent = '🔊';
-    audioBtn.title = 'استمع بصوت مشاري راشد';
-    audioBtn.onclick = (ev) => {
-      ev.stopPropagation();
-      if (isAyahChoice) {
-        playChoiceAyahAudio(ch, q.surah, audioBtn);
-      } else {
-        playChoiceAudio(ch, audioBtn);
-      }
-    };
 
     if (isAyahChoice) {
       btn.style.fontFamily = 'Amiri,serif';
@@ -3832,24 +3956,24 @@ function renderMCQ(q) {
       btn.style.textAlign = 'right';
       btn.style.lineHeight = '1.8';
       btn.style.padding = '12px 14px';
+      btn.style.width = '100%';
     } else if (isNumChoice) {
       btn.style.fontFamily = 'Cairo,sans-serif';
       btn.style.fontSize = '22px';
       btn.style.fontWeight = '700';
       btn.textContent = 'آية ' + toArabicNum(parseInt(ch));
       btn.onclick = (e) => checkAnswer(ch, q.blank, e);
-      audioBtn.onclick = (ev) => { ev.stopPropagation(); playChoiceAudio(ch, audioBtn); };
-      wrapDiv.appendChild(audioBtn);
-      wrapDiv.appendChild(btn);
-      wrap.appendChild(wrapDiv);
+      // زر الصوت بعد الإجابة فقط — داخل الزر كـ overlay خفيف
+      btn.dataset.ch = ch;
+      btn.dataset.qtype = 'num';
+      wrap.appendChild(btn);
       return;
     }
     btn.textContent = ch;
-    btn.onclick = (e) => checkAnswer(ch, q.blank, e);
+    btn.dataset.ch = ch;
+    btn.onclick = (e) => { e.stopPropagation(); checkAnswer(ch, q.blank, e); };
 
-    wrapDiv.appendChild(audioBtn);
-    wrapDiv.appendChild(btn);
-    wrap.appendChild(wrapDiv);
+    wrap.appendChild(btn);
   });
 
   // For num type, adjust grid to 2 cols
@@ -3860,6 +3984,30 @@ function renderMCQ(q) {
   } else {
     wrap.style.gridTemplateColumns = '';
   }
+}
+
+// بعد الإجابة: أضف أزرار الصوت على الاختيارات
+function addAudioBtnsAfterAnswer(q) {
+  const wrap = document.getElementById('mcqWrap');
+  const isAyahChoice = q.qtype === 'next' || q.qtype === 'prev' || q.qtype === 'similar' || q.qtype === 'firstword' || q.qtype === 'reverse';
+  wrap.querySelectorAll('.choice-btn').forEach(btn => {
+    if (btn.querySelector('.post-audio-btn')) return;
+    const ch = btn.dataset.ch || btn.textContent.replace('آية ', '').replace(/[٠-٩]/g, d => '0١٢٣٤٥٦٧٨٩'.indexOf(d));
+    const audioBtn = document.createElement('button');
+    audioBtn.className = 'post-audio-btn';
+    audioBtn.textContent = '🔊';
+    audioBtn.title = 'استمع';
+    audioBtn.onclick = (ev) => {
+      ev.stopPropagation();
+      if (isAyahChoice) {
+        playChoiceAyahAudio(btn.dataset.ch || btn.textContent, q.surah, audioBtn);
+      } else {
+        playChoiceAudio(btn.dataset.ch || btn.textContent, audioBtn);
+      }
+    };
+    btn.style.position = 'relative';
+    btn.appendChild(audioBtn);
+  });
 }
 
 function showListenChoices() {
@@ -3876,7 +4024,7 @@ function showListenChoices() {
     audioBtn.className = 'audio-btn-small';
     audioBtn.style.cssText = 'border-radius:14px 0 0 14px;width:36px;height:auto;align-self:stretch;';
     audioBtn.textContent = '🔊';
-    audioBtn.title = 'استمع بصوت مشاري راشد';
+    audioBtn.title = 'استمع للآية بصوت مشاري راشد';
     audioBtn.onclick = (ev) => { ev.stopPropagation(); playChoiceAudio(ch, audioBtn); };
 
     const btn = document.createElement('button');
@@ -3900,9 +4048,14 @@ function checkAnswer(chosen, correct, e) {
   const container = state.mode==='listen' ? document.getElementById('listenChoices') : document.getElementById('mcqWrap');
   container.querySelectorAll('.choice-btn').forEach(b => {
     b.disabled = true;
-    if (b.textContent===correct) b.classList.add('correct');
-    else if (b.textContent===chosen && !isRight) b.classList.add('wrong');
+    const bText = b.dataset.ch || b.textContent;
+    const chosenText = chosen;
+    const correctText = correct;
+    if (bText === correctText || b.textContent === correctText || b.textContent === 'آية ' + toArabicNum(parseInt(correctText))) b.classList.add('correct');
+    else if ((bText === chosenText || b.textContent === chosenText) && !isRight) b.classList.add('wrong');
   });
+  // أضف أزرار الصوت بعد الإجابة
+  if (q) setTimeout(() => addAudioBtnsAfterAnswer(q), 50);
   handleResult(isRight, e);
 }
 
@@ -4222,6 +4375,8 @@ function goHome() {
   stopTimer();
   state.isReviewMode = false;
   state.reviewSurah = null;
+  // إيقاف polling الـ multiplayer لو كان شغال
+  if (typeof _stopPolling === 'function') _stopPolling();
   showScreen('homeScreen');
   updateHomeStats();
 }
@@ -4570,7 +4725,12 @@ function renderReviewGrid() {
     const pct = s.prog.total > 0 ? Math.round((s.prog.done/s.prog.total)*100) : 0;
     const card = document.createElement('div');
     card.className = 'surah-review-card';
-    card.onclick = () => startSurahReview(s.name);
+    card.setAttribute('data-surah', s.name);
+    card.onclick = (e) => {
+      // مش بنسمح لأي حاجة تمنع الضغط على الكارت غير زرار التصفير
+      if (e.target.classList.contains('src-reset-btn')) return;
+      startSurahReview(s.name);
+    };
 
     // Badges
     let badges = `<span class="src-badge src-badge-q">📝 ${toArabicNum(s.qCount)} سؤال</span>`;
@@ -4703,8 +4863,10 @@ function buildReviewQuestions(surahName) {
     [3,  4, 4, 5], // 5: حكيم — الترتيب والرقم أكتر
     [2,  4, 4, 6], // 6: إمام
     [1,  5, 5, 7], // 7: سيد الحفاظ — ترتيب ورقم يسودوا
+    [1,  5, 6, 8], // 8: العارف بالله
+    [1,  4, 6, 9], // 9: نور القرآن — الأصعب
   ];
-  const weights = typeWeights[Math.min(lvl, 7)];
+  const weights = typeWeights[Math.min(lvl, 9)];
 
   const questions = [];
 
@@ -4796,30 +4958,23 @@ function buildReviewQuestions(surahName) {
 function startSurahReview(surahName) {
   if (!currentUser) return;
 
-  // عرض شاشة اللعبة فوراً مع مؤشر تحميل لتجنب بطء الاستجابة
+  // بناء الأسئلة أولاً قبل عرض أي شاشة لتجنب الـ flash
+  const questions = buildReviewQuestions(surahName);
+  if (questions.length < 1) {
+    showToast('⚠️ السورة دي محتاجة آيات كافية لبناء الأسئلة');
+    return;
+  }
+
+  // عرض شاشة اللعبة بعد التأكد من الأسئلة
   showScreen('gameScreen');
   document.getElementById('liveScore').textContent = '٠';
   document.getElementById('timerWrap').style.display = 'none';
   document.getElementById('levelBadgeGame').textContent = '📖 مراجعة سورة ' + surahName;
-  // مؤشر تحميل مؤقت
   document.getElementById('mcqWrap').innerHTML = '';
   document.getElementById('nextBtn').className = 'next-btn';
   document.getElementById('feedback').className = 'feedback';
 
-  // بناء الأسئلة بعد رسم الشاشة مباشرة (defer للـ event loop)
-  setTimeout(function() {
-    const questions = buildReviewQuestions(surahName);
-    if (questions.length < 2) {
-      const surahIdx = SURAHS_META.findIndex(s => s[0] === surahName);
-      if (surahIdx !== -1 && QURAN_LOCAL[surahIdx+1] && QURAN_LOCAL[surahIdx+1].length >= 2) {
-        showToast('⚠️ محتاج ٢ آية على الأقل لبناء الأسئلة');
-      } else {
-        showToast('⚠️ السورة دي محتاجة سؤالين على الأقل');
-      }
-      showScreen('reviewScreen');
-      return;
-    }
-
+  requestAnimationFrame(function() {
     // Save progress tracking
     state.reviewSurah = surahName;
     state.reviewTotal = questions.length;
@@ -5047,79 +5202,40 @@ function playAyahAudio() {
   _playMp3(url, btn, stopRatio);
 }
 
-// تشغيل الاختيار — TTS يقرأ الكلمة بالظبط بصوت عربي
+// تشغيل الاختيار — بصوت مشاري راشد العفاسي (الآية الكاملة من everyayah.com)
 function playChoiceAudio(choiceText, btn) {
   if (!choiceText) return;
   if (btn.classList.contains('playing')) {
     stopCurrentAudio();
     return;
   }
-  _speakArabic(choiceText, btn);
+
+  const q = state.questions && state.questions[state.qIndex];
+  if (!q) { showToast('⚠️ لا يمكن تشغيل الصوت الآن'); return; }
+
+  const surahName = q.surah;
+  const surahNum = SURAH_NAME_TO_NUM[surahName];
+  if (!surahNum) { showToast('⚠️ السورة غير معروفة'); return; }
+
+  let ayahNum = null;
+  const fullKey = surahName + '|' + q.ayah;
+  if (QURAN_AYAH_NUMS[fullKey]) ayahNum = QURAN_AYAH_NUMS[fullKey];
+  if (!ayahNum && q.fromApi && q.ayahNum) ayahNum = q.ayahNum;
+  if (!ayahNum) {
+    const ayahs = fetchSurahAyahs(surahNum);
+    if (ayahs) {
+      const found = ayahs.find(a => a.text === q.ayah || (q.ayah && a.text.startsWith(q.ayah.substring(0, 20))));
+      if (found) ayahNum = found.num;
+    }
+  }
+  if (!ayahNum) { showToast('⚠️ رقم الآية غير معروف'); return; }
+
+  const s = String(surahNum).padStart(3, '0');
+  const a = String(ayahNum).padStart(3, '0');
+  const url = `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
+  _playMp3(url, btn);
 }
 
-// TTS عربي — يقرأ النص المعطى بنطق صحيح
-function _speakArabic(text, btn) {
-  stopCurrentAudio();
-
-  if (!window.speechSynthesis) {
-    showToast('⚠️ المتصفح لا يدعم النطق');
-    return;
-  }
-
-  _currentAudioBtn = btn;
-  btn.textContent = '⏸';
-  btn.classList.add('playing');
-
-  // تنظيف النص: إزالة التشكيل علشان النطق يبقى أوضح
-  const cleanText = text
-    .replace(/[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED]/g, '')
-    .replace(/[^\u0600-\u06FF\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const speak = (voice) => {
-    const utt = new SpeechSynthesisUtterance(cleanText);
-    utt.lang  = 'ar-SA';
-    utt.rate  = 0.78;
-    utt.pitch = 1.0;
-    utt.volume = 1;
-    if (voice) utt.voice = voice;
-
-    _speechUtterance = utt;
-
-    utt.onend = () => {
-      _resetAudioBtn(btn);
-      _currentAudioBtn = null;
-      _speechUtterance = null;
-    };
-    utt.onerror = () => {
-      _resetAudioBtn(btn);
-      _currentAudioBtn = null;
-      _speechUtterance = null;
-    };
-    window.speechSynthesis.cancel();
-    setTimeout(() => window.speechSynthesis.speak(utt), 100);
-  };
-
-  // اختيار أفضل صوت عربي: نفضّل ar-SA ثم ar-EG ثم أي عربي
-  const trySpeak = () => {
-    const voices = window.speechSynthesis.getVoices();
-    const arVoice =
-      voices.find(v => v.lang === 'ar-SA' && !v.localService === false) ||
-      voices.find(v => v.lang === 'ar-SA') ||
-      voices.find(v => v.lang === 'ar-EG') ||
-      voices.find(v => v.lang.startsWith('ar'));
-    speak(arVoice || null);
-  };
-
-  // بعض المتصفحات تحتاج وقتاً لتحميل الأصوات
-  if (window.speechSynthesis.getVoices().length > 0) {
-    trySpeak();
-  } else {
-    window.speechSynthesis.onvoiceschanged = () => { trySpeak(); };
-    setTimeout(trySpeak, 300);
-  }
-}
 
 // تشغيل آية كاملة (للخيارات من نوع next/prev — الخيار آية كاملة)
 function playChoiceAyahAudio(ayahText, surahName, btn) {
@@ -5211,6 +5327,509 @@ function playMistakeAudio(surahName, ayahText, btnId) {
   const a = String(ayahNum).padStart(3, '0');
   const url = `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
   _playMp3(url, btn);
+}
+
+
+// ============================================================
+// ===== MULTIPLAYER (LOCAL STORAGE SYNC - حتى ٨ لاعبين) =====
+// ============================================================
+// الفكرة: كل لاعب عنده نفس الملف. الـ localStorage بيشتغل كـ "shared state"
+// لو اللاعبين على نفس الجهاز، أو نستخدم BroadcastChannel لو نفس المتصفح.
+// للشبكة الحقيقية: الـ room code بيتشارك، وكل لاعب بيفتح نفس الـ URL وبيبعت
+// نتايجه لـ localStorage المشترك عبر BroadcastChannel أو polling.
+
+let multiState = {
+  roomCode: null,
+  isHost: false,
+  playerName: null,
+  players: {},       // { username: { name, score, answered, ready } }
+  questions: [],
+  qIndex: 0,
+  myScore: 0,
+  totalQ: 20,
+  surahFilter: '',
+  phase: 'lobby',   // lobby | waiting | playing | results
+  answerTimer: null,
+  syncTimer: null,
+  pollTimer: null,
+};
+
+const MULTI_PREFIX = 'nour_multi_';
+
+// ===== MULTI SURAH DROPDOWN =====
+let _multiSurahValue = '';
+let _multiQCountValue = 20;
+let _multiMaxPlayersValue = 4;
+
+function toggleMultiSurahDropdown() {
+  const dd = document.getElementById('multiSurahDropdown');
+  const isOpen = dd.style.display !== 'none';
+  dd.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    document.getElementById('multiSurahSearch').value = '';
+    filterMultiSurah('');
+    setTimeout(() => document.getElementById('multiSurahSearch').focus(), 50);
+  }
+}
+
+function _buildMultiSurahList() {
+  const list = document.getElementById('multiSurahList');
+  if (!list || list.dataset.built) return;
+  list.dataset.built = '1';
+  // All option
+  const allDiv = document.createElement('div');
+  allDiv.className = 'msd-item';
+  allDiv.textContent = '🌿 عشوائي من كل القرآن';
+  allDiv.dataset.val = '';
+  allDiv.dataset.label = '🌿 عشوائي من كل القرآن';
+  allDiv.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:14px;color:rgba(245,217,139,0.85);border-radius:8px;direction:rtl;transition:background .15s;';
+  allDiv.onclick = () => _selectMultiSurah('', '🌿 عشوائي من كل القرآن');
+  list.appendChild(allDiv);
+  // Surahs
+  SURAHS_META.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'msd-item';
+    div.textContent = (i+1) + '. سورة ' + s[0];
+    div.dataset.val = s[0];
+    div.dataset.label = (i+1) + '. سورة ' + s[0];
+    div.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:14px;color:rgba(245,217,139,0.85);border-radius:8px;direction:rtl;transition:background .15s;';
+    div.onmouseover = () => div.style.background = 'rgba(201,151,58,0.12)';
+    div.onmouseout  = () => div.style.background = '';
+    div.onclick = () => _selectMultiSurah(s[0], (i+1) + '. سورة ' + s[0]);
+    list.appendChild(div);
+  });
+}
+
+function filterMultiSurah(q) {
+  const items = document.querySelectorAll('#multiSurahList .msd-item');
+  const qLow = q.trim();
+  items.forEach(it => {
+    const txt = it.textContent;
+    it.style.display = (!qLow || txt.includes(qLow)) ? 'block' : 'none';
+  });
+}
+
+function _selectMultiSurah(val, label) {
+  _multiSurahValue = val;
+  document.getElementById('multiSurahSelect').value = val;
+  document.getElementById('multiSurahLabel').textContent = label;
+  document.getElementById('multiSurahDropdown').style.display = 'none';
+  // Show/hide "كل السورة" button
+  const allBtn = document.getElementById('mqcAllBtn');
+  if (allBtn) allBtn.style.display = val ? 'block' : 'none';
+  // If "كل السورة" was selected and we switch surah, keep valid count
+  const curQCount = document.getElementById('multiQCount').value;
+  if (curQCount === 'all' && !val) {
+    // reset to 20 if switching back to random
+    const btns = document.querySelectorAll('.mqc-btn');
+    btns.forEach(b => { b.style.background='rgba(255,254,249,0.04)'; b.style.borderColor='rgba(201,151,58,0.2)'; b.style.color='rgba(245,217,139,0.6)'; b.style.fontWeight='400'; });
+    btns[1].style.background='rgba(201,151,58,0.15)'; btns[1].style.borderColor='var(--gold)'; btns[1].style.color='var(--gold)'; btns[1].style.fontWeight='700';
+    document.getElementById('multiQCount').value = '20';
+    _multiQCountValue = 20;
+  }
+}
+
+function setMultiQCount(btn, val) {
+  _multiQCountValue = val;
+  document.getElementById('multiQCount').value = val;
+  document.querySelectorAll('.mqc-btn').forEach(b => {
+    b.style.background='rgba(255,254,249,0.04)'; b.style.borderColor='rgba(201,151,58,0.2)';
+    b.style.color='rgba(245,217,139,0.6)'; b.style.fontWeight='400';
+  });
+  btn.style.background='rgba(201,151,58,0.15)'; btn.style.borderColor='var(--gold)';
+  btn.style.color='var(--gold)'; btn.style.fontWeight='700';
+}
+
+function setMultiMaxPlayers(btn, val) {
+  _multiMaxPlayersValue = val;
+  document.getElementById('multiMaxPlayers').value = val;
+  document.querySelectorAll('.mpl-btn').forEach(b => {
+    b.style.background='rgba(255,254,249,0.04)'; b.style.borderColor='rgba(201,151,58,0.2)';
+    b.style.color='rgba(245,217,139,0.6)'; b.style.fontWeight='400';
+  });
+  btn.style.background='rgba(201,151,58,0.15)'; btn.style.borderColor='var(--gold)';
+  btn.style.color='var(--gold)'; btn.style.fontWeight='700';
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('#multiSurahWrap')) {
+    const dd = document.getElementById('multiSurahDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
+
+function showMultiScreen() {
+  showScreen('multiScreen');
+  _buildMultiSurahList();
+  multiState.phase = 'lobby';
+  document.getElementById('multiLobby').style.display = 'block';
+  document.getElementById('multiWaiting').style.display = 'none';
+  document.getElementById('multiGameArea').style.display = 'none';
+  document.getElementById('multiResults').style.display = 'none';
+}
+
+function _generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:5}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+
+function _getRoomData(code) {
+  try { return JSON.parse(localStorage.getItem(MULTI_PREFIX + code) || 'null'); } catch { return null; }
+}
+function _setRoomData(code, data) {
+  try { localStorage.setItem(MULTI_PREFIX + code, JSON.stringify(data)); } catch {}
+}
+
+function multiCreateRoom() {
+  if (!currentUser) { showToast('⚠️ سجّل دخولك الأول'); return; }
+  const code = _generateRoomCode();
+  const surahVal = document.getElementById('multiSurahSelect').value;
+  const qCountRaw = document.getElementById('multiQCount').value;
+  const maxPlayers = parseInt(document.getElementById('multiMaxPlayers').value) || 4;
+  const allSurah = (qCountRaw === 'all');
+
+  // Build questions
+  let questions = [];
+  if (surahVal) {
+    questions = buildReviewQuestions(surahVal);
+    if (!allSurah) questions = questions.slice(0, parseInt(qCountRaw) || 20);
+  } else {
+    const qCount = parseInt(qCountRaw) || 20;
+    const allNums = Object.keys(QURAN_LOCAL).map(Number).sort(() => Math.random()-0.5);
+    for (const num of allNums) {
+      if (questions.length >= qCount * 3) break;
+      const qs = buildReviewQuestions(SURAHS_META[num-1]?.[0] || '');
+      questions = questions.concat(qs);
+    }
+    questions = questions.sort(() => Math.random()-0.5).slice(0, qCount);
+  }
+  if (questions.length < 3) { showToast('⚠️ ما كفايش أسئلة، اختار سورة أطول'); return; }
+
+  const room = {
+    code, hostUser: currentUser, phase: 'waiting',
+    surahFilter: surahVal, totalQ: questions.length,
+    questions: questions, maxPlayers: maxPlayers,
+    players: { [currentUser]: { name: currentUser, score: 0, answered: false, ready: true, lastSeen: Date.now() } },
+    startedAt: null, currentQ: 0,
+    createdAt: Date.now(),
+  };
+  _setRoomData(code, room);
+
+  multiState.roomCode = code;
+  multiState.isHost = true;
+  multiState.playerName = currentUser;
+  multiState.questions = questions;
+  multiState.totalQ = questions.length;
+  multiState.surahFilter = surahVal;
+  multiState.phase = 'waiting';
+
+  _showWaitingRoom(code);
+  _startPolling();
+  showToast('✅ تم إنشاء الغرفة — شارك الكود مع أصدقائك!', 3000);
+}
+
+function multiJoinRoom() {
+  if (!currentUser) { showToast('⚠️ سجّل دخولك الأول'); return; }
+  const code = document.getElementById('multiJoinCode').value.trim().toUpperCase();
+  if (code.length < 4) { showToast('⚠️ أدخل كود صحيح'); return; }
+
+  const room = _getRoomData(code);
+  if (!room) { showToast('⚠️ الغرفة مش موجودة أو انتهت'); return; }
+  if (room.phase === 'playing') { showToast('⚠️ اللعبة بدأت بالفعل'); return; }
+  const playerCount = Object.keys(room.players).length;
+  const maxPl = room.maxPlayers || 4;
+  if (playerCount >= maxPl) { showToast('⚠️ الغرفة مكتملة (' + toArabicNum(maxPl) + ' لاعبين)'); return; }
+
+  room.players[currentUser] = { name: currentUser, score: 0, answered: false, ready: true, lastSeen: Date.now() };
+  _setRoomData(code, room);
+
+  multiState.roomCode = code;
+  multiState.isHost = false;
+  multiState.playerName = currentUser;
+  multiState.questions = room.questions;
+  multiState.totalQ = room.totalQ;
+  multiState.phase = 'waiting';
+
+  _showWaitingRoom(code);
+  _startPolling();
+  showToast('✅ انضممت للغرفة!');
+}
+
+function _showWaitingRoom(code) {
+  document.getElementById('multiLobby').style.display = 'none';
+  document.getElementById('multiWaiting').style.display = 'block';
+  document.getElementById('multiRoomCode').textContent = code;
+  _updateWaitingUI();
+}
+
+function _updateWaitingUI() {
+  const room = _getRoomData(multiState.roomCode);
+  if (!room) return;
+  const players = room.players;
+  const names = Object.keys(players);
+  document.getElementById('multiPlayerCount').textContent = toArabicNum(names.length);
+  const maxDisp = document.getElementById('multiMaxDisplay');
+  if (maxDisp) maxDisp.textContent = toArabicNum(room.maxPlayers || 4);
+  const list = document.getElementById('multiPlayersList');
+  list.innerHTML = names.map((u,i) => {
+    const icons = ['🥇','🥈','🥉','🎖️'];
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,254,249,0.04);border-radius:10px;border:1px solid rgba(201,151,58,${u===room.hostUser?'0.35':'0.12'});">
+      <span style="font-size:18px;">${icons[i]||'👤'}</span>
+      <span style="flex:1;font-size:14px;color:${u===room.hostUser?'var(--gold)':'var(--cream)'};">${u}</span>
+      ${u===room.hostUser?'<span style="font-size:10px;color:rgba(201,151,58,0.6);">مضيف</span>':''}
+      ${u===multiState.playerName?'<span style="font-size:10px;color:rgba(46,175,120,0.7);">أنت</span>':''}
+    </div>`;
+  }).join('');
+
+  const startBtn = document.getElementById('multiStartBtn');
+  const waitMsg = document.getElementById('multiWaitMsg');
+  if (multiState.isHost) {
+    if (names.length >= 2) {
+      startBtn.style.display = 'block';
+      waitMsg.textContent = '✅ جاهز للبدء! اضغط ابدأ التحدي';
+    } else {
+      startBtn.style.display = 'none';
+      waitMsg.textContent = '⏳ في انتظار لاعب واحد على الأقل...';
+    }
+  } else {
+    startBtn.style.display = 'none';
+    waitMsg.textContent = room.phase === 'playing' ? '🎯 اللعبة بدأت!' : '⏳ في انتظار المضيف...';
+  }
+
+  // لو المضيف بدأ اللعبة
+  if (room.phase === 'playing' && multiState.phase === 'waiting') {
+    multiState.questions = room.questions;
+    multiState.totalQ = room.totalQ;
+    _startMultiGame();
+  }
+}
+
+function multiCopyCode() {
+  const code = multiState.roomCode;
+  if (code) {
+    navigator.clipboard?.writeText(code).then(() => showToast('✅ تم نسخ الكود: ' + code)).catch(() => showToast('الكود: ' + code, 4000));
+  }
+}
+
+function multiStartGame() {
+  if (!multiState.isHost) return;
+  const room = _getRoomData(multiState.roomCode);
+  if (!room) return;
+  room.phase = 'playing';
+  room.startedAt = Date.now();
+  room.currentQ = 0;
+  // Reset scores
+  Object.keys(room.players).forEach(u => { room.players[u].score = 0; room.players[u].answered = false; });
+  _setRoomData(multiState.roomCode, room);
+  _startMultiGame();
+}
+
+function _startMultiGame() {
+  multiState.phase = 'playing';
+  multiState.qIndex = 0;
+  multiState.myScore = 0;
+  document.getElementById('multiWaiting').style.display = 'none';
+  document.getElementById('multiGameArea').style.display = 'block';
+  document.getElementById('multiQTotal').textContent = toArabicNum(multiState.totalQ);
+  _renderMultiQuestion();
+}
+
+function _renderMultiQuestion() {
+  const q = multiState.questions[multiState.qIndex];
+  if (!q) { _showMultiResults(); return; }
+
+  document.getElementById('multiQNum').textContent = toArabicNum(multiState.qIndex + 1);
+  document.getElementById('multiProgressFill').style.width = ((multiState.qIndex / multiState.totalQ) * 100) + '%';
+  document.getElementById('multiMyScore').textContent = toArabicNum(multiState.myScore);
+  document.getElementById('multiSurahLbl').textContent = 'سورة ' + q.surah;
+
+  // عرض الآية
+  const blankHTML = '<span style="display:inline-block;background:rgba(201,151,58,0.15);border-bottom:2px solid var(--gold);min-width:80px;height:1.2em;vertical-align:middle;border-radius:4px;"></span>';
+  const ayahDisplay = q.qtype === 'next' ? q.ayah :
+                      q.qtype === 'prev' ? q.ayah :
+                      q.qtype === 'num'  ? q.ayah :
+                      q.ayah.includes(q.blank) ? q.ayah.replace(q.blank, blankHTML) : q.ayah + ' ' + blankHTML;
+  document.getElementById('multiAyahText').innerHTML = ayahDisplay;
+
+  // الخيارات
+  const choices = [...new Set([q.blank, ...q.wrong])].sort(() => Math.random()-0.5).slice(0, 4);
+  const wrap = document.getElementById('multiChoicesWrap');
+  wrap.innerHTML = '';
+  const isAyah = q.qtype === 'next' || q.qtype === 'prev' || q.qtype === 'similar' || q.qtype === 'firstword' || q.qtype === 'reverse';
+  wrap.style.gridTemplateColumns = isAyah ? '1fr' : '1fr 1fr';
+
+  choices.forEach(ch => {
+    const btn = document.createElement('button');
+    const display = q.qtype === 'num' ? 'آية ' + toArabicNum(parseInt(ch)) : ch;
+    btn.textContent = display;
+    btn.dataset.ch = ch;
+    btn.style.cssText = `background:rgba(255,254,249,0.05);border:1.5px solid rgba(201,151,58,0.2);border-radius:14px;padding:14px 12px;font-family:${isAyah?"'Amiri',serif":"'Cairo',sans-serif"};font-size:${isAyah?'16px':'18px'};color:var(--cream);cursor:pointer;transition:all .2s;direction:rtl;text-align:${isAyah?'right':'center'};`;
+    btn.onclick = (e) => _multiAnswer(ch, q.blank, q, btn, e);
+    wrap.appendChild(btn);
+  });
+
+  const fb = document.getElementById('multiFeedback');
+  fb.style.display = 'none';
+  _updateMultiLiveScores();
+
+  // Mark not answered
+  const room = _getRoomData(multiState.roomCode);
+  if (room && room.players[currentUser]) {
+    room.players[currentUser].answered = false;
+    _setRoomData(multiState.roomCode, room);
+  }
+}
+
+function _multiAnswer(chosen, correct, q, clickedBtn, e) {
+  const wrap = document.getElementById('multiChoicesWrap');
+  if (!wrap) return;
+  // منع double click
+  wrap.querySelectorAll('button').forEach(b => b.onclick = null);
+
+  const isRight = chosen === correct;
+  if (isRight) multiState.myScore += 10;
+  document.getElementById('multiMyScore').textContent = toArabicNum(multiState.myScore);
+
+  // Color buttons
+  wrap.querySelectorAll('button').forEach(b => {
+    const ch = b.dataset.ch;
+    if (ch === correct) b.style.background = 'rgba(46,175,120,0.25)', b.style.borderColor = 'var(--emerald-light)', b.style.color = '#7DFFC9';
+    else if (ch === chosen && !isRight) b.style.background = 'rgba(192,57,43,0.25)', b.style.borderColor = 'var(--red)', b.style.color = '#FF9E9E';
+    b.style.cursor = 'not-allowed';
+  });
+
+  const fb = document.getElementById('multiFeedback');
+  fb.style.display = 'block';
+  fb.style.background = isRight ? 'rgba(46,175,120,0.15)' : 'rgba(192,57,43,0.15)';
+  fb.style.color = isRight ? '#7DFFC9' : '#FF9E9E';
+  fb.style.border = isRight ? '1px solid rgba(46,175,120,0.3)' : '1px solid rgba(192,57,43,0.3)';
+  fb.textContent = isRight ? '✅ ' + getCorrectMsg() : '❌ الصحيح: ' + (q.qtype==='num' ? 'آية '+toArabicNum(parseInt(correct)) : correct);
+
+  // Sync score
+  const room = _getRoomData(multiState.roomCode);
+  if (room && room.players[currentUser]) {
+    room.players[currentUser].score = multiState.myScore;
+    room.players[currentUser].answered = true;
+    room.players[currentUser].lastSeen = Date.now();
+    _setRoomData(multiState.roomCode, room);
+  }
+  _updateMultiLiveScores();
+
+  // Auto-next after 1.8s
+  clearTimeout(multiState.answerTimer);
+  multiState.answerTimer = setTimeout(() => {
+    multiState.qIndex++;
+    if (multiState.qIndex >= multiState.totalQ) {
+      _showMultiResults();
+    } else {
+      _renderMultiQuestion();
+    }
+  }, 1800);
+}
+
+function _updateMultiLiveScores() {
+  const room = _getRoomData(multiState.roomCode);
+  if (!room) return;
+  const players = room.players;
+  const sorted = Object.entries(players).sort((a,b) => b[1].score - a[1].score);
+  const medals = ['🥇','🥈','🥉','🎖️'];
+  document.getElementById('multiLiveScores').innerHTML = sorted.map(([u, p], i) =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(255,254,249,0.03);border-radius:8px;">
+      <span>${medals[i]||'👤'}</span>
+      <span style="flex:1;font-size:13px;color:${u===currentUser?'var(--gold)':'var(--cream)'};">${p.name}${u===currentUser?' (أنت)':''}</span>
+      <span style="font-size:14px;font-weight:700;color:var(--emerald-light);">${toArabicNum(p.score)}</span>
+    </div>`
+  ).join('');
+}
+
+function _showMultiResults() {
+  clearTimeout(multiState.answerTimer);
+  clearInterval(multiState.pollTimer);
+  multiState.phase = 'results';
+
+  // Final sync
+  const room = _getRoomData(multiState.roomCode);
+  if (room && room.players[currentUser]) {
+    room.players[currentUser].score = multiState.myScore;
+    room.players[currentUser].done = true;
+    _setRoomData(multiState.roomCode, room);
+  }
+
+  document.getElementById('multiGameArea').style.display = 'none';
+  document.getElementById('multiResults').style.display = 'block';
+
+  const finalRoom = _getRoomData(multiState.roomCode) || room;
+  const players = finalRoom ? finalRoom.players : {};
+  const sorted = Object.entries(players).sort((a,b) => b[1].score - a[1].score);
+  const medals = ['🥇','🥈','🥉','🎖️'];
+
+  const winner = sorted[0];
+  const isWinner = winner && winner[0] === currentUser;
+  document.getElementById('multiTrophyEmoji').textContent = isWinner ? '🏆' : '🎉';
+  document.getElementById('multiWinnerName').textContent = winner ? winner[1].name : '';
+  document.getElementById('multiWinnerMsg').textContent = isWinner ? 'أنت الفائز! بارك الله فيك 🌟' : 'الفائز بالتحدي — بالتوفيق المرة الجاية!';
+
+  document.getElementById('multiFinalScores').innerHTML = sorted.map(([u, p], i) =>
+    `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,254,249,${i===0?'0.07':'0.03'});border-radius:12px;margin-bottom:6px;border:1px solid rgba(201,151,58,${i===0?'0.3':'0.1'});">
+      <span style="font-size:22px;">${medals[i]||'👤'}</span>
+      <span style="flex:1;font-size:15px;color:${i===0?'var(--gold)':'var(--cream)'};">${p.name}${u===currentUser?' (أنت)':''}</span>
+      <span style="font-size:18px;font-weight:900;color:var(--emerald-light);">${toArabicNum(p.score)}</span>
+    </div>`
+  ).join('');
+}
+
+function multiPlayAgain() {
+  if (multiState.isHost) {
+    // Host resets room
+    const room = _getRoomData(multiState.roomCode);
+    if (room) {
+      room.phase = 'waiting';
+      room.currentQ = 0;
+      Object.keys(room.players).forEach(u => { room.players[u].score = 0; room.players[u].answered = false; room.players[u].done = false; });
+      _setRoomData(multiState.roomCode, room);
+    }
+    multiState.phase = 'waiting';
+    multiState.myScore = 0;
+    multiState.qIndex = 0;
+    document.getElementById('multiResults').style.display = 'none';
+    document.getElementById('multiWaiting').style.display = 'block';
+    _startPolling();
+    _updateWaitingUI();
+  } else {
+    showMultiScreen();
+  }
+}
+
+function multiLeaveRoom() {
+  _stopPolling();
+  const room = _getRoomData(multiState.roomCode);
+  if (room && room.players[currentUser]) {
+    delete room.players[currentUser];
+    _setRoomData(multiState.roomCode, room);
+  }
+  multiState.roomCode = null;
+  multiState.phase = 'lobby';
+  showMultiScreen();
+}
+
+function _startPolling() {
+  clearInterval(multiState.pollTimer);
+  multiState.pollTimer = setInterval(() => {
+    const room = _getRoomData(multiState.roomCode);
+    if (!room) return;
+    // Keep alive
+    if (room.players[currentUser]) {
+      room.players[currentUser].lastSeen = Date.now();
+      _setRoomData(multiState.roomCode, room);
+    }
+    if (multiState.phase === 'waiting') _updateWaitingUI();
+    else if (multiState.phase === 'playing') _updateMultiLiveScores();
+  }, 1500);
+}
+
+function _stopPolling() {
+  clearInterval(multiState.pollTimer);
 }
 
 // ===== INIT =====
@@ -5324,6 +5943,33 @@ if (savedSession) {
 
 
     <button class="sheet-start" onclick="closeGameSheet();startGame();">ابدأ التحدي ✨</button>
+
+    <!-- تحدي الأصدقاء -->
+    <div style="margin-top:10px;position:relative;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="flex:1;height:1px;background:rgba(46,175,120,0.2);"></div>
+        <span style="font-size:11px;color:rgba(46,175,120,0.5);white-space:nowrap;">أو العب مع أصدقائك</span>
+        <div style="flex:1;height:1px;background:rgba(46,175,120,0.2);"></div>
+      </div>
+      <button onclick="closeGameSheet();showMultiScreen();"
+        style="width:100%;padding:14px 18px;
+          background:linear-gradient(135deg,rgba(27,107,74,0.3),rgba(46,175,120,0.18));
+          border:1.5px solid rgba(46,175,120,0.5);
+          border-radius:16px;font-family:'Cairo',sans-serif;
+          font-size:15px;font-weight:700;color:#7DFFC9;
+          cursor:pointer;transition:all .25s;letter-spacing:0.3px;
+          display:flex;align-items:center;justify-content:center;gap:10px;
+          box-shadow:0 2px 14px rgba(46,175,120,0.12);"
+        onmouseover="this.style.background='linear-gradient(135deg,rgba(27,107,74,0.45),rgba(46,175,120,0.28))';this.style.boxShadow='0 4px 20px rgba(46,175,120,0.25)';"
+        onmouseout="this.style.background='linear-gradient(135deg,rgba(27,107,74,0.3),rgba(46,175,120,0.18))';this.style.boxShadow='0 2px 14px rgba(46,175,120,0.12)';">
+        <span style="font-size:19px;">🎮</span>
+        <div style="text-align:right;">
+          <div>تحدي الأصدقاء أونلاين</div>
+          <div style="font-size:11px;color:rgba(125,255,201,0.6);font-weight:400;margin-top:1px;">حتى ٨ لاعبين في نفس الوقت</div>
+        </div>
+        <span style="margin-right:auto;font-size:14px;opacity:0.6;">←</span>
+      </button>
+    </div>
   </div>
 </div>
 
