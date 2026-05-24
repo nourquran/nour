@@ -6075,10 +6075,18 @@ function _renderMultiQuestion() {
       _updateMultiLiveScores();
       clearTimeout(multiState.answerTimer);
       multiState.answerTimer = setTimeout(() => {
-        multiState.qIndex++;
-        if (multiState.qIndex >= multiState.totalQ) _showMultiResults();
-        else _renderMultiQuestion();
-      }, 1800);
+        const nextQ = multiState.qIndex + 1;
+        if (typeof window.fbMulti !== 'undefined' && multiState.roomCode) {
+          const room = window._multiRoomCache;
+          if (!room || room.currentQ === undefined || room.currentQ === multiState.qIndex) {
+            window.fbMulti.updateRoom(multiState.roomCode, { currentQ: nextQ });
+          }
+        } else {
+          multiState.qIndex = nextQ;
+          if (multiState.qIndex >= multiState.totalQ) _showMultiResults();
+          else _renderMultiQuestion();
+        }
+      }, 1500);
     }
   }, 1000);
 }
@@ -6150,13 +6158,20 @@ function _multiAnswer(chosen, correct, q, clickedBtn, e) {
 
   clearTimeout(multiState.answerTimer);
   multiState.answerTimer = setTimeout(() => {
-    multiState.qIndex++;
-    if (multiState.qIndex >= multiState.totalQ) {
-      _showMultiResults();
+    const nextQ = multiState.qIndex + 1;
+    if (typeof window.fbMulti !== 'undefined' && multiState.roomCode) {
+      // كتابة currentQ في Firebase — كل اللاعبين هيشوفوا التغيير ويتحركوا
+      const room = window._multiRoomCache;
+      if (!room || room.currentQ === undefined || room.currentQ === multiState.qIndex) {
+        window.fbMulti.updateRoom(multiState.roomCode, { currentQ: nextQ });
+      }
+      // الانتقال المحلي هيتم عبر الـ listener تلقائياً
     } else {
-      _renderMultiQuestion();
+      multiState.qIndex = nextQ;
+      if (multiState.qIndex >= multiState.totalQ) _showMultiResults();
+      else _renderMultiQuestion();
     }
-  }, 1800);
+  }, 1500);
 }
 
 function _updateMultiLiveScores() {
@@ -6200,6 +6215,16 @@ function _showMultiResults() {
       room.players[pk].done = true;
       _setRoomData(multiState.roomCode, room);
     }
+  }
+
+  // ===== إضافة نقاط اللعب الجماعي على رصيد اللاعب =====
+  if (currentUser && !currentUser.isGuest && multiState.myScore > 0) {
+    currentUser.totalHasanat = (currentUser.totalHasanat || 0) + multiState.myScore;
+    currentUser.totalScore   = (currentUser.totalScore   || 0) + multiState.myScore;
+    currentUser.totalGames   = (currentUser.totalGames   || 0) + 1;
+    currentUser.lastPlay     = Date.now();
+    saveCurrentUser();
+    updateHomeStats();
   }
 
   document.getElementById('multiGameArea').style.display = 'none';
@@ -6312,6 +6337,21 @@ function _startPolling() {
         }
       } else if (multiState.phase === 'playing') {
         _updateMultiLiveScores();
+        // sync السؤال — لو currentQ في Firebase أكبر من اللي عندنا محلياً انتقل فوراً
+        const serverQ = room.currentQ;
+        if (typeof serverQ === 'number' && serverQ > multiState.qIndex) {
+          clearTimeout(multiState.answerTimer);
+          clearInterval(multiState.questionTimer);
+          multiState.qIndex = serverQ;
+          // reset حالة اللاعب للسؤال الجديد
+          const pk2 = multiState.playerKey || multiState.playerName;
+          window.fbMulti.updatePlayer(multiState.roomCode, pk2, { answered: false });
+          if (multiState.qIndex >= multiState.totalQ) {
+            _showMultiResults();
+          } else {
+            _renderMultiQuestion();
+          }
+        }
       }
     });
   } else {
