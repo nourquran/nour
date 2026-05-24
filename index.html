@@ -4799,19 +4799,14 @@ function playAyahAudio() {
   _playMp3(url, btn, stopRatio);
 }
 
-// تشغيل الاختيار — بصوت Google Translate العربي (مجاني)
+// تشغيل الاختيار — TTS عربي
 function playChoiceAudio(choiceText, btn) {
   if (!choiceText) return;
   if (btn.classList.contains('playing')) {
     stopCurrentAudio();
     return;
   }
-
-  // شيل التشكيل
-  const clean = choiceText.replace(/[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED]/g, '').trim();
-  const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(clean)}&tl=ar&client=tw-ob`;
-
-  _playMp3(url, btn);
+  _speakArabic(choiceText, btn);
 }
 
 // TTS عربي — يقرأ النص المعطى بنطق صحيح
@@ -4827,17 +4822,16 @@ function _speakArabic(text, btn) {
   btn.textContent = '⏸';
   btn.classList.add('playing');
 
-  // تنظيف النص: إزالة التشكيل علشان النطق يبقى أوضح
+  // نبقّي التشكيل علشان يساعد في النطق، بس نشيل الرموز غير العربية
   const cleanText = text
-    .replace(/[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED]/g, '')
-    .replace(/[^\u0600-\u06FF\s]/g, ' ')
+    .replace(/[^\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
   const speak = (voice) => {
     const utt = new SpeechSynthesisUtterance(cleanText);
     utt.lang  = 'ar-SA';
-    utt.rate  = 0.78;
+    utt.rate  = 0.6;
     utt.pitch = 1.0;
     utt.volume = 1;
     if (voice) utt.voice = voice;
