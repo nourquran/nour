@@ -1664,7 +1664,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
         </div>
         <div id="multiAyahCard" style="background:rgba(255,254,249,0.04);border:1px solid rgba(201,151,58,0.2);border-radius:20px;padding:20px;margin-bottom:14px;text-align:center;">
           <div id="multiSurahLbl" style="font-size:12px;color:var(--gold);margin-bottom:10px;"></div>
-          <div id="multiAyahText" style="font-family:'Amiri',serif;font-size:24px;line-height:2;color:var(--cream);direction:rtl;"></div>
+          <div id="multiAyahText" style="font-family:'Amiri',serif;font-size:26px;line-height:2.2;color:var(--cream);direction:rtl;"></div>
         </div>
         <div id="multiChoicesWrap" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;"></div>
         <div id="multiFeedback" style="display:none;text-align:center;padding:12px;border-radius:14px;font-size:15px;font-weight:700;margin-bottom:10px;"></div>
@@ -4842,14 +4842,15 @@ function saveSurahReviewProgress(surahName, done, total) {
   try { d = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
   const prev = d[surahName] || {done:0,total:0,streak:0};
   const accuracy = total > 0 ? done / total : 0;
-  const completed = accuracy >= 1.0; // 100% فقط تُعتبر مكتملة
-  const streak = completed ? (prev.streak||0)+1 : prev.streak||0;
-  // لو اكتملت ١٠٠٪: inProgress = false (تتشال من "بدأتها")
-  // لو مكتملتش: inProgress = true (تفضل في "بدأتها")
-  d[surahName] = { done, total, streak, lastPlay: Date.now(), inProgress: !completed };
+  const perfect = accuracy >= 1.0;
+  const finished = total > 0; // وصل لآخر السورة = تتشال من "بدأتها"
+  const streak = perfect ? (prev.streak||0)+1 : prev.streak||0;
+  // لو خلّص السورة (وصل آخرها): inProgress = false
+  // لو قفل في النص: inProgress = true (تفضل في "بدأتها")
+  d[surahName] = { done, total, streak, lastPlay: Date.now(), inProgress: !finished };
   localStorage.setItem(key, JSON.stringify(d));
   // رسالة إكمال السورة
-  if (completed && streak > 0) {
+  if (perfect) {
     showToast('🏆 أتقنت سورة ' + surahName + (streak > 1 ? ' — سلسلة ×' + streak + ' 🔥' : ' ماشاءالله! 🌟'), 3500);
   }
 }
@@ -4936,11 +4937,7 @@ function renderReviewGrid() {
     card.className = 'surah-review-card';
     card.setAttribute('data-surah', s.name);
     card.onclick = (e) => {
-      // مش بنسمح لأي حاجة تمنع الضغط على الكارت غير زرار التصفير
       if (e.target.classList.contains('src-reset-btn')) return;
-      // visual feedback فوري على الموبايل
-      card.style.opacity = '0.6';
-      card.style.transform = 'scale(0.96)';
       startSurahReview(s.name);
     };
 
@@ -5079,85 +5076,110 @@ function buildReviewQuestions(surahName) {
   const weights = typeWeights[Math.min(lvl, 7)];
 
   const questions = [];
+  const arabicLen = w => (w||'').replace(/[^؀-ۿ]/g,'').length;
+  const minLen = lvl >= 5 ? 4 : lvl >= 3 ? 3 : 2;
+
+  // === بناء بركة الكلمات مرة واحدة قبل الحلقة ===
+  const wordPool = [];
+  const wordSet = new Set();
+  for (const a of ayahs) {
+    for (const w of a.text.split(' ')) {
+      if (arabicLen(w) >= minLen && !wordSet.has(w)) { wordSet.add(w); wordPool.push(w); }
+    }
+  }
+
+  // === بناء بركة الأرقام مرة واحدة ===
+  const allNums = ayahs.map(a => a.num).filter(Boolean);
+
+  // === shuffle مرة واحدة لأخذ distractors سريع ===
+  function pick3Except(arr, ...exclude) {
+    const result = [];
+    const excSet = new Set(exclude);
+    for (let i = arr.length - 1; i >= 0 && result.length < 3; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const val = arr[j];
+      if (!excSet.has(val) && !excSet.has(arr[i])) {
+        result.push(arr[i]);
+        excSet.add(arr[i]);
+      }
+      // swap
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return result;
+  }
 
   // ===== لكل آية: نبني الأنواع الأربعة الممكنة ثم نختار واحد بالأوزان =====
   ayahs.forEach((item, idx) => {
-    const candidates = []; // [{type, weight, q}]
+    const candidates = [];
 
     // نوع ١: الكلمة الناقصة
     const words = item.text.split(' ').filter(w => w.length > 0);
     if (words.length >= 2) {
-      // في المستويات الأعلى: اختار كلمة من المنتصف أو الأول (مش بس الأخيرة)
       let candidateIdxs;
-      if (lvl <= 1) {
-        // آخر كلمة فقط
-        candidateIdxs = [words.length - 1];
-      } else if (lvl <= 3) {
-        // أي كلمة غير الأولى
-        candidateIdxs = words.map((_,i) => i).slice(1);
-      } else {
-        // أي كلمة (مع تفضيل الأول)
-        candidateIdxs = words.map((_,i) => i);
-      }
+      if (lvl <= 1)      candidateIdxs = [words.length - 1];
+      else if (lvl <= 3) candidateIdxs = words.map((_,i) => i).slice(1);
+      else               candidateIdxs = words.map((_,i) => i);
       const blankWordIdx = candidateIdxs[Math.floor(Math.random() * candidateIdxs.length)];
       const blankWord = words[blankWordIdx];
-      const arabicLen = w => (w||'').replace(/[^؀-ۿ]/g,'').length;
-      // في المستويات الأعلى نشترط كلمة أطول
-      const minLen = lvl >= 5 ? 4 : lvl >= 3 ? 3 : 2;
-      const otherWords = ayahs
-        .filter((_,i) => i !== idx)
-        .flatMap(x => x.text.split(' ').filter(w => arabicLen(w) >= minLen && w !== blankWord))
-        .filter((w,i,arr) => arr.indexOf(w) === i)
-        .sort(() => Math.random()-0.5)
-        .slice(0, 3);
-      if (otherWords.length >= 2 && arabicLen(blankWord) >= minLen) {
-        candidates.push({ weight: weights[0], q: { surah: surahName, ayah: item.text, blank: blankWord, wrong: otherWords, qtype: 'blank', surahIdx: idx, ayahNum: item.num } });
+      if (arabicLen(blankWord) >= minLen) {
+        // اختار 3 كلمات من البركة المبنية مسبقاً (بعيداً عن الكلمة الصح)
+        const otherWords = [];
+        const excl = new Set([blankWord]);
+        for (let i = wordPool.length - 1; i >= 0 && otherWords.length < 3; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [wordPool[i], wordPool[j]] = [wordPool[j], wordPool[i]];
+          if (!excl.has(wordPool[i])) { otherWords.push(wordPool[i]); excl.add(wordPool[i]); }
+        }
+        if (otherWords.length >= 2) {
+          candidates.push({ weight: weights[0], q: { surah: surahName, ayah: item.text, blank: blankWord, wrong: otherWords, qtype: 'blank', surahIdx: idx, ayahNum: item.num } });
+        }
       }
     }
 
     // نوع ٢: ما بعدها
     if (idx < ayahs.length - 1) {
       const next = ayahs[idx+1];
-      const wrongNexts = ayahs.filter((_,i) => i !== idx+1 && i !== idx).sort(() => Math.random()-0.5).slice(0,3);
-      if (wrongNexts.length >= 2) {
-        candidates.push({ weight: weights[1], q: { surah: surahName, ayah: item.text, blank: next.text, wrong: wrongNexts.map(x => x.text), qtype: 'next', surahIdx: idx } });
+      const pool2 = ayahs.filter((_,i) => i !== idx && i !== idx+1);
+      if (pool2.length >= 2) {
+        const wrong2 = [pool2[Math.floor(Math.random()*pool2.length)], pool2[Math.floor(Math.random()*pool2.length)], pool2[Math.floor(Math.random()*pool2.length)]].filter((v,i,a) => a.indexOf(v)===i).slice(0,3);
+        if (wrong2.length >= 2) candidates.push({ weight: weights[1], q: { surah: surahName, ayah: item.text, blank: next.text, wrong: wrong2.map(x => x.text), qtype: 'next', surahIdx: idx } });
       }
     }
 
     // نوع ٣: ما قبلها
     if (idx > 0) {
       const prev = ayahs[idx-1];
-      const wrongPrevs = ayahs.filter((_,i) => i !== idx-1 && i !== idx).sort(() => Math.random()-0.5).slice(0,3);
-      if (wrongPrevs.length >= 2) {
-        candidates.push({ weight: weights[2], q: { surah: surahName, ayah: item.text, blank: prev.text, wrong: wrongPrevs.map(x => x.text), qtype: 'prev', surahIdx: idx } });
+      const pool3 = ayahs.filter((_,i) => i !== idx && i !== idx-1);
+      if (pool3.length >= 2) {
+        const wrong3 = [pool3[Math.floor(Math.random()*pool3.length)], pool3[Math.floor(Math.random()*pool3.length)], pool3[Math.floor(Math.random()*pool3.length)]].filter((v,i,a) => a.indexOf(v)===i).slice(0,3);
+        if (wrong3.length >= 2) candidates.push({ weight: weights[2], q: { surah: surahName, ayah: item.text, blank: prev.text, wrong: wrong3.map(x => x.text), qtype: 'prev', surahIdx: idx } });
       }
     }
 
     // نوع ٤: رقم الآية
     if (item.num && weights[3] > 0) {
-      const otherNums = ayahs.map(x => x.num).filter(n => n && n !== item.num);
-      // في المستويات الأعلى: خليها أرقام قريبة من بعض (أصعب)
-      let distractors;
-      if (lvl >= 4) {
-        const sorted = [...new Set(otherNums)].sort((a,b) => Math.abs(a-item.num) - Math.abs(b-item.num));
-        distractors = sorted.slice(0, 3);
-      } else {
-        distractors = [...new Set(otherNums)].sort(() => Math.random()-0.5).slice(0,3);
-      }
-      if (distractors.length >= 2) {
-        candidates.push({ weight: weights[3], q: { surah: surahName, ayah: item.text, blank: String(item.num), wrong: distractors.map(String), qtype: 'num', surahIdx: idx } });
+      const otherNums = allNums.filter(n => n !== item.num);
+      if (otherNums.length >= 2) {
+        let distractors;
+        if (lvl >= 4) {
+          distractors = [...new Set(otherNums)].sort((a,b) => Math.abs(a-item.num) - Math.abs(b-item.num)).slice(0,3);
+        } else {
+          distractors = [];
+          const used = new Set();
+          for (let i = 0; i < otherNums.length && distractors.length < 3; i++) {
+            const r = otherNums[Math.floor(Math.random()*otherNums.length)];
+            if (!used.has(r)) { used.add(r); distractors.push(r); }
+          }
+        }
+        if (distractors.length >= 2) candidates.push({ weight: weights[3], q: { surah: surahName, ayah: item.text, blank: String(item.num), wrong: distractors.map(String), qtype: 'num', surahIdx: idx } });
       }
     }
 
     if (candidates.length > 0) {
-      // اختيار حسب الأوزان
       const totalWeight = candidates.reduce((s, c) => s + c.weight, 0);
       let rand = Math.random() * totalWeight;
       let chosen = candidates[0].q;
-      for (const c of candidates) {
-        rand -= c.weight;
-        if (rand <= 0) { chosen = c.q; break; }
-      }
+      for (const c of candidates) { rand -= c.weight; if (rand <= 0) { chosen = c.q; break; } }
       questions.push(chosen);
     }
   });
@@ -5168,16 +5190,6 @@ function buildReviewQuestions(surahName) {
 function startSurahReview(surahName) {
   if (!currentUser) return;
 
-  const MAX_REVIEW_Q = 50;
-  let questions = buildReviewQuestions(surahName);
-  if (questions.length > MAX_REVIEW_Q) {
-    const step = questions.length / MAX_REVIEW_Q;
-    const sampled = [];
-    for (let i = 0; i < MAX_REVIEW_Q; i++) sampled.push(questions[Math.floor(i * step)]);
-    questions = sampled;
-  }
-  if (questions.length < 1) return;
-
   showScreen('gameScreen');
   document.getElementById('liveScore').textContent = '٠';
   document.getElementById('timerWrap').style.display = 'none';
@@ -5186,18 +5198,23 @@ function startSurahReview(surahName) {
   document.getElementById('nextBtn').className = 'next-btn';
   document.getElementById('feedback').className = 'feedback';
 
-  state.reviewSurah = surahName;
-  state.reviewTotal = questions.length;
-  state.isReviewMode = true;
-  state.questions = questions;
-  state.qIndex = 0; state.score = 0; state.correct = 0;
-  state.sessionHasanat = 0; state.answered = false;
-  state.combo = 0;
-  state.hints = { h1:2, h2:2, h3:2 };
-  state.mode = 'mcq';
-  stopTimer();
-  markSurahReviewStarted(surahName, questions.length);
-  renderQuestion();
+  requestAnimationFrame(() => {
+    let questions = buildReviewQuestions(surahName);
+    if (questions.length < 1) { showScreen('reviewScreen'); return; }
+
+    state.reviewSurah = surahName;
+    state.reviewTotal = questions.length;
+    state.isReviewMode = true;
+    state.questions = questions;
+    state.qIndex = 0; state.score = 0; state.correct = 0;
+    state.sessionHasanat = 0; state.answered = false;
+    state.combo = 0;
+    state.hints = { h1:2, h2:2, h3:2 };
+    state.mode = 'mcq';
+    stopTimer();
+    markSurahReviewStarted(surahName, questions.length);
+    renderQuestion();
+  });
 }
 
 // ============================================================
@@ -5986,7 +6003,7 @@ function _renderMultiQuestion() {
     const display = q.qtype === 'num' ? 'آية ' + toArabicNum(parseInt(ch)) : ch;
     btn.textContent = display;
     btn.dataset.ch = ch;
-    btn.style.cssText = `background:rgba(255,254,249,0.05);border:1.5px solid rgba(201,151,58,0.2);border-radius:14px;padding:14px 12px;font-family:${isAyah?"'Amiri',serif":"'Cairo',sans-serif"};font-size:${isAyah?'16px':'18px'};color:var(--cream);cursor:pointer;transition:all .2s;direction:rtl;text-align:${isAyah?'right':'center'};`;
+    btn.style.cssText = `background:rgba(255,254,249,0.05);border:1.5px solid rgba(201,151,58,0.2);border-radius:14px;padding:14px 12px;font-family:${isAyah?"'Amiri',serif":"'Cairo',sans-serif"};font-size:${isAyah?'20px':'20px'};color:var(--cream);cursor:pointer;transition:all .2s;direction:rtl;text-align:${isAyah?'right':'center'};`;
     btn.onclick = (e) => _multiAnswer(ch, q.blank, q, btn, e);
     wrap.appendChild(btn);
   });
