@@ -1129,21 +1129,34 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   // مراقبة حالة الـ Auth — لو كان عنده جلسة محفوظة يدخل تلقائي
   onAuthStateChanged(auth, (user) => {
     if (user && !window.currentUser) {
-      // استخرج اسم المستخدم من الـ email
-      const username = user.email.replace('@nour.app', '').replace(/_/g, (m, offset, str) => {
-        // نحاول نجيب الاسم الحقيقي من DB
-        return m;
-      });
+      const emailKey = user.email.replace('@nour.app', '');
       // جيب الاسم الحقيقي والبيانات من Firebase DB
-      get(ref(db, 'users/' + user.email.replace('@nour.app', '') + '/profile'))
-        .then(snap => {
-          const realUsername = snap.exists() ? snap.val().username : user.email.replace('@nour.app', '');
-          window.fbGetUserData(realUsername, (data) => {
-            if (data && typeof window.loginSuccess === 'function') {
-              window.loginSuccess(realUsername, data);
-            }
-          });
-        }).catch(() => {});
+      const doAutoLogin = () => {
+        get(ref(db, 'users/' + emailKey + '/profile'))
+          .then(snap => {
+            const realUsername = snap.exists() ? snap.val().username : emailKey;
+            window.fbGetUserData(realUsername, (data) => {
+              if (typeof window.loginSuccess === 'function') {
+                window.loginSuccess(realUsername, data || {
+                  totalScore: 0, totalGames: 0, totalHasanat: 0, streak: 0, lastPlay: null
+                });
+              }
+            });
+          }).catch(() => {});
+      };
+      // ننتظر لحد ما loginSuccess تكون جاهزة
+      if (typeof window.loginSuccess === 'function') {
+        doAutoLogin();
+      } else {
+        const waitForLogin = setInterval(() => {
+          if (typeof window.loginSuccess === 'function') {
+            clearInterval(waitForLogin);
+            if (!window.currentUser) doAutoLogin();
+          }
+        }, 100);
+        // لو ما جاتش خلال 5 ثواني نوقف
+        setTimeout(() => clearInterval(waitForLogin), 5000);
+      }
     }
   });
 
@@ -2072,6 +2085,10 @@ function loginSuccess(username, data, isGuest=false) {
   currentUser = { username, isGuest, ...data };
   window.currentUser = currentUser;
   window.loginSuccess = loginSuccess; // expose للـ Firebase module
+  // احفظ الجلسة في localStorage كـ fallback
+  if (!isGuest) {
+    try { localStorage.setItem('nour_session', JSON.stringify({ username })); } catch {}
+  }
   document.getElementById('loginScreen').classList.add('hide');
   document.getElementById('userNameDisplay').textContent = '👤 ' + username;
   checkStreak();
@@ -2088,6 +2105,7 @@ function doLogout() {
   window.currentUser = null;
   saveCurrentUser(); // save guests too for leaderboard
   currentUser = null;
+  try { localStorage.removeItem('nour_session'); } catch {}
   if (typeof window.fbLogout === 'function') window.fbLogout();
   document.getElementById('loginScreen').classList.remove('hide');
   goHome();
@@ -5817,26 +5835,30 @@ function _showWaitingRoom(code) {
 function _updateWaitingUI() {
   const room = _getRoomData(multiState.roomCode);
   if (!room) return;
-  const players = room.players;
-  const names = Object.keys(players);
-  document.getElementById('multiPlayerCount').textContent = toArabicNum(names.length);
+  const players = room.players || {};
+  const playerEntries = Object.entries(players);
+  document.getElementById('multiPlayerCount').textContent = toArabicNum(playerEntries.length);
   const maxDisp = document.getElementById('multiMaxDisplay');
   if (maxDisp) maxDisp.textContent = toArabicNum(room.maxPlayers || 4);
   const list = document.getElementById('multiPlayersList');
-  list.innerHTML = names.map((u,i) => {
+  list.innerHTML = playerEntries.map(([key, pData], i) => {
     const icons = ['🥇','🥈','🥉','🎖️'];
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,254,249,0.04);border-radius:10px;border:1px solid rgba(201,151,58,${u===room.hostUser?'0.35':'0.12'});">
+    // اسم اللاعب من داخل الداتا أو من الـ key
+    const displayName = (pData && pData.name) ? pData.name : key;
+    const isHost = displayName === room.hostUser || key === (typeof window._makeKey === 'function' ? window._makeKey(room.hostUser, false) : room.hostUser);
+    const isMe = key === multiState.playerKey || displayName === multiState.playerName;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,254,249,0.04);border-radius:10px;border:1px solid rgba(201,151,58,${isHost?'0.35':'0.12'});">
       <span style="font-size:18px;">${icons[i]||'👤'}</span>
-      <span style="flex:1;font-size:14px;color:${u===room.hostUser?'var(--gold)':'var(--cream)'};">${u}</span>
-      ${u===room.hostUser?'<span style="font-size:10px;color:rgba(201,151,58,0.6);">مضيف</span>':''}
-      ${u===multiState.playerName?'<span style="font-size:10px;color:rgba(46,175,120,0.7);">أنت</span>':''}
+      <span style="flex:1;font-size:14px;color:${isHost?'var(--gold)':'var(--cream)'};">${displayName}</span>
+      ${isHost?'<span style="font-size:10px;color:rgba(201,151,58,0.6);">مضيف</span>':''}
+      ${isMe?'<span style="font-size:10px;color:rgba(46,175,120,0.7);">أنت</span>':''}
     </div>`;
   }).join('');
 
   const startBtn = document.getElementById('multiStartBtn');
   const waitMsg = document.getElementById('multiWaitMsg');
   if (multiState.isHost) {
-    if (names.length >= 2) {
+    if (playerEntries.length >= 2) {
       startBtn.style.display = 'block';
       waitMsg.textContent = '✅ جاهز للبدء! اضغط ابدأ التحدي';
     } else {
@@ -6244,6 +6266,8 @@ function _stopPolling() {
 }
 
 // ===== INIT =====
+// نعرّض loginSuccess مبكراً عشان Firebase Auth listener يلاقيها
+window.loginSuccess = loginSuccess;
 // Firebase Auth هيعمل auto-login تلقائي عبر onAuthStateChanged
 // fallback: لو Firebase مش شغال بعد بنحاول من localStorage
 setTimeout(() => {
@@ -6257,7 +6281,7 @@ setTimeout(() => {
       } catch {}
     }
   }
-}, 2500); // ننتظر 2.5 ثانية عشان Firebase Auth يحاول الأول
+}, 3500); // ننتظر 3.5 ثانية عشان Firebase Auth يحاول الأول
 </script>
 
 <!-- ===== CONFIRM MODAL ===== -->
