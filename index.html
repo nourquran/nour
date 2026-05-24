@@ -1126,37 +1126,22 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     set(ref(db, 'users/' + key + '/data'), { ...cleanData, updatedAt: Date.now() }).catch(() => {});
   };
 
-  // مراقبة حالة الـ Auth — لو كان عنده جلسة محفوظة يدخل تلقائي
+  // مراقبة حالة الـ Auth — للدخول التلقائي فقط لو عنده جلسة محفوظة
   onAuthStateChanged(auth, (user) => {
     if (user && !window.currentUser) {
       const emailKey = user.email.replace('@nour.app', '');
-      // جيب الاسم الحقيقي والبيانات من Firebase DB
-      const doAutoLogin = () => {
-        get(ref(db, 'users/' + emailKey + '/profile'))
-          .then(snap => {
-            const realUsername = snap.exists() ? snap.val().username : emailKey;
-            window.fbGetUserData(realUsername, (data) => {
-              if (typeof window.loginSuccess === 'function') {
-                window.loginSuccess(realUsername, data || {
-                  totalScore: 0, totalGames: 0, totalHasanat: 0, streak: 0, lastPlay: null
-                });
-              }
-            });
-          }).catch(() => {});
-      };
-      // ننتظر لحد ما loginSuccess تكون جاهزة
-      if (typeof window.loginSuccess === 'function') {
-        doAutoLogin();
-      } else {
-        const waitForLogin = setInterval(() => {
-          if (typeof window.loginSuccess === 'function') {
-            clearInterval(waitForLogin);
-            if (!window.currentUser) doAutoLogin();
-          }
-        }, 100);
-        // لو ما جاتش خلال 5 ثواني نوقف
-        setTimeout(() => clearInterval(waitForLogin), 5000);
-      }
+      get(ref(db, 'users/' + emailKey + '/profile'))
+        .then(snap => {
+          const realUsername = snap.exists() ? snap.val().username : emailKey;
+          window.fbGetUserData(realUsername, (data) => {
+            // ندخل بس لو loginSuccess جاهزة (يعني الصفحة خلصت تحميل)
+            if (typeof window.loginSuccess === 'function' && !window.currentUser) {
+              window.loginSuccess(realUsername, data || {
+                totalScore: 0, totalGames: 0, totalHasanat: 0, streak: 0, lastPlay: null
+              });
+            }
+          });
+        }).catch(() => {});
     }
   });
 
@@ -6291,22 +6276,7 @@ function _stopPolling() {
 }
 
 // ===== INIT =====
-// نعرّض loginSuccess مبكراً عشان Firebase Auth listener يلاقيها
 window.loginSuccess = loginSuccess;
-// Firebase Auth هيعمل auto-login تلقائي عبر onAuthStateChanged
-// fallback: لو Firebase مش شغال بعد بنحاول من localStorage
-setTimeout(() => {
-  if (!window.currentUser) {
-    const savedSession = localStorage.getItem('nour_session');
-    if (savedSession) {
-      try {
-        const { username } = JSON.parse(savedSession);
-        const data = getUserData(username);
-        if (data) { loginSuccess(username, data); }
-      } catch {}
-    }
-  }
-}, 3500); // ننتظر 3.5 ثانية عشان Firebase Auth يحاول الأول
 </script>
 
 <!-- ===== CONFIRM MODAL ===== -->
