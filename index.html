@@ -640,10 +640,20 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 .review-search::placeholder { color:rgba(245,217,139,0.35); }
 .review-search-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:16px; pointer-events:none; }
 
-.review-filters { display:flex; gap:8px; margin-bottom:16px; overflow-x:auto; scrollbar-width:none; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
+.review-filters { display:flex; gap:4px; margin-bottom:16px; flex-wrap:nowrap; padding-bottom:0; width:100%; }
 .review-filters::-webkit-scrollbar { display:none; }
-.review-filter-btn { background:rgba(255,254,249,0.04); border:1px solid rgba(46,175,120,0.2); border-radius:20px; padding:7px 16px; font-family:'Cairo',sans-serif; font-size:12px; color:rgba(125,255,201,0.55); cursor:pointer; white-space:nowrap; flex-shrink:0; transition:all .2s; }
+.review-filter-btn { background:rgba(255,254,249,0.04); border:1px solid rgba(46,175,120,0.2); border-radius:16px; padding:4px 0; font-family:'Cairo',sans-serif; font-size:9.5px; color:rgba(125,255,201,0.55); cursor:pointer; white-space:nowrap; flex:1; text-align:center; transition:all .2s; }
 .review-filter-btn.active { border-color:#7DFFC9; color:#7DFFC9; background:rgba(46,175,120,0.15); }
+
+/* ===== REVIEW CHALLENGE CARDS ===== */
+.review-challenge-label { font-size:9.5px; color:rgba(125,255,201,0.4); text-align:center; letter-spacing:1.5px; margin-bottom:6px; }
+.review-challenge-row { display:flex; gap:6px; margin-bottom:16px; }
+.review-challenge-card { flex:1; background:rgba(255,254,249,0.03); border:1px solid rgba(46,175,120,0.18); border-radius:12px; padding:10px 4px 8px; text-align:center; cursor:pointer; transition:all .22s; }
+.review-challenge-card:hover { border-color:rgba(46,175,120,0.5); background:rgba(46,175,120,0.07); transform:translateY(-1px); }
+.review-challenge-card.active { border-color:#7DFFC9; background:rgba(46,175,120,0.14); box-shadow:0 2px 12px rgba(46,175,120,0.15); }
+.rch-icon { font-size:18px; margin-bottom:3px; }
+.rch-name { font-size:10.5px; font-weight:700; color:var(--cream); }
+.rch-sub { font-size:8.5px; color:rgba(125,255,201,0.45); margin-top:2px; line-height:1.3; }
 
 .surah-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
 .surah-review-card {
@@ -664,6 +674,17 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 .src-badge-done { background:rgba(46,175,120,0.15); color:#7DFFC9; border:1px solid rgba(46,175,120,0.3); }
 .src-badge-new { background:rgba(26,82,118,0.25); color:#85C1E9; border:1px solid rgba(26,82,118,0.5); }
 .src-badge-streak { background:rgba(231,76,60,0.15); color:#FF9E9E; border:1px solid rgba(231,76,60,0.3); }
+.src-reset-btn {
+  position:absolute; top:7px; left:7px;
+  width:clamp(20px,5.5vw,26px); height:clamp(20px,5.5vw,26px);
+  border-radius:50%; background:rgba(192,57,43,0.15);
+  border:1px solid rgba(192,57,43,0.35); color:#FF9E9E;
+  font-size:clamp(9px,2.5vw,12px); display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all .2s; z-index:2; flex-shrink:0;
+  font-family:'Cairo',sans-serif; font-weight:700; line-height:1;
+}
+.src-reset-btn:hover { background:rgba(192,57,43,0.4); border-color:rgba(192,57,43,0.7); transform:scale(1.1); }
+.src-reset-btn:active { transform:scale(0.93); }
 
 .review-q-type-badge {
   position:absolute; top:10px; left:10px;
@@ -890,7 +911,17 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   .surah-grid { grid-template-columns: 1fr 1fr; gap:8px; }
   .src-name { font-size:17px; }
   .review-title { font-size:20px; }
-  .review-filter-btn { font-size:11px; padding:6px 12px; }
+
+  /* review filters — 2 صفوف من 3 على الموبايل */
+  .review-filters { flex-wrap:wrap; }
+  .review-filter-btn { flex:0 0 calc(33.33% - 3px); min-width:0; font-size:9px; padding:5px 4px; text-align:center; }
+
+  /* challenge cards على الموبايل */
+  .review-challenge-row { gap:4px; }
+  .review-challenge-card { padding:8px 3px 6px; border-radius:10px; }
+  .rch-icon { font-size:16px; margin-bottom:2px; }
+  .rch-name { font-size:9.5px; }
+  .rch-sub { font-size:7.5px; }
 }
 
 /* ===== SMALL MOBILE (360px and below) ===== */
@@ -908,6 +939,12 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   .hint-btn .hint-count { display:none; }
   .surah-grid { grid-template-columns:1fr 1fr; gap:6px; }
   .src-name { font-size:16px; }
+
+  /* review على الشاشات الصغيرة جداً */
+  .review-filter-btn { font-size:8.5px; padding:4px 2px; }
+  .rch-name { font-size:9px; }
+  .rch-sub { display:none; }
+  .review-challenge-card { padding:8px 2px 6px; }
 }
 
 /* ===== LANDSCAPE MOBILE ===== */
@@ -1284,10 +1321,36 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="review-filters" id="reviewFilters">
         <button class="review-filter-btn active" onclick="setReviewFilter('all',this)">📖 القرآن كاملاً</button>
         <button class="review-filter-btn" onclick="setReviewFilter('juz30only',this)">جزء عم (٣٠)</button>
+        <button class="review-filter-btn" onclick="setReviewFilter('half1',this)">النصف الأول (١–١٥)</button>
         <button class="review-filter-btn" onclick="setReviewFilter('half2',this)">النصف الثاني (١٦–٣٠)</button>
         <button class="review-filter-btn" onclick="setReviewFilter('quarter',this)">ربع القرآن (٢٣–٣٠)</button>
         <button class="review-filter-btn" onclick="setReviewFilter('started',this)">🔥 بدأتها</button>
-        <button class="review-filter-btn" onclick="setReviewFilter('new',this)">✨ جديدة</button>
+
+      </div>
+
+      <!-- تحديات المراجعة -->
+      <div class="review-challenge-label">✦ اختار نوع التحدي</div>
+      <div class="review-challenge-row">
+        <div class="review-challenge-card active" onclick="setReviewChallenge('classic',this)">
+          <div class="rch-icon">🎯</div>
+          <div class="rch-name">كلاسيك</div>
+          <div class="rch-sub">أسئلة متنوعة</div>
+        </div>
+        <div class="review-challenge-card" onclick="setReviewChallenge('similar',this)">
+          <div class="rch-icon">🔍</div>
+          <div class="rch-name">دقة الحفظ</div>
+          <div class="rch-sub">اختار الصحيحة</div>
+        </div>
+        <div class="review-challenge-card" onclick="setReviewChallenge('firstword',this)">
+          <div class="rch-icon">🔤</div>
+          <div class="rch-name">من الأول</div>
+          <div class="rch-sub">أكمل الآية</div>
+        </div>
+        <div class="review-challenge-card" onclick="setReviewChallenge('reverse',this)">
+          <div class="rch-icon">🔃</div>
+          <div class="rch-name">من الآخر</div>
+          <div class="rch-sub">اعرف البداية</div>
+        </div>
       </div>
 
       <div class="surah-grid" id="reviewSurahGrid"></div>
@@ -2224,7 +2287,7 @@ function selectLevel(idx) {
   if (lvlSel.forcedRandom) {
     selectedSurah = '';
     selectedJuz = '';
-    const sf = document.getElementById('surahFilter'); if (sf) sf.value = '';
+    const sf = document.getElementById('surahDropdownLabel'); if (sf) sf.textContent = '🌿 كل السور (عشوائي)';
     const jf = document.getElementById('juzFilter');   if (jf) jf.value = '';
     const sh = document.getElementById('surahHint');   if (sh) { sh.textContent = '🌐 مزيج عشوائي من كل القرآن — لا يمكن اختيار سورة'; sh.style.color = 'rgba(245,217,139,0.5)'; }
     // إخفاء قسم السورة/الجزء في الـ sheet
@@ -2679,7 +2742,7 @@ function switchFilterTab(tab) {
   if (surahPanel) surahPanel.style.display = tab==='surah' ? 'block' : 'none';
   if (juzPanel)   juzPanel.style.display   = tab==='juz'   ? 'block' : 'none';
   if (tab==='surah') { selectedJuz=''; clearJuzFilter(true); }
-  else { selectedSurah=''; const sf=document.getElementById('surahFilter'); if(sf) sf.value=''; updateQcountSliderMax(); }
+  else { selectedSurah=''; const sf=document.getElementById('surahDropdownLabel'); if(sf) sf.textContent='🌿 كل السور (عشوائي)'; updateQcountSliderMax(); }
   const sh = document.getElementById('surahHint');
   if (sh) sh.textContent = '';
 }
@@ -2738,39 +2801,67 @@ let selectedFromAyah = 1;
 let selectedToAyah = null;
 
 
+const _ALL_SURAHS = [
+  "الفاتحة","البقرة","آل عمران","النساء","المائدة","الأنعام","الأعراف","الأنفال","التوبة","يونس",
+  "هود","يوسف","الرعد","إبراهيم","الحجر","النحل","الإسراء","الكهف","مريم","طه",
+  "الأنبياء","الحج","المؤمنون","النور","الفرقان","الشعراء","النمل","القصص","العنكبوت","الروم",
+  "لقمان","السجدة","الأحزاب","سبأ","فاطر","يس","الصافات","ص","الزمر","غافر",
+  "فصلت","الشورى","الزخرف","الدخان","الجاثية","الأحقاف","محمد","الفتح","الحجرات","ق",
+  "الذاريات","الطور","النجم","القمر","الرحمن","الواقعة","الحديد","المجادلة","الحشر","الممتحنة",
+  "الصف","الجمعة","المنافقون","التغابن","الطلاق","التحريم","الملك","القلم","الحاقة","المعارج",
+  "نوح","الجن","المزمل","المدثر","القيامة","الإنسان","المرسلات","النبأ","النازعات","عبس",
+  "التكوير","الانفطار","المطففين","الانشقاق","البروج","الطارق","الأعلى","الغاشية","الفجر","البلد",
+  "الشمس","الليل","الضحى","الشرح","التين","العلق","القدر","البينة","الزلزلة","العاديات",
+  "القارعة","التكاثر","العصر","الهمزة","الفيل","قريش","الماعون","الكوثر","الكافرون","النصر",
+  "المسد","الإخلاص","الفلق","الناس"
+];
+
 function populateSurahFilter() {
-  // كل السور الـ ١١٤ بالترتيب
-  const ALL_SURAHS = [
-    "الفاتحة","البقرة","آل عمران","النساء","المائدة","الأنعام","الأعراف","الأنفال","التوبة","يونس",
-    "هود","يوسف","الرعد","إبراهيم","الحجر","النحل","الإسراء","الكهف","مريم","طه",
-    "الأنبياء","الحج","المؤمنون","النور","الفرقان","الشعراء","النمل","القصص","العنكبوت","الروم",
-    "لقمان","السجدة","الأحزاب","سبأ","فاطر","يس","الصافات","ص","الزمر","غافر",
-    "فصلت","الشورى","الزخرف","الدخان","الجاثية","الأحقاف","محمد","الفتح","الحجرات","ق",
-    "الذاريات","الطور","النجم","القمر","الرحمن","الواقعة","الحديد","المجادلة","الحشر","الممتحنة",
-    "الصف","الجمعة","المنافقون","التغابن","الطلاق","التحريم","الملك","القلم","الحاقة","المعارج",
-    "نوح","الجن","المزمل","المدثر","القيامة","الإنسان","المرسلات","النبأ","النازعات","عبس",
-    "التكوير","الانفطار","المطففين","الانشقاق","البروج","الطارق","الأعلى","الغاشية","الفجر","البلد",
-    "الشمس","الليل","الضحى","الشرح","التين","العلق","القدر","البينة","الزلزلة","العاديات",
-    "القارعة","التكاثر","العصر","الهمزة","الفيل","قريش","الماعون","الكوثر","الكافرون","النصر",
-    "المسد","الإخلاص","الفلق","الناس"
-  ];
-  const sel = document.getElementById('surahFilter');
-  sel.innerHTML = '<option value="">🌿 كل السور (عشوائي)</option>';
-  ALL_SURAHS.forEach((s, i) => {
-    const opt = document.createElement('option');
-    opt.value = s;
-    opt.textContent = (i+1) + '. سورة ' + s;
-    sel.appendChild(opt);
+  const list = document.getElementById('surahDropdownList');
+  if (!list) return;
+  list.innerHTML = '';
+  // خيار "كل السور"
+  const allItem = document.createElement('div');
+  allItem.textContent = '🌿 كل السور (عشوائي)';
+  allItem.style.cssText = 'padding:10px 14px;font-family:Cairo,sans-serif;font-size:14px;color:rgba(245,217,139,0.7);cursor:pointer;direction:rtl;border-bottom:1px solid rgba(201,151,58,0.1);';
+  allItem.onclick = () => { _surahDropdownSelect('', '🌿 كل السور (عشوائي)'); };
+  list.appendChild(allItem);
+  _ALL_SURAHS.forEach((s, i) => {
+    const item = document.createElement('div');
+    item.textContent = (i+1) + '. سورة ' + s;
+    item.style.cssText = 'padding:10px 14px;font-family:Cairo,sans-serif;font-size:14px;color:var(--cream);cursor:pointer;direction:rtl;';
+    item.onmouseenter = () => item.style.background = 'rgba(201,151,58,0.1)';
+    item.onmouseleave = () => item.style.background = '';
+    item.onclick = () => { _surahDropdownSelect(s, (i+1) + '. سورة ' + s); };
+    list.appendChild(item);
   });
+  // إغلاق عند الضغط خارج القائمة
+  document.addEventListener('click', _closeSurahDropdownOutside);
 }
 
+function _closeSurahDropdownOutside(e) {
+  const wrap = document.getElementById('surahDropdownWrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const list = document.getElementById('surahDropdownList');
+    if (list) list.style.display = 'none';
+  }
+}
 
-function onSurahFilterChange() {
+function toggleSurahDropdown() {
+  const list = document.getElementById('surahDropdownList');
+  if (!list) return;
+  list.style.display = list.style.display === 'none' ? 'block' : 'none';
+}
+
+function _surahDropdownSelect(value, label) {
+  document.getElementById('surahDropdownLabel').textContent = label;
+  const list = document.getElementById('surahDropdownList');
+  if (list) list.style.display = 'none';
+  // نفس منطق onSurahFilterChange بالظبط
   selectedJuz = '';
-  selectedSurah = document.getElementById('surahFilter').value;
+  selectedSurah = value;
   updateSurahHint();
   updateQcountSliderMax();
-
   if (selectedSurah) {
     const meta = SURAHS_FULL.find(s => s[0] === selectedSurah);
     const realCount = meta ? meta[1] : 0;
@@ -2791,11 +2882,16 @@ function onSurahFilterChange() {
   }
 }
 
+function onSurahFilterChange() {
+  // kept for compatibility — no longer called from a native select
+}
+
 function clearSurahFilter() {
   selectedSurah = '';
   selectedFromAyah = 1;
   selectedToAyah = null;
-  document.getElementById('surahFilter').value = '';
+  const lbl = document.getElementById('surahDropdownLabel');
+  if (lbl) lbl.textContent = '🌿 كل السور (عشوائي)';
   document.getElementById('surahHint').textContent = '';
   updateQcountSliderMax();
   _hideDualSlider();
@@ -3575,6 +3671,15 @@ function renderQuestion() {
     } else if (q.qtype === 'num') {
       pill.textContent = '🔢 رقم الآية؟';
       pill.className = 'qtype-pill type-num';
+    } else if (q.qtype === 'similar') {
+      pill.textContent = '🔍 دقة الحفظ';
+      pill.className = 'qtype-pill type-order';
+    } else if (q.qtype === 'firstword') {
+      pill.textContent = '🔤 من الأول';
+      pill.className = 'qtype-pill type-prev';
+    } else if (q.qtype === 'reverse') {
+      pill.textContent = '🔃 من الآخر';
+      pill.className = 'qtype-pill type-num';
     }
   } else {
     pill.style.display = 'none';
@@ -3611,7 +3716,16 @@ function renderQuestion() {
   const frac = state.isReviewMode ? 1 : (lvlNow.showAyahFraction || 1);
 
   // Render ayah text based on qtype
-  if (q.qtype === 'next') {
+  if (q.qtype === 'similar') {
+    safeHTML('ayahText', '<span style="font-size:16px;color:rgba(125,255,201,0.6);">أي الخيارات هي الآية الصحيحة؟</span>');
+    document.getElementById('qHint').textContent = 'آية ' + toArabicNum(q.ayahNum||0) + ' — اختار الصياغة الصحيحة بدقة 🔍';
+  } else if (q.qtype === 'firstword') {
+    safeHTML('ayahText', q.ayah);
+    document.getElementById('qHint').textContent = 'أكمل الآية الكريمة من بدايتها 🔤';
+  } else if (q.qtype === 'reverse') {
+    safeHTML('ayahText', q.ayah);
+    document.getElementById('qHint').textContent = 'اختار الآية الكريمة من نهايتها 🔃';
+  } else if (q.qtype === 'next') {
     safeHTML('ayahText', applyAyahFraction(q.ayah, frac));
     document.getElementById('qHint').textContent = 'ما الآية التالية بعد هذه؟';
   } else if (q.qtype === 'prev') {
@@ -3686,7 +3800,7 @@ function renderQuestion() {
 function renderMCQ(q) {
   const choices = shuffle([q.blank, ...q.wrong]);
   const wrap = document.getElementById('mcqWrap');
-  const isAyahChoice = q.qtype === 'next' || q.qtype === 'prev';
+  const isAyahChoice = q.qtype === 'next' || q.qtype === 'prev' || q.qtype === 'similar' || q.qtype === 'firstword' || q.qtype === 'reverse';
   const isNumChoice = q.qtype === 'num';
 
   choices.forEach(ch => {
@@ -3813,6 +3927,28 @@ function handleResult(isRight, e) {
   const nextBtn = document.getElementById('nextBtn');
   const q = state.questions[state.qIndex];
   const lvl = LEVEL_DEFS[state.level];
+
+  // اكتب الكلمة في الفراغ بعد الإجابة (أخضر صح / أحمر غلط)
+  const blankEl = document.querySelector('#ayahText .blank');
+  if (blankEl && q.blank) {
+    blankEl.textContent = q.blank;
+    blankEl.style.animation = 'none';
+    blankEl.style.minWidth = 'auto';
+    blankEl.style.height = 'auto';
+    blankEl.style.fontSize = 'inherit';
+    blankEl.style.fontFamily = 'inherit';
+    blankEl.style.padding = '0 4px';
+    blankEl.style.borderRadius = '6px';
+    if (isRight) {
+      blankEl.style.background = 'rgba(46,175,120,0.2)';
+      blankEl.style.color = '#7DFFC9';
+      blankEl.style.borderBottom = '2px solid #2EAF78';
+    } else {
+      blankEl.style.background = 'rgba(192,57,43,0.2)';
+      blankEl.style.color = '#FF9E9E';
+      blankEl.style.borderBottom = '2px solid #C0392B';
+    }
+  }
 
   if (state.mode === 'timed') stopTimer();
   updateCombo(isRight);
@@ -4304,6 +4440,13 @@ const SURAHS_META = [
 
 let reviewFilter = 'all';
 let reviewSearchVal = '';
+let reviewChallengeMode = 'classic';
+
+function setReviewChallenge(mode, btn) {
+  reviewChallengeMode = mode;
+  document.querySelectorAll('.review-challenge-card').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+}
 
 function getSurahQCount(surahName) {
   // عدد الأسئلة = عدد الآيات المتاحة (QURAN_LOCAL أولاً ثم QURAN_DB)
@@ -4326,6 +4469,16 @@ function getSurahReviewProgress(surahName) {
   } catch { return {done:0,total:0,streak:0}; }
 }
 
+function markSurahReviewStarted(surahName, total) {
+  if (!currentUser || currentUser.isGuest) return;
+  const key = 'nour_revprog_' + currentUser.username;
+  let d = {};
+  try { d = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
+  const prev = d[surahName] || {done:0, total:0, streak:0};
+  d[surahName] = { ...prev, total, inProgress: true, lastPlay: Date.now() };
+  localStorage.setItem(key, JSON.stringify(d));
+}
+
 function saveSurahReviewProgress(surahName, done, total) {
   if (!currentUser || currentUser.isGuest) return;
   const key = 'nour_revprog_' + currentUser.username;
@@ -4333,7 +4486,7 @@ function saveSurahReviewProgress(surahName, done, total) {
   try { d = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
   const prev = d[surahName] || {done:0,total:0,streak:0};
   const streak = done >= total ? (prev.streak||0)+1 : prev.streak||0;
-  d[surahName] = {done, total, streak, lastPlay: Date.now()};
+  d[surahName] = {done, total, streak, lastPlay: Date.now(), inProgress: false};
   localStorage.setItem(key, JSON.stringify(d));
 }
 
@@ -4370,6 +4523,18 @@ function smartSearchSurahs(val, list) {
   return list.filter(s => s.name.includes(v));
 }
 
+function resetSurahProgress(surahName) {
+  if (!currentUser || currentUser.isGuest) return;
+  const key = 'nour_revprog_' + currentUser.username;
+  let d = {};
+  try { d = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
+  if (d[surahName]) { d[surahName].inProgress = false; }
+  else { d[surahName] = { done:0, total:0, streak:0, inProgress:false }; }
+  localStorage.setItem(key, JSON.stringify(d));
+  renderReviewGrid();
+  showToast('🗑️ تم تصفير سورة ' + surahName);
+}
+
 function renderReviewGrid() {
   const allPool = Object.values(QURAN_DB).flat();
   const grid = document.getElementById('reviewSurahGrid');
@@ -4384,10 +4549,11 @@ function renderReviewGrid() {
 
   // Filter
   if (reviewFilter === 'juz30only') list = list.filter(s => s.juz === 30);
+  else if (reviewFilter === 'half1') list = list.filter(s => s.juz >= 1 && s.juz <= 15);
   else if (reviewFilter === 'half2') list = list.filter(s => s.juz >= 16 && s.juz <= 30);
   else if (reviewFilter === 'quarter') list = list.filter(s => s.juz >= 23 && s.juz <= 30);
-  else if (reviewFilter === 'started') list = list.filter(s => s.prog.done > 0);
-  else if (reviewFilter === 'new') list = list.filter(s => s.prog.done === 0);
+  else if (reviewFilter === 'started') list = list.filter(s => s.prog.inProgress === true);
+
 
   // Search
   if (reviewSearchVal) list = smartSearchSurahs(reviewSearchVal, list);
@@ -4409,10 +4575,14 @@ function renderReviewGrid() {
     // Badges
     let badges = `<span class="src-badge src-badge-q">📝 ${toArabicNum(s.qCount)} سؤال</span>`;
     if (s.prog.done >= s.prog.total && s.prog.total > 0) badges += `<span class="src-badge src-badge-done">✅ مكتملة</span>`;
-    else if (s.prog.done === 0) badges += `<span class="src-badge src-badge-new">✨ جديدة</span>`;
+
     if (s.prog.streak > 1) badges += `<span class="src-badge src-badge-streak">🔥 ×${s.prog.streak}</span>`;
 
+    const resetBtnHTML = reviewFilter === 'started'
+      ? `<button class="src-reset-btn" onclick="event.stopPropagation();resetSurahProgress('${s.name}')" title="تصفير وإزالة من القائمة">✕</button>`
+      : '';
     card.innerHTML = `
+      ${resetBtnHTML}
       <div class="src-num">${s.idx}. ${s.type} • الجزء ${toArabicNum(s.juz)}</div>
       <div class="src-name">سورة ${s.name}</div>
       <div class="src-info">${toArabicNum(s.ayahCount)} آية</div>
@@ -4424,8 +4594,69 @@ function renderReviewGrid() {
 }
 
 function showReviewScreen() {
+  reviewChallengeMode = 'classic';
+  document.querySelectorAll('.review-challenge-card').forEach((c,i) => c.classList.toggle('active', i===0));
   showScreen('reviewScreen');
   renderReviewGrid();
+}
+
+// ===== REVIEW CHALLENGE BUILDERS =====
+
+function buildSimilarQuestions(surahName, ayahs) {
+  // دقة الحفظ: اختار الآية الصحيحة من بين نسخ بها كلمة مبدّلة
+  const questions = [];
+  const allWords = ayahs.flatMap(a => a.text.split(' ').filter(w => w.length > 2));
+  ayahs.forEach((item) => {
+    const words = item.text.split(' ');
+    if (words.length < 4) return;
+    const makeWrong = () => {
+      const ws = [...words];
+      const idx = Math.floor(Math.random() * (ws.length - 2)) + 1;
+      const pool = allWords.filter(w => w !== ws[idx] && w.length > 2);
+      if (!pool.length) return null;
+      ws[idx] = pool[Math.floor(Math.random() * pool.length)];
+      return ws.join(' ');
+    };
+    const wrong = [];
+    for (let t = 0; t < 10 && wrong.length < 3; t++) {
+      const m = makeWrong();
+      if (m && m !== item.text && !wrong.includes(m)) wrong.push(m);
+    }
+    if (wrong.length >= 2) {
+      questions.push({ surah: surahName, ayah: '🔍 أي الخيارات هي الآية الصحيحة؟', blank: item.text, wrong: wrong.slice(0,3), qtype: 'similar', ayahNum: item.num });
+    }
+  });
+  return questions.sort(() => Math.random()-0.5);
+}
+
+function buildFirstwordQuestions(surahName, ayahs) {
+  // من الأول: أكمل الآية من بدايتها
+  const questions = [];
+  ayahs.forEach((item, idx) => {
+    const words = item.text.split(' ');
+    if (words.length < 4) return;
+    const showCount = Math.max(2, Math.min(3, Math.floor(words.length * 0.25)));
+    const displayText = words.slice(0, showCount).join(' ') + ' ...';
+    const wrongAyahs = ayahs.filter((_,i) => i !== idx).sort(() => Math.random()-0.5).slice(0,3);
+    if (wrongAyahs.length < 2) return;
+    questions.push({ surah: surahName, ayah: displayText, blank: item.text, wrong: wrongAyahs.map(a => a.text), qtype: 'firstword', ayahNum: item.num });
+  });
+  return questions.sort(() => Math.random()-0.5);
+}
+
+function buildReverseQuestions(surahName, ayahs) {
+  // من الآخر: عندك نهاية الآية، اختار كامل الآية
+  const questions = [];
+  ayahs.forEach((item, idx) => {
+    const words = item.text.split(' ');
+    if (words.length < 4) return;
+    const showCount = Math.max(2, Math.min(3, Math.floor(words.length * 0.25)));
+    const displayText = '... ' + words.slice(-showCount).join(' ');
+    const wrongAyahs = ayahs.filter((_,i) => i !== idx).sort(() => Math.random()-0.5).slice(0,3);
+    if (wrongAyahs.length < 2) return;
+    questions.push({ surah: surahName, ayah: displayText, blank: item.text, wrong: wrongAyahs.map(a => a.text), qtype: 'reverse', ayahNum: item.num });
+  });
+  return questions.sort(() => Math.random()-0.5);
 }
 
 function buildReviewQuestions(surahName) {
@@ -4451,6 +4682,11 @@ function buildReviewQuestions(surahName) {
   }
 
   if (ayahs.length < 2) return [];
+
+  // فرّع على وضع التحدي المختار
+  if (reviewChallengeMode === 'similar')   return buildSimilarQuestions(surahName, ayahs);
+  if (reviewChallengeMode === 'firstword') return buildFirstwordQuestions(surahName, ayahs);
+  if (reviewChallengeMode === 'reverse')   return buildReverseQuestions(surahName, ayahs);
 
   // أوزان أنواع الأسئلة حسب المستوى:
   // 0=المبتدئ: كلمة ناقصة فقط (أسهل)
@@ -4560,37 +4796,49 @@ function buildReviewQuestions(surahName) {
 function startSurahReview(surahName) {
   if (!currentUser) return;
 
-  const questions = buildReviewQuestions(surahName);
-  if (questions.length < 2) {
-    // تحقق من وجود آيات محلية
-    const surahIdx = SURAHS_META.findIndex(s => s[0] === surahName);
-    if (surahIdx !== -1 && QURAN_LOCAL[surahIdx+1] && QURAN_LOCAL[surahIdx+1].length >= 2) {
-      showToast('⚠️ محتاج ٢ آية على الأقل لبناء الأسئلة');
-    } else {
-      showToast('⚠️ السورة دي محتاجة سؤالين على الأقل');
-    }
-    return;
-  }
-
-  // Save progress tracking
-  state.reviewSurah = surahName;
-  state.reviewTotal = questions.length;
-  state.isReviewMode = true;
-  state.questions = questions;
-  state.qIndex = 0; state.score = 0; state.correct = 0;
-  state.sessionHasanat = 0; state.answered = false;
-  state.combo = 0;
-  state.hints = { h1:2, h2:2, h3:2 }; // أكتر hints في مود المراجعة
-  state.mode = 'mcq'; // مراجعة دايماً MCQ
-  stopTimer();
-
+  // عرض شاشة اللعبة فوراً مع مؤشر تحميل لتجنب بطء الاستجابة
   showScreen('gameScreen');
   document.getElementById('liveScore').textContent = '٠';
   document.getElementById('timerWrap').style.display = 'none';
   document.getElementById('levelBadgeGame').textContent = '📖 مراجعة سورة ' + surahName;
-  renderQuestion();
-  const actualQ = questions.length;
-  showToast('📖 مراجعة سورة ' + surahName + ' — ' + toArabicNum(actualQ) + ' سؤال بكل أنواعها');
+  // مؤشر تحميل مؤقت
+  document.getElementById('mcqWrap').innerHTML = '';
+  document.getElementById('nextBtn').className = 'next-btn';
+  document.getElementById('feedback').className = 'feedback';
+
+  // بناء الأسئلة بعد رسم الشاشة مباشرة (defer للـ event loop)
+  setTimeout(function() {
+    const questions = buildReviewQuestions(surahName);
+    if (questions.length < 2) {
+      const surahIdx = SURAHS_META.findIndex(s => s[0] === surahName);
+      if (surahIdx !== -1 && QURAN_LOCAL[surahIdx+1] && QURAN_LOCAL[surahIdx+1].length >= 2) {
+        showToast('⚠️ محتاج ٢ آية على الأقل لبناء الأسئلة');
+      } else {
+        showToast('⚠️ السورة دي محتاجة سؤالين على الأقل');
+      }
+      showScreen('reviewScreen');
+      return;
+    }
+
+    // Save progress tracking
+    state.reviewSurah = surahName;
+    state.reviewTotal = questions.length;
+    state.isReviewMode = true;
+    state.questions = questions;
+    state.qIndex = 0; state.score = 0; state.correct = 0;
+    state.sessionHasanat = 0; state.answered = false;
+    state.combo = 0;
+    state.hints = { h1:2, h2:2, h3:2 }; // أكتر hints في مود المراجعة
+    state.mode = 'mcq'; // مراجعة دايماً MCQ
+    stopTimer();
+
+    // حفظ بدء المراجعة فوراً حتى لو خرج في النص
+    markSurahReviewStarted(surahName, questions.length);
+
+    renderQuestion();
+    const actualQ = questions.length;
+    showToast('📖 مراجعة سورة ' + surahName + ' — ' + toArabicNum(actualQ) + ' سؤال بكل أنواعها');
+  }, 30);
 }
 
 // ============================================================
@@ -5001,10 +5249,17 @@ if (savedSession) {
       <button class="login-tab" id="sheetTabJuz" onclick="switchFilterTab('juz')" style="border-radius:8px;font-size:13px;">📚 جزء</button>
     </div>
     <div id="filterSurahPanel">
-      <div class="surah-filter-row">
-        <select class="surah-select" id="surahFilter" onchange="onSurahFilterChange()">
-          <option value="">🌿 كل السور (عشوائي)</option>
-        </select>
+      <div class="surah-filter-row" style="position:relative;">
+        <div id="surahDropdownWrap" style="flex:1;position:relative;">
+          <div id="surahDropdownTrigger" onclick="toggleSurahDropdown()"
+            style="background:rgba(255,254,249,0.05);border:1.5px solid rgba(201,151,58,0.25);border-radius:12px;padding:10px 36px 10px 14px;font-family:'Cairo',sans-serif;font-size:14px;color:var(--cream);direction:rtl;cursor:pointer;transition:border-color .2s;user-select:none;position:relative;">
+            <span id="surahDropdownLabel">🌿 كل السور (عشوائي)</span>
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:12px;opacity:0.5;">▼</span>
+          </div>
+          <div id="surahDropdownList"
+            style="display:none;position:absolute;top:calc(100% + 4px);right:0;left:0;z-index:9999;background:#1e1b10;border:1.5px solid rgba(201,151,58,0.35);border-radius:12px;max-height:220px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+          </div>
+        </div>
         <button class="surah-clear" onclick="clearSurahFilter()">✕</button>
       </div>
     </div>
