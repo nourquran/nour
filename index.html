@@ -1058,8 +1058,9 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     podiumWrap.innerHTML = top3.map(([key, d], i) => {
       const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
+      const hiddenStyle = i !== 0 ? 'visibility:hidden;' : '';
       return `<div class="lb-podium-slide${i===0?' active':''}" id="lbSlide${i}"
-           style="background:${rankColors[i]};border-color:${borderColors[i]};">
+           style="background:${rankColors[i]};border-color:${borderColors[i]};${hiddenStyle}">
         <div class="lb-podium-rank">${rankEmojis[i]}</div>
         <div class="lb-podium-info">
           <div class="lb-podium-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
@@ -1827,9 +1828,10 @@ function renderLeaderboard() {
   // Build podium slides
   podiumWrap.innerHTML = top3.map(([name,data],i) => {
     const isMe = currentUser && name === currentUser.username;
+    const hiddenStyle = i !== 0 ? 'visibility:hidden;' : '';
     return `
       <div class="lb-podium-slide${i===0?' active':''}" id="lbSlide${i}"
-           style="background:${rankColors[i]};border-color:${borderColors[i]};">
+           style="background:${rankColors[i]};border-color:${borderColors[i]};${hiddenStyle}">
         <div class="lb-podium-rank">${rankEmojis[i]}</div>
         <div class="lb-podium-info">
           <div class="lb-podium-name${isMe?' is-me':''}">${name}${isMe?' (أنت)':''}</div>
@@ -1905,6 +1907,7 @@ function lbGoTo(idx) {
   window.lbPodiumIdx = idx;
 
   slides[lbPodiumIdx]?.classList.add('active');
+  slides[lbPodiumIdx]?.style.removeProperty('visibility');
   dots.forEach((d,i) => d.classList.toggle('active', i === lbPodiumIdx));
 
   if (lbPodiumTimer) { clearInterval(lbPodiumTimer); lbPodiumTimer = null; }
