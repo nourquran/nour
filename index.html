@@ -3588,7 +3588,8 @@ function renderQuestion() {
   document.getElementById('surahLabel').textContent = 'سورة ' + q.surah + ayahNumStr;
   if (!state.isReviewMode) {
     document.getElementById('levelBadgeGame').textContent = lvl.icon + ' ' + lvl.name;
-    document.getElementById('hasanatMultiplier').textContent = '⭐ النقاط: كل حرف = نقطة';
+    const _lvlMult = LEVEL_DEFS[state.level] ? LEVEL_DEFS[state.level].hasanatMult : 1;
+    document.getElementById('hasanatMultiplier').textContent = '⭐ كل حرف = ' + _lvlMult + ' نقطة' + (_lvlMult > 1 ? ' 🔥' : '');
     // مؤشر نوع الفراغ في الشريط العلوي
     const diffLabels = {0:'🟢',1:'🟡',2:'🟠',3:'🔴',4:'🔴',5:'🔴',6:'⚫',7:'⚫'};
     const badge = document.getElementById('levelBadgeGame');
@@ -3818,6 +3819,8 @@ function handleResult(isRight, e) {
 
   if (isRight) {
     state.correct++;
+    const lvlDef = LEVEL_DEFS[state.level];
+    const hasanatMult = lvlDef ? lvlDef.hasanatMult : 1;
     let basePts;
     if (state.isReviewMode) {
       // نقاط المراجعة حسب نوع السؤال
@@ -3825,11 +3828,15 @@ function handleResult(isRight, e) {
     } else {
       basePts = state.mode==='typing' ? 20 : state.mode==='timed' ? 15 : state.mode==='listen' ? 15 : 10;
     }
-    let pts = state.isReviewMode ? basePts : Math.round(basePts * (1 + state.level * 0.5));
+    // عدد حروف الكلمة/العبارة الناقصة (بدون مسافات وتشكيل)
+    const blankLetters = q.blank ? q.blank.replace(/[\s\u064B-\u065F\u0670]/g,'').length : 1;
+    // النقاط والحسنات = حروف الفراغ × مضاعف اللفل
+    const baseEarned = state.isReviewMode ? basePts : Math.round(blankLetters * hasanatMult);
+    let pts = baseEarned;
     if (state.combo >= 2) pts = Math.round(pts * Math.min(1 + (state.combo-1)*0.5, 4));
     if (state.mode==='timed' && state.timeLeft > 0) pts += state.timeLeft * 2;
     state.score += pts;
-    const hasanat = q.blank ? q.blank.replace(/\s/g,'').length : pts;
+    const hasanat = baseEarned;
     state.sessionHasanat += hasanat;
     document.getElementById('liveScore').textContent = toArabicNum(state.score);
     const comboSuffix = state.combo >= 2 ? ` 🔥×${state.combo}` : '';
@@ -4802,7 +4809,7 @@ function playChoiceAudio(choiceText, btn) {
   _speakArabic(choiceText, btn);
 }
 
-// TTS عربي — يقرأ النص المعطى ويوقف عند انتهائه
+// TTS عربي — يقرأ النص المعطى بنطق صحيح
 function _speakArabic(text, btn) {
   stopCurrentAudio();
 
@@ -4815,31 +4822,55 @@ function _speakArabic(text, btn) {
   btn.textContent = '⏸';
   btn.classList.add('playing');
 
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang  = 'ar-SA';
-  utt.rate  = 0.82;
-  utt.pitch = 1;
+  // تنظيف النص: إبقاء الحروف العربية والتشكيل لأن بعض المتصفحات تقرأه صح
+  // لكن نحذف الرموز الخاصة
+  const cleanText = text
+    .replace(/[^\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-  // أفضل صوت عربي متاح
-  const voices = window.speechSynthesis.getVoices();
-  const arVoice = voices.find(v => v.lang === 'ar-SA') || voices.find(v => v.lang.startsWith('ar'));
-  if (arVoice) utt.voice = arVoice;
+  const speak = (voice) => {
+    const utt = new SpeechSynthesisUtterance(cleanText);
+    utt.lang  = 'ar-SA';
+    utt.rate  = 0.78;
+    utt.pitch = 1.0;
+    utt.volume = 1;
+    if (voice) utt.voice = voice;
 
-  _speechUtterance = utt;
+    _speechUtterance = utt;
 
-  utt.onend = () => {
-    _resetAudioBtn(btn);
-    _currentAudioBtn = null;
-    _speechUtterance = null;
+    utt.onend = () => {
+      _resetAudioBtn(btn);
+      _currentAudioBtn = null;
+      _speechUtterance = null;
+    };
+    utt.onerror = () => {
+      _resetAudioBtn(btn);
+      _currentAudioBtn = null;
+      _speechUtterance = null;
+    };
+    window.speechSynthesis.cancel();
+    setTimeout(() => window.speechSynthesis.speak(utt), 100);
   };
-  utt.onerror = () => {
-    _resetAudioBtn(btn);
-    _currentAudioBtn = null;
-    _speechUtterance = null;
+
+  // اختيار أفضل صوت عربي: نفضّل ar-SA ثم ar-EG ثم أي عربي
+  const trySpeak = () => {
+    const voices = window.speechSynthesis.getVoices();
+    const arVoice =
+      voices.find(v => v.lang === 'ar-SA' && !v.localService === false) ||
+      voices.find(v => v.lang === 'ar-SA') ||
+      voices.find(v => v.lang === 'ar-EG') ||
+      voices.find(v => v.lang.startsWith('ar'));
+    speak(arVoice || null);
   };
 
-  window.speechSynthesis.cancel();
-  setTimeout(() => window.speechSynthesis.speak(utt), 80);
+  // بعض المتصفحات تحتاج وقتاً لتحميل الأصوات
+  if (window.speechSynthesis.getVoices().length > 0) {
+    trySpeak();
+  } else {
+    window.speechSynthesis.onvoiceschanged = () => { trySpeak(); };
+    setTimeout(trySpeak, 300);
+  }
 }
 
 // تشغيل آية كاملة (للخيارات من نوع next/prev — الخيار آية كاملة)
