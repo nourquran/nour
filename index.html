@@ -986,113 +986,11 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   // ===== جلب اللوحة من Firebase وعرضها =====
   window.fbRenderLeaderboard = function() {
     const podiumWrap = document.getElementById('lbPodiumWrap');
-    const dotsEl    = document.getElementById('lbDots');
-    const lb        = document.getElementById('leaderboard');
-    if (!podiumWrap || !document.getElementById('homeScreen')?.classList.contains('show')) return;
-
-    // loading state
+    if (!podiumWrap) return;
     podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">⏳ جاري تحميل اللوحة...</div>';
-
-    get(ref(db, 'leaderboard')).then(snapshot => {
-      // re-fetch elements — قد تكون اتغيرت أثناء الـ async call
-      const podiumWrap = document.getElementById('lbPodiumWrap');
-      const dotsEl     = document.getElementById('lbDots');
-      const lb         = document.getElementById('leaderboard');
-      if (!podiumWrap || !document.getElementById('homeScreen')?.classList.contains('show')) return;
-
-      const data = snapshot.val() || {};
-      const list = Object.entries(data)
-        .filter(([,d]) => (d.totalHasanat || 0) > 0)
-        .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
-
-      if (list.length === 0) {
-        podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">كن أول من يسجل نقاطه! 🌟</div>';
-        if (dotsEl) dotsEl.innerHTML = '';
-        if (lb) lb.innerHTML = '';
-        return;
-      }
-
-      const top3 = list.slice(0, 3);
-      const rest  = list.slice(3);
-      const rankEmojis  = ['🥇','🥈','🥉'];
-      const rankColors  = [
-        'linear-gradient(135deg,rgba(201,151,58,0.18),rgba(201,151,58,0.06))',
-        'linear-gradient(135deg,rgba(180,180,180,0.14),rgba(180,180,180,0.04))',
-        'linear-gradient(135deg,rgba(180,100,40,0.16),rgba(180,100,40,0.04))',
-      ];
-      const borderColors = ['rgba(201,151,58,0.45)','rgba(180,180,180,0.3)','rgba(180,100,40,0.35)'];
-
-      const toA = n => String(Math.round(n)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
-
-      podiumWrap.innerHTML = top3.map(([key, d], i) => {
-        const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
-        return `
-          <div class="lb-podium-slide${i===0?' active':''}" id="lbSlide${i}"
-               style="background:${rankColors[i]};border-color:${borderColors[i]};">
-            <div class="lb-podium-rank">${rankEmojis[i]}</div>
-            <div class="lb-podium-info">
-              <div class="lb-podium-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
-              <div class="lb-podium-hasanat">${toA(d.totalHasanat||0)} ⭐</div>
-              <div class="lb-podium-score">${toA(d.totalScore||0)} نقطة • ${toA(d.totalGames||0)} جلسة</div>
-            </div>
-          </div>`;
-      }).join('');
-
-      if (dotsEl) dotsEl.innerHTML = top3.map((_,i) =>
-        `<div class="lb-dot${i===0?' active':''}" onclick="lbGoTo(${i})"></div>`
-      ).join('');
-
-      if (lb) {
-        if (rest.length === 0) {
-          lb.innerHTML = '';
-        } else {
-          const pageSize = 3;
-          const pages = [];
-          for (let i = 0; i < rest.length; i += pageSize) pages.push(rest.slice(i, i + pageSize));
-
-          const pagesHtml = pages.map((pg, pi) =>
-            `<div class="lb-rest-page${pi===0?' active':''}" id="lbRestPage${pi}">` +
-            pg.map(([key, d]) => {
-              const rank = rest.findIndex(r => r[0] === key) + 4;
-              const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
-              return `<div class="lb-card${isMe?' lb-me':''}">
-                <div class="lb-rank">${rank}</div>
-                <div class="lb-info">
-                  <div class="lb-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
-                  <div class="lb-score">${toA(d.totalScore||0)} نقطة • ${toA(d.totalGames||0)} جلسة</div>
-                </div>
-                <div class="lb-hasanat">${toA(d.totalHasanat||0)} ⭐</div>
-              </div>`;
-            }).join('') +
-            `</div>`
-          ).join('');
-
-          const dotsHtml = pages.length > 1
-            ? `<div class="lb-rest-dots">${pages.map((_,i) => `<div class="lb-rest-dot${i===0?' active':''}" onclick="lbRestGoTo(${i})"></div>`).join('')}</div>`
-            : '';
-
-          lb.innerHTML = `<div class="lb-rest-wrap" id="lbRestWrap">${pagesHtml}</div>${dotsHtml}`;
-
-          if (window.lbRestTimer) clearInterval(window.lbRestTimer);
-          window.lbRestIdx = 0;
-          if (pages.length > 1) {
-            window.lbRestTimer = setInterval(() => lbRestGoTo((window.lbRestIdx + 1) % pages.length), 4000);
-          }
-        }
-      }
-
-      // rotation
-      if (window.lbPodiumTimer) clearInterval(window.lbPodiumTimer);
-      lbPodiumIdx = 0;
-      window.lbPodiumIdx = 0;
-      if (top3.length > 1) {
-        lbPodiumTimer = setInterval(() => lbGoTo((lbPodiumIdx + 1) % top3.length), 3000);
-        window.lbPodiumTimer = lbPodiumTimer;
-      }
-    }).catch(() => {
-      const podiumWrap = document.getElementById('lbPodiumWrap');
-      if (podiumWrap) podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:20px;">⚠️ تعذّر تحميل اللوحة</div>';
-    });
+    get(ref(db, 'leaderboard'))
+      .then(snapshot => window._renderLbFromSnapshot && window._renderLbFromSnapshot(snapshot))
+      .catch(() => { if(podiumWrap) podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:20px;">⚠️ تعذّر تحميل اللوحة</div>'; });
   };
 
   // حذف المستخدم من اللوحة عند التصفير
@@ -1104,10 +1002,96 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       .catch(e => console.error('fbDelete error:', e));
   };
 
-  // استمع للتغييرات في الوقت الفعلي
-  onValue(ref(db, 'leaderboard'), () => {
-    if (typeof fbRenderLeaderboard === 'function') fbRenderLeaderboard();
+  // استمع للتغييرات في الوقت الفعلي — رسم مباشر من الـ snapshot
+  onValue(ref(db, 'leaderboard'), (snapshot) => {
+    window._renderLbFromSnapshot(snapshot);
   });
+
+  window._renderLbFromSnapshot = function(snapshot) {
+    const podiumWrap = document.getElementById('lbPodiumWrap');
+    const dotsEl    = document.getElementById('lbDots');
+    const lb        = document.getElementById('leaderboard');
+    if (!podiumWrap) return;
+
+    const data = snapshot.val() || {};
+    const list = Object.entries(data)
+      .filter(([,d]) => (d.totalHasanat || 0) > 0)
+      .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
+
+    if (list.length === 0) {
+      podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">كن أول من يسجل نقاطه! 🌟</div>';
+      if (dotsEl) dotsEl.innerHTML = '';
+      if (lb) lb.innerHTML = '';
+      return;
+    }
+
+    const top3 = list.slice(0, 3);
+    const rest  = list.slice(3);
+    const rankEmojis  = ['🥇','🥈','🥉'];
+    const rankColors  = [
+      'linear-gradient(135deg,rgba(201,151,58,0.18),rgba(201,151,58,0.06))',
+      'linear-gradient(135deg,rgba(180,180,180,0.14),rgba(180,180,180,0.04))',
+      'linear-gradient(135deg,rgba(180,100,40,0.16),rgba(180,100,40,0.04))',
+    ];
+    const borderColors = ['rgba(201,151,58,0.45)','rgba(180,180,180,0.3)','rgba(180,100,40,0.35)'];
+    const toA = n => String(Math.round(n)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+
+    podiumWrap.innerHTML = top3.map(([key, d], i) => {
+      const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
+      return `<div class="lb-podium-slide${i===0?' active':''}" id="lbSlide${i}"
+           style="background:${rankColors[i]};border-color:${borderColors[i]};">
+        <div class="lb-podium-rank">${rankEmojis[i]}</div>
+        <div class="lb-podium-info">
+          <div class="lb-podium-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
+          <div class="lb-podium-hasanat">${toA(d.totalHasanat||0)} ⭐</div>
+          <div class="lb-podium-score">${toA(d.totalScore||0)} نقطة • ${toA(d.totalGames||0)} جلسة</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    if (dotsEl) dotsEl.innerHTML = top3.map((_,i) =>
+      `<div class="lb-dot${i===0?' active':''}" onclick="lbGoTo(${i})"></div>`
+    ).join('');
+
+    if (lb) {
+      if (rest.length === 0) {
+        lb.innerHTML = '';
+      } else {
+        const pageSize = 3;
+        const pages = [];
+        for (let i = 0; i < rest.length; i += pageSize) pages.push(rest.slice(i, i + pageSize));
+        const pagesHtml = pages.map((pg, pi) =>
+          `<div class="lb-rest-page${pi===0?' active':''}" id="lbRestPage${pi}">` +
+          pg.map(([key, d]) => {
+            const rank = rest.findIndex(r => r[0] === key) + 4;
+            const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
+            return `<div class="lb-card${isMe?' lb-me':''}">
+              <div class="lb-rank">${rank}</div>
+              <div class="lb-info">
+                <div class="lb-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
+                <div class="lb-score">${toA(d.totalScore||0)} نقطة • ${toA(d.totalGames||0)} جلسة</div>
+              </div>
+              <div class="lb-hasanat">${toA(d.totalHasanat||0)} ⭐</div>
+            </div>`;
+          }).join('') + `</div>`
+        ).join('');
+        const dotsHtml = pages.length > 1
+          ? `<div class="lb-rest-dots">${pages.map((_,i) => `<div class="lb-rest-dot${i===0?' active':''}" onclick="lbRestGoTo(${i})"></div>`).join('')}</div>`
+          : '';
+        lb.innerHTML = `<div class="lb-rest-wrap" id="lbRestWrap">${pagesHtml}</div>${dotsHtml}`;
+        if (window.lbRestTimer) clearInterval(window.lbRestTimer);
+        window.lbRestIdx = 0;
+        if (pages.length > 1) window.lbRestTimer = setInterval(() => lbRestGoTo((window.lbRestIdx + 1) % pages.length), 4000);
+      }
+    }
+
+    // rotation
+    if (window.lbPodiumTimer) clearInterval(window.lbPodiumTimer);
+    window.lbPodiumIdx = 0;
+    if (top3.length > 1) {
+      window.lbPodiumTimer = setInterval(() => lbGoTo((window.lbPodiumIdx + 1) % top3.length), 3000);
+    }
+  };
 </script>
 
 </head>
