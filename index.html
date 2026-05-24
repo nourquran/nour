@@ -558,25 +558,23 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 
 /* بطاقة المتصدر المتحركة */
 .lb-podium-wrap {
-  border-radius:20px;
+  position:relative; height:140px; overflow:hidden; border-radius:20px;
   background:linear-gradient(135deg, rgba(201,151,58,0.06) 0%, rgba(27,107,74,0.06) 100%);
   border:1px solid rgba(201,151,58,0.18);
 }
 .lb-podium-slide {
-  display:none; align-items:center; gap:16px;
+  display:flex; align-items:center; gap:16px;
   padding:20px 20px;
-  width:100%;
+  position:absolute; width:100%; top:0; left:0; height:100%;
   opacity:0; transform:translateX(60px);
   transition:opacity 0.5s ease, transform 0.5s ease;
   pointer-events:none;
 }
 .lb-podium-slide.active {
-  display:flex;
   opacity:1; transform:translateX(0);
   pointer-events:auto;
 }
 .lb-podium-slide.exit {
-  display:flex;
   opacity:0; transform:translateX(-60px);
 }
 .lb-podium-rank {
@@ -604,21 +602,19 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 /* باقي القائمة */
 .lb-rest { margin-top:10px; }
 .lb-rest-wrap {
-  border-radius:16px;
+  position:relative; overflow:hidden; border-radius:16px; height:168px;
 }
 .lb-rest-page {
-  display:none;
+  position:absolute; width:100%; top:0; left:0;
   opacity:0; transform:translateX(50px);
   transition:opacity 0.5s ease, transform 0.5s ease;
   pointer-events:none;
 }
 .lb-rest-page.active {
-  display:block;
   opacity:1; transform:translateX(0);
   pointer-events:auto;
 }
 .lb-rest-page.exit {
-  display:block;
   opacity:0; transform:translateX(-50px);
 }
 .lb-rest-dots { display:flex; justify-content:center; gap:5px; padding:8px 0 2px; }
