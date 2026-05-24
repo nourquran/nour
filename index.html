@@ -1031,8 +1031,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     const data = snapshot.val() || {};
     const list = Object.entries(data)
-      .filter(([,d]) => (d.totalHasanat || 0) > 0)
-      .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
+      .filter(([,d]) => (d.totalScore || 0) > 0)
+      .sort(([,a],[,b]) => (b.totalScore||0) - (a.totalScore||0));
 
     if (list.length === 0) {
       podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">كن أول من يسجل نقاطه! 🌟</div>';
@@ -1063,8 +1063,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="lb-podium-rank">${emoji0}</div>
       <div class="lb-podium-info">
         <div class="lb-podium-name${isMe0?' is-me':''}">${d0.name}${isMe0?' (أنت)':''}</div>
-        <div class="lb-podium-hasanat">${toA(d0.totalHasanat||0)} ⭐</div>
-        <div class="lb-podium-score">${toA(d0.totalScore||0)} نقطة • ${toA(d0.totalGames||0)} جلسة</div>
+        <div class="lb-podium-hasanat">${toA(d0.totalScore||0)} ⭐</div>
+        <div class="lb-podium-score">${toA(d0.totalGames||0)} جلسة</div>
       </div>
     </div>`;
 
@@ -1088,9 +1088,9 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
               <div class="lb-rank">${rank}</div>
               <div class="lb-info">
                 <div class="lb-name${isMe?' is-me':''}">${d.name}${isMe?' (أنت)':''}</div>
-                <div class="lb-score">${toA(d.totalScore||0)} نقطة • ${toA(d.totalGames||0)} جلسة</div>
+                <div class="lb-score">${toA(d.totalGames||0)} جلسة</div>
               </div>
-              <div class="lb-hasanat">${toA(d.totalHasanat||0)} ⭐</div>
+              <div class="lb-hasanat">${toA(d.totalScore||0)} ⭐</div>
             </div>`;
           }).join('') + `</div>`
         ).join('');
@@ -1797,8 +1797,8 @@ function renderLeaderboard() {
   // fallback local
   const users = getUsers();
   const list = Object.entries(users)
-    .filter(([,d]) => (d.totalHasanat || 0) > 0)
-    .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
+    .filter(([,d]) => (d.totalScore || 0) > 0)
+    .sort(([,a],[,b]) => (b.totalScore||0) - (a.totalScore||0));
 
   const podiumWrap = document.getElementById('lbPodiumWrap');
   const dotsEl    = document.getElementById('lbDots');
@@ -1836,8 +1836,8 @@ function renderLeaderboard() {
     <div class="lb-podium-rank">${emoji0}</div>
     <div class="lb-podium-info">
       <div class="lb-podium-name${isMe0?' is-me':''}">${name0}${isMe0?' (أنت)':''}</div>
-      <div class="lb-podium-hasanat">${toArabicNum(d0.totalHasanat||0)} ⭐</div>
-      <div class="lb-podium-score">${toArabicNum(d0.totalScore)} نقطة • ${toArabicNum(d0.totalGames||0)} جلسة</div>
+      <div class="lb-podium-hasanat">${toArabicNum(d0.totalScore||0)} ⭐</div>
+      <div class="lb-podium-score">${toArabicNum(d0.totalGames||0)} جلسة</div>
     </div>
   </div>`;
 
@@ -1863,9 +1863,9 @@ function renderLeaderboard() {
           <div class="lb-rank">${rank}</div>
           <div class="lb-info">
             <div class="lb-name${isMe?' is-me':''}">${name}${isMe?' (أنت)':''}</div>
-            <div class="lb-score">${toArabicNum(data.totalScore)} نقطة • ${toArabicNum(data.totalGames||0)} جلسة</div>
+            <div class="lb-score">${toArabicNum(data.totalGames||0)} جلسة</div>
           </div>
-          <div class="lb-hasanat">${toArabicNum(data.totalHasanat||0)} ⭐</div>
+          <div class="lb-hasanat">${toArabicNum(data.totalScore||0)} ⭐</div>
         </div>`;
       }).join('') +
       `</div>`
@@ -1917,8 +1917,8 @@ function lbGoTo(idx) {
     slide.querySelector('.lb-podium-name').textContent = d.name + (isMe ? ' (أنت)' : '');
     slide.querySelector('.lb-podium-name').className = 'lb-podium-name' + (isMe ? ' is-me' : '');
     const toA = n => String(Math.round(n)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
-    slide.querySelector('.lb-podium-hasanat').textContent = toA(d.totalHasanat||0) + ' ⭐';
-    slide.querySelector('.lb-podium-score').textContent = toA(d.totalScore||0) + ' نقطة • ' + toA(d.totalGames||0) + ' جلسة';
+    slide.querySelector('.lb-podium-hasanat').textContent = toA(d.totalScore||0) + ' ⭐';
+    slide.querySelector('.lb-podium-score').textContent = toA(d.totalGames||0) + ' جلسة';
     // fade in
     slide.style.opacity = '1';
     slide.style.transform = 'translateX(0)';
@@ -4822,10 +4822,10 @@ function _speakArabic(text, btn) {
   btn.textContent = '⏸';
   btn.classList.add('playing');
 
-  // تنظيف النص: إبقاء الحروف العربية والتشكيل لأن بعض المتصفحات تقرأه صح
-  // لكن نحذف الرموز الخاصة
+  // تنظيف النص: إزالة التشكيل علشان النطق يبقى أوضح
   const cleanText = text
-    .replace(/[^\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF\s]/g, ' ')
+    .replace(/[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED]/g, '')
+    .replace(/[^\u0600-\u06FF\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
