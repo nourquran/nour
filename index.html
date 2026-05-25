@@ -1523,8 +1523,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     </div>
 
-    <!-- IN-PROGRESS SURAHS -->
-    <div id="inProgressSection" style="display:none;margin-bottom:4px;">
+    <!-- IN-PROGRESS SURAHS (مخفي من الصفحة الرئيسية) -->
+    <div id="inProgressSection" style="display:none!important;margin-bottom:4px;">
       <div class="section-title">🔥 بدأتها — أكمل من حيث توقفت</div>
       <div id="inProgressList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
     </div>
@@ -2130,23 +2130,25 @@ function doLogin() {
     return;
   }
 
-  // مستخدم Firebase (مفيش باسورد محلي) أو جهاز جديد → Firebase أولاً
+  // مستخدم Firebase (مفيش باسورد محلي) أو جهاز جديد → أخفي فوراً وFirebase في الـ background
+  document.getElementById('loginScreen').classList.add('hide');
+  loginSuccess(user, localData || createDefaultUserData());
   if (typeof window.fbLogin === 'function') {
     window.fbLogin(user, pass,
       () => {
-        // لو onAuthStateChanged مجاش خلال ثانية ندخله محلياً
-        setTimeout(() => {
-          if (!window.currentUser) {
-            const u2 = getUsers();
-            document.getElementById('loginScreen').classList.add('hide');
-            loginSuccess(user, u2[user] || createDefaultUserData());
-          }
-        }, 1500);
+        // Firebase نجح → حدّث البيانات لو موجودة
+        const u2 = getUsers();
+        if (u2[user] && window.currentUser) Object.assign(window.currentUser, u2[user]);
       },
-      (errMsg) => { showLoginErr(errMsg); }
+      (errMsg) => {
+        // Firebase فشل (باسورد غلط فعلاً) → نرجّع اللوجين
+        if (!localData) {
+          currentUser = null; window.currentUser = null;
+          document.getElementById('loginScreen').classList.remove('hide');
+          showLoginErr(errMsg);
+        }
+      }
     );
-  } else {
-    showLoginErr('اسم المستخدم غير موجود');
   }
 }
 
