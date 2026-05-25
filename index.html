@@ -2096,25 +2096,12 @@ function doLogin() {
   const pass = document.getElementById('loginPass').value;
   if (!user || !pass) { showLoginErr('أدخل اسم المستخدم وكلمة المرور'); return; }
 
-  const btn = document.querySelector('#loginForm .login-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الدخول...'; }
-  const resetBtn = () => { if (btn) { btn.disabled = false; btn.textContent = 'دخول ✨'; } };
-
   if (typeof window.fbLogin === 'function') {
-    // Firebase Auth — يشتغل على كل الأجهزة
     window.fbLogin(user, pass,
-      () => {
-        // onAuthStateChanged هيستدعي loginSuccess تلقائياً
-        resetBtn();
-      },
-      (errMsg) => {
-        resetBtn();
-        showLoginErr(errMsg);
-      }
+      () => { /* onAuthStateChanged هيستدعي loginSuccess */ },
+      (errMsg) => { showLoginErr(errMsg); }
     );
   } else {
-    // fallback محلي لو Firebase مش متاح
-    resetBtn();
     const users = getUsers();
     if (!users[user]) { showLoginErr('اسم المستخدم غير موجود'); return; }
     if (users[user].password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
@@ -2131,29 +2118,17 @@ function doRegister() {
   if (pass.length < 4) { showLoginErr('كلمة المرور يجب أن تكون ٤ أحرف على الأقل'); return; }
   if (pass !== pass2) { showLoginErr('كلمتا المرور غير متطابقتين'); return; }
 
-  const btn = document.querySelector('#registerForm .login-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الإنشاء...'; }
-  const resetBtn = () => { if (btn) { btn.disabled = false; btn.textContent = 'إنشاء الحساب 🌟'; } };
-
   if (typeof window.fbRegister === 'function') {
-    // Firebase Auth — حساب على كل الأجهزة
     window.fbRegister(user, pass,
       () => {
-        // بعد الإنشاء: تسجيل دخول تلقائي عبر onAuthStateChanged
-        resetBtn();
-        // احفظ البيانات الأولية في Firebase DB
         if (typeof window.fbSaveFullUserData === 'function') {
           window.fbSaveFullUserData(user, createDefaultUserData());
         }
+        // onAuthStateChanged هيستدعي loginSuccess تلقائياً
       },
-      (errMsg) => {
-        resetBtn();
-        showLoginErr(errMsg);
-      }
+      (errMsg) => { showLoginErr(errMsg); }
     );
   } else {
-    // fallback محلي
-    resetBtn();
     const users = getUsers();
     if (users[user]) { showLoginErr('اسم المستخدم محجوز، اختر اسماً آخر'); return; }
     const newData = { ...createDefaultUserData(), password: btoa(pass) };
@@ -2169,15 +2144,13 @@ function guestLogin() {
   loginSuccess(guestName, data, true);
 }
 
-let _loginInProgress = false;
-
 function loginSuccess(username, data, isGuest=false) {
-  if (window.currentUser || _loginInProgress) return;
-  _loginInProgress = true;
+  if (window.currentUser) return;
 
   if (!isGuest && typeof window.fbGetUserData === 'function') {
+    window.currentUser = '__pending__'; // قفل مؤقت
     window.fbGetUserData(username, (fbData) => {
-      if (window.currentUser) { _loginInProgress = false; return; }
+      if (window.currentUser !== '__pending__') return;
       const localData = data || {};
       const merged = {
         totalScore:   Math.max(fbData?.totalScore   || 0, localData.totalScore   || 0),
@@ -2188,7 +2161,6 @@ function loginSuccess(username, data, isGuest=false) {
       };
       currentUser = { username, isGuest: false, ...merged };
       window.currentUser = currentUser;
-      _loginInProgress = false;
       _finishLogin(username, isGuest);
     });
     return;
@@ -2196,7 +2168,6 @@ function loginSuccess(username, data, isGuest=false) {
 
   currentUser = { username, isGuest, ...(data || {}) };
   window.currentUser = currentUser;
-  _loginInProgress = false;
   _finishLogin(username, isGuest);
 }
 window.loginSuccess = loginSuccess;
@@ -2219,7 +2190,6 @@ function doLogout() {
   saveCurrentUser();
   currentUser = null;
   window.currentUser = null;
-  _loginInProgress = false;
   if (typeof window.fbLogout === 'function') window.fbLogout();
   document.getElementById('loginScreen').classList.remove('hide');
   goHome();
