@@ -1309,7 +1309,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   // ===== رفع بيانات المستخدم على Firebase =====
   window.fbSaveUser = function(username, data) {
     if (!username) return;
-    const displayName = data.isGuest ? 'ضيف 🕊️' : username;
+    const displayName = username; // كل المستخدمين بيظهروا باسمهم الحقيقي في اللوحة
     const key = makeKey(username, data.isGuest);
     set(ref(db, 'leaderboard/' + key), {
       name: displayName,
@@ -1334,11 +1334,16 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   // حذف المستخدم من اللوحة عند التصفير
   window.fbDeleteUser = function(username, isGuest) {
     const key = makeKey(username, isGuest);
+    const keyAlt = makeKey(username, !isGuest);
     console.log('Deleting Firebase key:', key);
-    // مسح من leaderboard
+    // مسح من leaderboard — نمسح بالـ key الصحيح والبديل معاً لضمان الحذف الكامل
     remove(ref(db, 'leaderboard/' + key))
       .then(() => console.log('Deleted leaderboard OK'))
       .catch(e => console.error('fbDelete leaderboard error:', e));
+    if (key !== keyAlt) remove(ref(db, 'leaderboard/' + keyAlt)).catch(() => {});
+    // مسح من nour_lb كمان (مسار بديل)
+    remove(ref(db, 'nour_lb/' + key)).catch(() => {});
+    if (key !== keyAlt) remove(ref(db, 'nour_lb/' + keyAlt)).catch(() => {});
     // مسح بيانات المستخدم من DB
     if (!isGuest) {
       remove(ref(db, 'users/' + key))
@@ -1419,6 +1424,10 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     if (top3.length > 1) {
       window.lbPodiumTimer = setInterval(() => lbGoTo((window.lbPodiumIdx + 1) % top3.length), 3000);
     }
+
+    // ─── عرض مركز المستخدم الحالي ───
+    window._lbAllList = list; // نخزن القائمة الكاملة
+    if (typeof window._renderMyRank === 'function') window._renderMyRank(list);
   };
 </script>
 
@@ -1558,6 +1567,26 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="lb-rest" id="leaderboard" style="display:none;"></div>
     </div>
 
+    <!-- مركز المستخدم في اللوحة -->
+    <div id="myRankCard" style="display:none;margin-top:14px;background:linear-gradient(135deg,rgba(27,107,74,0.18),rgba(46,175,120,0.08));border:1.5px solid rgba(46,175,120,0.4);border-radius:18px;padding:14px 18px;direction:rtl;">
+      <div style="font-size:11px;color:rgba(125,255,201,0.6);margin-bottom:8px;font-weight:600;letter-spacing:.4px;">📍 مركزك في لوحة الشرف</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="text-align:center;min-width:52px;">
+          <div id="myRankNum" style="font-size:28px;font-weight:900;color:#7DFFC9;font-family:'Cairo',sans-serif;line-height:1;">#١</div>
+          <div style="font-size:10px;color:rgba(125,255,201,0.5);margin-top:2px;">مركزك</div>
+        </div>
+        <div style="width:1px;height:40px;background:rgba(46,175,120,0.25);flex-shrink:0;"></div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;color:var(--cream);" id="myRankName">—</div>
+          <div style="display:flex;gap:14px;margin-top:5px;flex-wrap:wrap;">
+            <div style="font-size:12px;color:rgba(245,217,139,0.7);">⭐ <span id="myRankScore">٠</span> نقطة</div>
+            <div style="font-size:12px;color:rgba(125,255,201,0.6);">🎮 <span id="myRankGames">٠</span> جلسة</div>
+          </div>
+        </div>
+        <div id="myRankEmoji" style="font-size:26px;flex-shrink:0;">🌱</div>
+      </div>
+    </div>
+
     <div style="text-align:center;font-size:12px;color:rgba(245,217,139,0.3);line-height:1.8;margin-top:20px;">
       كل آية تحفظها صدقة جارية 🤍<br>
       «خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ»
@@ -1568,6 +1597,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <h2 style="font-family:'Amiri',serif;font-size:16px;color:rgba(201,151,58,0.4);margin-bottom:8px;">القرآن الكريم — تطبيق نور</h2>
       <p>تطبيق <strong style="color:rgba(201,151,58,0.4);">القرآن الكريم</strong> نور هو منصة مجانية لحفظ القرآن الكريم ومراجعة آياته بطريقة تفاعلية. يتيح التطبيق تحدي النفس في حفظ سور القرآن الكريم من جزء عم حتى القرآن الكريم كاملاً.</p>
       <p>يشمل التطبيق: مراجعة القرآن الكريم يومياً، خطة حفظ القرآن الكريم، اختبارات الآيات القرآنية، وتتبع التقدم في حفظ سور القرآن الكريم.</p>
+      <p style="color:rgba(201,151,58,0.35);">هذا التطبيق صدقة جارية لكل من يستخدمه 🤍</p>
     </div>
   </div>
 
@@ -2255,6 +2285,9 @@ function doLogout() {
   saveCurrentUser();
   currentUser = null;
   window.currentUser = null;
+  window._lbAllList = null;
+  const _rc = document.getElementById('myRankCard');
+  if (_rc) _rc.style.display = 'none';
   try { localStorage.removeItem('nour_last_user'); } catch(e) {}
   if (typeof window._resetAuthDone === 'function') window._resetAuthDone();
   if (typeof window.fbLogout === 'function') window.fbLogout();
@@ -2289,8 +2322,8 @@ function saveCurrentUser() {
     });
   }
 
-  // رفع على Leaderboard
-  if (typeof window.fbSaveUser === 'function' && (currentUser.totalHasanat || 0) > 0) {
+  // رفع على Leaderboard — كل المستخدمين (مسجلين وضيوف) بشرط وجود نقاط
+  if (typeof window.fbSaveUser === 'function' && (currentUser.totalScore || 0) > 0) {
     window.fbSaveUser(currentUser.username, {
       totalHasanat: currentUser.totalHasanat,
       totalScore:   currentUser.totalScore,
@@ -2299,6 +2332,65 @@ function saveCurrentUser() {
     });
   }
 }
+
+// ============================================================
+// ===== MY RANK IN LEADERBOARD =====
+// ============================================================
+window._renderMyRank = function(list) {
+  const card = document.getElementById('myRankCard');
+  if (!card) return;
+  if (!window.currentUser || !window.currentUser.username) { card.style.display = 'none'; return; }
+
+  const me = window.currentUser;
+  const myKey = typeof window._makeKey === 'function'
+    ? window._makeKey(me.username, me.isGuest || false)
+    : me.username;
+
+  // البحث عن المستخدم في القائمة المرتبة — القائمة مرتبة تنازلياً بـ totalScore
+  // list = [[key, data], ...]
+  let rank = -1;
+  let myEntry = null;
+
+  // نبحث عن المستخدم بالـ key أو بالاسم
+  for (let i = 0; i < list.length; i++) {
+    const [k, d] = list[i];
+    if (k === myKey || d.name === me.username) {
+      rank = i + 1;
+      myEntry = d;
+      break;
+    }
+  }
+
+  // لو المستخدم عنده نقاط بس مش في اللوحة بعد (نقاطه صفر على Firebase)
+  // نعرض بياناته المحلية مع رتبة تقريبية
+  const myScore = me.totalScore || 0;
+  const myHasanat = me.totalHasanat || 0;
+  const myGames = me.totalGames || 0;
+
+  // لو مش في اللوحة وعنده نقاط → احسب رتبته التقريبية
+  if (rank === -1 && myScore > 0) {
+    rank = list.filter(([, d]) => (d.totalScore || 0) > myScore).length + 1;
+  }
+
+  // لو نقاطه صفر ومش في اللوحة — اخفي البطاقة
+  if (rank === -1 && myScore === 0) {
+    card.style.display = 'none';
+    return;
+  }
+
+  // رتبة الـ emoji
+  const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉'
+    : rank <= 10 ? '🏅' : rank <= 20 ? '⭐' : '🌱';
+
+  card.style.display = 'block';
+  const toA = n => String(Math.round(n || 0)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+
+  document.getElementById('myRankNum').textContent = '#' + toA(rank);
+  document.getElementById('myRankName').textContent = me.username;
+  document.getElementById('myRankScore').textContent = toA(myEntry ? (myEntry.totalScore || 0) : myScore);
+  document.getElementById('myRankGames').textContent = toA(myEntry ? (myEntry.totalGames || 0) : myGames);
+  document.getElementById('myRankEmoji').textContent = rankEmoji;
+};
 
 function showLoginErr(msg) {
   document.getElementById('loginErr').textContent = msg;
@@ -2381,6 +2473,10 @@ function updateHomeStats() {
   }
   renderLevels();
   renderInProgressSurahs();
+  // تحديث مركز المستخدم لو القائمة متاحة
+  if (typeof window._renderMyRank === 'function' && window._lbAllList) {
+    window._renderMyRank(window._lbAllList);
+  }
 }
 
 // ===== IN-PROGRESS SURAHS (Home) =====
@@ -4791,8 +4887,8 @@ function showResults() {
     saveCurrentUser();
   }
 
-  // رفع على Leaderboard
-  if (typeof window.fbSaveUser === 'function' && (currentUser.totalHasanat || 0) > 0) {
+  // رفع على Leaderboard — أي حد عنده نقاط
+  if (typeof window.fbSaveUser === 'function' && (currentUser.totalScore || 0) > 0) {
     window.fbSaveUser(currentUser.username, {
       totalHasanat: currentUser.totalHasanat,
       totalScore:   currentUser.totalScore,
@@ -4821,12 +4917,12 @@ function showResults() {
   document.getElementById('resTitle').textContent = title;
   // لو ورد الخطة اكتمل، أضف رسالة خاصة
   document.getElementById('resMsg').textContent = msg;
-  document.getElementById('resScore').textContent = toArabicNum(state.score);
+  document.getElementById('resScore').textContent = toArabicNum(_scoreAdd);
   document.getElementById('resCorrect').textContent = toArabicNum(state.correct)+'/'+toArabicNum(total);
   document.getElementById('resAccuracy').textContent = toArabicNum(accuracy)+'٪';
 
   const lvl = LEVEL_DEFS[state.level];
-  document.getElementById('resHasanat').textContent = toArabicNum(state.sessionHasanat) + ' ⭐';
+  document.getElementById('resHasanat').textContent = toArabicNum(_hasanatAdd) + ' ⭐';
   document.getElementById('resHasanatSub').textContent = 'كل حرف بنقطة — بارك الله فيك 🤍';
 
   // Review again button
@@ -4873,6 +4969,9 @@ function resetScore() {
     }
     // Firebase — احذف المستخدم من اللوحة
     if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(currentUser.username, currentUser.isGuest);
+    window._lbAllList = null;
+    const _rc = document.getElementById('myRankCard');
+    if (_rc) _rc.style.display = 'none';
     updateHomeStats();
     renderLeaderboard();
     showToast('✅ تم تصفير النقاط');
@@ -4890,24 +4989,28 @@ function deleteAccount() {
 
     // مسح كل بيانات المستخدم من localStorage
     const keys = [
-      'nour_mistakes_'       + (isGuest ? 'guest' : u),
-      'nour_saved_mistakes_' + (isGuest ? 'guest' : u),
+      'nour_mistakes_'       + u,          // الغلطات (مسجل وضيف باسمهم الحقيقي)
+      'nour_mistakes_guest',               // مفتاح قديم للضيف (للتوافق)
+      'nour_saved_mistakes_' + u,
+      'nour_saved_mistakes_guest',
       'nour_revprog_'        + u,
       'nour_memorized_'      + u,
+      'nour_surahprog_'      + u,          // تقدم السور
       'nour_session',
+      'nour_last_user',                    // آخر مستخدم دخل
     ];
     keys.forEach(k => localStorage.removeItem(k));
 
-    // مسح من nour_users
-    if (!isGuest) {
-      const users = getUsers();
-      delete users[u];
-      saveUsers(users);
-    }
+    // مسح من nour_users (مسجل وضيف)
+    const users = getUsers();
+    delete users[u];
+    saveUsers(users);
 
     // تسجيل خروج
     currentUser = null;
     window.currentUser = null;
+    window._lbAllList = null;
+    document.getElementById('myRankCard').style.display = 'none';
     showScreen('homeScreen');
     document.getElementById('loginScreen').classList.remove('hide');
     showToast('✅ تم حذف الحساب');
@@ -5014,6 +5117,15 @@ function goHome() {
     if (!currentUser.isGuest && typeof window.fbIncrementScore === 'function') {
       window.fbIncrementScore(currentUser.username, _partialScore, _partialHasanat, 0);
     }
+    // رفع اللوحة للجميع (مسجل وضيف) لو عنده نقاط
+    if (typeof window.fbSaveUser === 'function' && (currentUser.totalScore || 0) > 0) {
+      window.fbSaveUser(currentUser.username, {
+        totalHasanat: currentUser.totalHasanat,
+        totalScore:   currentUser.totalScore,
+        totalGames:   currentUser.totalGames,
+        isGuest:      currentUser.isGuest || false,
+      });
+    }
   }
 
   state.isReviewMode = false;
@@ -5036,7 +5148,8 @@ function getTodayKey() {
 
 function getMistakesKey() {
   if (!currentUser) return null;
-  return 'nour_mistakes_' + (currentUser.isGuest ? 'guest' : currentUser.username);
+  // كل مستخدم (مسجل أو ضيف) بيحفظ غلطاته باسمه الخاص
+  return 'nour_mistakes_' + currentUser.username;
 }
 
 function saveMistake(q, chosen) {
@@ -6626,6 +6739,10 @@ function _multiAnswer(chosen, correct, q, clickedBtn, e) {
   const timeLeft = multiState.timeLeft || 0;
 
   const isRight = chosen === correct;
+  // حفظ الغلطة في اللعب الجماعي (مسجل وضيف)
+  if (!isRight && typeof saveMistake === 'function') {
+    saveMistake(q, chosen);
+  }
   if (isRight) {
     // نقاط سرعة: ١٠ أساس + حتى ١٥ bonus حسب الوقت
     const speedBonus = Math.round(timeLeft * 1.0); // كل ثانية = نقطة إضافية
@@ -6756,16 +6873,30 @@ function _showMultiResults() {
     }
   }
 
-  // ===== إضافة نقاط اللعب الجماعي على رصيد اللاعب =====
+  // ===== إضافة نقاط اللعب الجماعي على رصيد اللاعب (مسجل وضيف) =====
   const _cu = currentUser || window.currentUser;
-  if (_cu && !_cu.isGuest && multiState.myScore > 0) {
+  if (_cu && multiState.myScore > 0) {
     _cu.totalHasanat = (_cu.totalHasanat || 0) + multiState.myScore;
     _cu.totalScore   = (_cu.totalScore   || 0) + multiState.myScore;
     _cu.totalGames   = (_cu.totalGames   || 0) + 1;
     _cu.lastPlay     = Date.now();
     currentUser = _cu;
     window.currentUser = _cu;
-    saveCurrentUser();
+    if (!_cu.isGuest) {
+      saveCurrentUser();
+      if (typeof window.fbIncrementScore === 'function') {
+        window.fbIncrementScore(_cu.username, multiState.myScore, multiState.myScore, 1);
+      }
+    }
+    // رفع النقاط للوحة الشرف (مسجل وضيف)
+    if (typeof window.fbSaveUser === 'function') {
+      window.fbSaveUser(_cu.username, {
+        totalHasanat: _cu.totalHasanat,
+        totalScore:   _cu.totalScore,
+        totalGames:   _cu.totalGames,
+        isGuest:      _cu.isGuest || false,
+      });
+    }
     updateHomeStats();
   }
 
@@ -6824,17 +6955,28 @@ function multiLeaveRoom() {
   // لو اللاعب خرج وهو في منتصف اللعب — نحفظ نقاطه بدون إحصاء جلسة كاملة
   if (multiState.phase === 'playing' && multiState.myScore > 0) {
     const _cu = currentUser || window.currentUser;
-    if (_cu && !_cu.isGuest) {
+    if (_cu) {
       _cu.totalHasanat = (_cu.totalHasanat || 0) + multiState.myScore;
       _cu.totalScore   = (_cu.totalScore   || 0) + multiState.myScore;
       // totalGames لا تُزاد — لأن اللعبة لم تكتمل
       currentUser = _cu;
       window.currentUser = _cu;
-      saveCurrentUser();
-      updateHomeStats();
-      if (typeof window.fbIncrementScore === 'function') {
-        window.fbIncrementScore(_cu.username, multiState.myScore, multiState.myScore, 0);
+      if (!_cu.isGuest) {
+        saveCurrentUser();
+        if (typeof window.fbIncrementScore === 'function') {
+          window.fbIncrementScore(_cu.username, multiState.myScore, multiState.myScore, 0);
+        }
       }
+      // رفع اللوحة للجميع
+      if (typeof window.fbSaveUser === 'function' && (_cu.totalScore || 0) > 0) {
+        window.fbSaveUser(_cu.username, {
+          totalHasanat: _cu.totalHasanat,
+          totalScore:   _cu.totalScore,
+          totalGames:   _cu.totalGames,
+          isGuest:      _cu.isGuest || false,
+        });
+      }
+      updateHomeStats();
     }
   }
   if (typeof window.fbMulti !== 'undefined' && code) {
