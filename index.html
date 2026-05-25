@@ -1084,7 +1084,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   // ============================================================
   // بنحول اسم المستخدم لـ email وهمي (Firebase Auth بيحتاج email)
   function toFbEmail(username) {
-    return makeKey(username, false).toLowerCase() + '@nour.app';
+    return makeKey(username, false).toLowerCase() + '@gmail.com';
   }
 
   window.fbRegister = function(username, password, onSuccess, onError) {
@@ -1105,45 +1105,16 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   };
 
   window.fbLogin = function(username, password, onSuccess, onError) {
-    const emailOld = makeKey(username, false).toLowerCase() + '@nour-quran.app';
-    const emailNew = toFbEmail(username); // username@nour.app
-
-    // نجرب emailNew أولاً، لو فشل نجرب emailOld
-    signInWithEmailAndPassword(auth, emailNew, password)
+    const email = toFbEmail(username);
+    signInWithEmailAndPassword(auth, email, password)
       .then(() => onSuccess())
-      .catch((e1) => {
-        // لو الباسورد غلط، وقف هنا
-        if (e1.code === 'auth/wrong-password' || e1.code === 'auth/invalid-credential') {
-          // جرب الـ email القديم قبل ما نحكم
-          signInWithEmailAndPassword(auth, emailOld, password)
-            .then(() => onSuccess())
-            .catch((e2) => {
-              if (e2.code === 'auth/too-many-requests' || e1.code === 'auth/too-many-requests') {
-                onError('تم تجميد الحساب مؤقتاً بسبب محاولات كثيرة، حاول بعد قليل');
-              } else {
-                onError('اسم المستخدم أو كلمة المرور خاطئة');
-              }
-            });
-        } else if (e1.code === 'auth/user-not-found') {
-          // جرب الـ email القديم
-          signInWithEmailAndPassword(auth, emailOld, password)
-            .then(() => onSuccess())
-            .catch((e2) => {
-              if (e2.code === 'auth/user-not-found') {
-                onError('الحساب غير موجود، تحقق من الاسم أو أنشئ حساباً جديداً');
-              } else {
-                onError('اسم المستخدم أو كلمة المرور خاطئة');
-              }
-            });
-        } else if (e1.code === 'auth/too-many-requests') {
-          onError('تم تجميد الحساب مؤقتاً بسبب محاولات كثيرة، حاول بعد قليل');
+      .catch((e) => {
+        if (e.code === 'auth/too-many-requests') {
+          onError('تم تجميد الحساب مؤقتاً، حاول بعد قليل');
+        } else if (e.code === 'auth/user-not-found') {
+          onError('الحساب غير موجود، أنشئ حساباً جديداً');
         } else {
-          // خطأ تاني — جرب الـ email القديم
-          signInWithEmailAndPassword(auth, emailOld, password)
-            .then(() => onSuccess())
-            .catch(() => {
-              onError('اسم المستخدم أو كلمة المرور خاطئة');
-            });
+          onError('اسم المستخدم أو كلمة المرور خاطئة');
         }
       });
   };
@@ -1210,7 +1181,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     if (_authDone) return;
     _authDone = true;
 
-    const emailKey = user.email.replace('@nour-quran.app','').replace('@nour.app','');
+    const emailKey = user.email.replace('@gmail.com','').replace('@gmail.com','');
     const tryGetProfile = (path) => get(ref(db, path)).then(s => s.exists() ? s.val() : null).catch(() => null);
 
     Promise.all([
