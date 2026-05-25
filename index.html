@@ -2973,6 +2973,15 @@ const SURAHS_FULL = [
 ];
 
 // توزيع السور على الأجزاء الـ 30
+const JUZ_NAMES = [
+  'الم','سيقول','تلك الرسل','لن تنالوا','والمحصنات',
+  'لا يحب الله','وإذا سمعوا','ولو أننا','قال الملأ','واعلموا',
+  'يعتذرون','وما من دابة','وما أبرئ','ربما','سبحان الذي',
+  'قال ألم','اقترب','قد أفلح','وقال الذين','أمن خلق',
+  'اتل ما أوحي','ومن يقنت','وما لي','فمن أظلم','إليه يرد',
+  'حم','قال فما خطبكم','قد سمع الله','تبارك الذي','عم'
+];
+
 const JUZ_SURAHS = {
   1:  [{s:1,a:1,e:7},{s:2,a:1,e:141}],
   2:  [{s:2,a:142,e:252}],
@@ -3338,23 +3347,99 @@ function switchFilterTab(tab) {
   if (sh) sh.textContent = '';
 }
 
-function populateJuzFilter() {
-  const sel = document.getElementById('juzFilter');
-  sel.innerHTML = '<option value="">اختر الجزء...</option>';
-  for (let j=1; j<=30; j++) {
-    const opt = document.createElement('option');
-    opt.value = j;
+// ======= JUZ DROPDOWN (مثل surah dropdown) =======
+let _juzDropdownItems = []; // كل الأجزاء
+
+function _buildJuzDropdownItems() {
+  _juzDropdownItems = [];
+  for (let j = 1; j <= 30; j++) {
     const segs = JUZ_SURAHS[j];
-    const firstSurah = SURAHS_FULL[segs[0].s-1][0];
-    const lastSurah = SURAHS_FULL[segs[segs.length-1].s-1][0];
-    const totalAyahs = segs.reduce((sum,seg)=>sum+(seg.e-seg.a+1), 0);
-    opt.textContent = 'الجزء ' + toArabicNum(j) + ' — ' + firstSurah + (firstSurah!==lastSurah?' ← '+lastSurah:'') + ' (' + toArabicNum(totalAyahs) + ' آية)';
-    sel.appendChild(opt);
+    if (!segs) continue;
+    const firstName = SURAHS_FULL[segs[0].s - 1][0];
+    const lastName  = SURAHS_FULL[segs[segs.length - 1].s - 1][0];
+    const totalAyahs = segs.reduce((sum, seg) => sum + (seg.e - seg.a + 1), 0);
+    const label = 'الجزء ' + toArabicNum(j) + ' — ' + firstName + (firstName !== lastName ? ' ← ' + lastName : '') + ' (' + toArabicNum(totalAyahs) + ' آية)';
+    _juzDropdownItems.push({ num: j, label, firstName, lastName, totalAyahs });
   }
 }
 
+function populateJuzFilter() {
+  _buildJuzDropdownItems();
+  _renderJuzDropdownItems(_juzDropdownItems);
+}
+
+function _renderJuzDropdownItems(items) {
+  const container = document.getElementById('juzDropdownItems');
+  if (!container) return;
+  container.innerHTML = '';
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:10px 12px;cursor:pointer;border-radius:8px;font-family:Cairo,sans-serif;font-size:13px;color:var(--cream);direction:rtl;transition:background .15s;';
+    div.textContent = item.label;
+    div.onmouseover = () => div.style.background = 'rgba(201,151,58,0.12)';
+    div.onmouseout  = () => div.style.background = '';
+    div.onclick = () => selectJuzFromDropdown(item);
+    container.appendChild(div);
+  });
+  if (items.length === 0) {
+    container.innerHTML = '<div style="padding:12px;text-align:center;color:rgba(245,217,139,0.35);font-size:13px;font-family:Cairo,sans-serif;">لا توجد نتائج</div>';
+  }
+}
+
+function filterJuzDropdown(q) {
+  if (!q.trim()) { _renderJuzDropdownItems(_juzDropdownItems); return; }
+  const lower = q.toLowerCase();
+  const filtered = _juzDropdownItems.filter(item =>
+    item.label.includes(q) ||
+    String(item.num).includes(q) ||
+    item.firstName.includes(q) ||
+    item.lastName.includes(q) ||
+    toArabicNum(item.num).includes(q)
+  );
+  _renderJuzDropdownItems(filtered);
+}
+
+function toggleJuzDropdown() {
+  const list = document.getElementById('juzDropdownList');
+  if (!list) return;
+  const isOpen = list.style.display !== 'none';
+  if (isOpen) {
+    list.style.display = 'none';
+  } else {
+    if (_juzDropdownItems.length === 0) _buildJuzDropdownItems();
+    _renderJuzDropdownItems(_juzDropdownItems);
+    list.style.display = 'block';
+    const inp = document.getElementById('juzSearchInput');
+    if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 50); }
+  }
+}
+
+function selectJuzFromDropdown(item) {
+  // أغلق الـ dropdown
+  const list = document.getElementById('juzDropdownList');
+  if (list) list.style.display = 'none';
+  // حدّث الـ label
+  const lbl = document.getElementById('juzDropdownLabel');
+  if (lbl) lbl.textContent = item.label;
+  // حدّث القيم
+  selectedJuz = String(item.num);
+  selectedSurah = '';
+  // نفس منطق onJuzFilterChange
+  const segs = JUZ_SURAHS[item.num];
+  const totalAyahs = item.totalAyahs;
+  safeHTML('surahHint', '✅ الجزء ' + toArabicNum(item.num) + ' — <span style="color:var(--gold)">' + toArabicNum(totalAyahs) + ' آية</span> — محلي ⚡ بدون إنترنت');
+  document.getElementById('surahHint').style.color = 'var(--emerald-light)';
+  selectedQCount = totalAyahs;
+  document.getElementById('qcountDisplay').textContent = toArabicNum(totalAyahs);
+  const qcountLbl = document.getElementById('qcountLabelText');
+  if (qcountLbl) qcountLbl.textContent = 'عدد الأسئلة من الجزء ' + toArabicNum(item.num);
+  updateQcountSliderMax();
+}
+
+function populateJuzFilterLegacy() { /* kept for compat */ }
+
 function onJuzFilterChange() {
-  selectedJuz = document.getElementById('juzFilter').value;
+  selectedJuz = document.getElementById('juzFilter') ? document.getElementById('juzFilter').value : selectedJuz;
   selectedSurah = '';
   if (!selectedJuz) {
     document.getElementById('surahHint').textContent = '';
@@ -3365,25 +3450,26 @@ function onJuzFilterChange() {
   const totalAyahs = segs.reduce((sum,seg)=>sum+(seg.e-seg.a+1), 0);
   safeHTML('surahHint', '✅ الجزء ' + toArabicNum(selectedJuz) + ' — <span style="color:var(--gold)">' + toArabicNum(totalAyahs) + ' آية</span> — محلي ⚡ بدون إنترنت');
   document.getElementById('surahHint').style.color = 'var(--emerald-light)';
-
-  // ضبط الـ slider
   selectedQCount = totalAyahs;
   document.getElementById('qcountDisplay').textContent = toArabicNum(totalAyahs);
   const qcountLbl = document.getElementById('qcountLabelText');
   if (qcountLbl) qcountLbl.textContent = 'عدد الأسئلة من الجزء ' + toArabicNum(selectedJuz);
-
   updateQcountSliderMax();
 }
 
 function clearJuzFilter(silent=false) {
   selectedJuz = '';
-  const sel = document.getElementById('juzFilter');
-  if (sel) sel.value = '';
+  const lbl = document.getElementById('juzDropdownLabel');
+  if (lbl) lbl.textContent = '📚 كل الأجزاء (عشوائي)';
+  const list = document.getElementById('juzDropdownList');
+  if (list) list.style.display = 'none';
+  const inp = document.getElementById('juzSearchInput');
+  if (inp) inp.value = '';
   if (!silent) {
     document.getElementById('surahHint').textContent = '';
     _hideDualSlider();
-    const lbl = document.getElementById('qcountLabelText');
-    if (lbl) lbl.textContent = 'اختر عدد الأسئلة في كل جلسة';
+    const lbl2 = document.getElementById('qcountLabelText');
+    if (lbl2) lbl2.textContent = 'اختر عدد الأسئلة في كل جلسة';
   }
 }
 
@@ -3465,6 +3551,11 @@ function _closeSurahDropdownOutside(e) {
   if (wrap && !wrap.contains(e.target)) {
     const list = document.getElementById('surahDropdownList');
     if (list) list.style.display = 'none';
+  }
+  const juzWrap = document.getElementById('juzDropdownWrap');
+  if (juzWrap && !juzWrap.contains(e.target)) {
+    const juzList = document.getElementById('juzDropdownList');
+    if (juzList) juzList.style.display = 'none';
   }
 }
 
@@ -4658,6 +4749,9 @@ function showResults() {
   // احفظ القيم القديمة عشان نحسب الفرق
   const _scoreAdd   = state.score;
   const _hasanatAdd = state.sessionHasanat;
+  // صفّر فوراً لمنع الإضافة مرتين لو رجع بيت بعد النتائج
+  state.score = 0;
+  state.sessionHasanat = 0;
 
   currentUser.totalScore   += _scoreAdd;
   currentUser.totalGames++;
@@ -4898,8 +4992,34 @@ function goHome() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   stopTimer();
   clearInterval(multiState && multiState.questionTimer);
+
+  // لو خرج في النص وعنده نقاط — احفظها بدون إحصاء جلسة
+  const _partialScore   = state.score || 0;
+  const _partialHasanat = state.sessionHasanat || 0;
+  if (currentUser && (_partialScore > 0 || _partialHasanat > 0)) {
+    currentUser.totalScore   = (currentUser.totalScore   || 0) + _partialScore;
+    currentUser.totalHasanat = (currentUser.totalHasanat || 0) + _partialHasanat;
+    // totalGames لا تُزاد — الجلسة لم تكتمل
+    const _lu = getUsers();
+    _lu[currentUser.username] = {
+      ...(_lu[currentUser.username] || {}),
+      totalScore:   currentUser.totalScore,
+      totalHasanat: currentUser.totalHasanat,
+      totalGames:   currentUser.totalGames,
+      streak:       currentUser.streak || 0,
+      lastPlay:     currentUser.lastPlay,
+      isGuest:      currentUser.isGuest || false,
+    };
+    saveUsers(_lu);
+    if (!currentUser.isGuest && typeof window.fbIncrementScore === 'function') {
+      window.fbIncrementScore(currentUser.username, _partialScore, _partialHasanat, 0);
+    }
+  }
+
   state.isReviewMode = false;
   state.reviewSurah = null;
+  state.score = 0;
+  state.sessionHasanat = 0;
   // إيقاف polling الـ multiplayer لو كان شغال
   if (typeof _stopPolling === 'function') _stopPolling();
   showScreen('homeScreen');
@@ -5276,7 +5396,7 @@ function renderReviewGrid() {
       : '';
     card.innerHTML = `
       ${resetBtnHTML}
-      <div class="src-num">${s.idx}. ${s.type} • الجزء ${toArabicNum(s.juz)}</div>
+      <div class="src-num">${s.idx}. ${s.type} • الجزء ${toArabicNum(s.juz)} — ${JUZ_NAMES[s.juz-1]||''}</div>
       <div class="src-name">سورة ${s.name}</div>
       <div class="src-info">${toArabicNum(s.ayahCount)} آية</div>
       <div class="src-progress-bar"><div class="src-progress-fill" style="width:${pct}%"></div></div>
@@ -5299,24 +5419,39 @@ function buildSimilarQuestions(surahName, ayahs) {
   // دقة الحفظ: اختار الآية الصحيحة من بين نسخ بها كلمة مبدّلة
   const questions = [];
   const allWords = ayahs.flatMap(a => a.text.split(' ').filter(w => w.length > 2));
-  ayahs.forEach((item) => {
+  ayahs.forEach((item, idx) => {
     const words = item.text.split(' ');
-    if (words.length < 4) return;
-    const makeWrong = () => {
-      const ws = [...words];
-      const idx = Math.floor(Math.random() * (ws.length - 2)) + 1;
-      const pool = allWords.filter(w => w !== ws[idx] && w.length > 2);
-      if (!pool.length) return null;
-      ws[idx] = pool[Math.floor(Math.random() * pool.length)];
-      return ws.join(' ');
-    };
-    const wrong = [];
-    for (let t = 0; t < 10 && wrong.length < 3; t++) {
-      const m = makeWrong();
-      if (m && m !== item.text && !wrong.includes(m)) wrong.push(m);
+    // للآيات الكافية — نوع similar
+    if (words.length >= 4) {
+      const makeWrong = () => {
+        const ws = [...words];
+        const wi = Math.floor(Math.random() * (ws.length - 2)) + 1;
+        const pool = allWords.filter(w => w !== ws[wi] && w.length > 2);
+        if (!pool.length) return null;
+        ws[wi] = pool[Math.floor(Math.random() * pool.length)];
+        return ws.join(' ');
+      };
+      const wrong = [];
+      for (let t = 0; t < 10 && wrong.length < 3; t++) {
+        const m = makeWrong();
+        if (m && m !== item.text && !wrong.includes(m)) wrong.push(m);
+      }
+      if (wrong.length >= 2) {
+        questions.push({ surah: surahName, ayah: '🔍 أي الخيارات هي الآية الصحيحة؟', blank: item.text, wrong: wrong.slice(0,3), qtype: 'similar', ayahNum: item.num });
+        return;
+      }
     }
-    if (wrong.length >= 2) {
-      questions.push({ surah: surahName, ayah: '🔍 أي الخيارات هي الآية الصحيحة؟', blank: item.text, wrong: wrong.slice(0,3), qtype: 'similar', ayahNum: item.num });
+    // fallback للآيات القصيرة: ما بعدها أو ما قبلها
+    const pool = ayahs.filter((_,i) => i !== idx).sort(() => Math.random()-0.5);
+    if (pool.length >= 2) {
+      const wrong = pool.slice(0,3).map(a => a.text);
+      const qtype = idx < ayahs.length-1 ? 'next' : 'prev';
+      const answer = qtype === 'next' ? ayahs[idx+1]?.text : ayahs[idx-1]?.text;
+      if (answer) {
+        questions.push({ surah: surahName, ayah: item.text, blank: answer, wrong: wrong.filter(w => w !== answer).slice(0,3), qtype, ayahNum: item.num });
+      } else {
+        questions.push({ surah: surahName, ayah: '🔍 أي الخيارات هي الآية الصحيحة؟', blank: item.text, wrong: wrong.slice(0,3), qtype: 'similar', ayahNum: item.num });
+      }
     }
   });
   return questions.sort(() => Math.random()-0.5);
@@ -5327,12 +5462,17 @@ function buildFirstwordQuestions(surahName, ayahs) {
   const questions = [];
   ayahs.forEach((item, idx) => {
     const words = item.text.split(' ');
-    if (words.length < 4) return;
-    const showCount = Math.max(2, Math.min(3, Math.floor(words.length * 0.25)));
-    const displayText = words.slice(0, showCount).join(' ') + ' ...';
     const wrongAyahs = ayahs.filter((_,i) => i !== idx).sort(() => Math.random()-0.5).slice(0,3);
     if (wrongAyahs.length < 2) return;
-    questions.push({ surah: surahName, ayah: displayText, blank: item.text, wrong: wrongAyahs.map(a => a.text), qtype: 'firstword', ayahNum: item.num });
+    if (words.length >= 4) {
+      const showCount = Math.max(2, Math.min(3, Math.floor(words.length * 0.25)));
+      const displayText = words.slice(0, showCount).join(' ') + ' ...';
+      questions.push({ surah: surahName, ayah: displayText, blank: item.text, wrong: wrongAyahs.map(a => a.text), qtype: 'firstword', ayahNum: item.num });
+    } else {
+      // للآيات القصيرة: نعرض كلمة واحدة فقط
+      const displayText = words[0] + ' ...';
+      questions.push({ surah: surahName, ayah: displayText, blank: item.text, wrong: wrongAyahs.map(a => a.text), qtype: 'firstword', ayahNum: item.num });
+    }
   });
   return questions.sort(() => Math.random()-0.5);
 }
@@ -5342,12 +5482,17 @@ function buildReverseQuestions(surahName, ayahs) {
   const questions = [];
   ayahs.forEach((item, idx) => {
     const words = item.text.split(' ');
-    if (words.length < 4) return;
-    const showCount = Math.max(2, Math.min(3, Math.floor(words.length * 0.25)));
-    const displayText = '... ' + words.slice(-showCount).join(' ');
     const wrongAyahs = ayahs.filter((_,i) => i !== idx).sort(() => Math.random()-0.5).slice(0,3);
     if (wrongAyahs.length < 2) return;
-    questions.push({ surah: surahName, ayah: displayText, blank: item.text, wrong: wrongAyahs.map(a => a.text), qtype: 'reverse', ayahNum: item.num });
+    if (words.length >= 4) {
+      const showCount = Math.max(2, Math.min(3, Math.floor(words.length * 0.25)));
+      const displayText = '... ' + words.slice(-showCount).join(' ');
+      questions.push({ surah: surahName, ayah: displayText, blank: item.text, wrong: wrongAyahs.map(a => a.text), qtype: 'reverse', ayahNum: item.num });
+    } else {
+      // للآيات القصيرة: نعرض الكلمة الأخيرة فقط
+      const displayText = '... ' + words[words.length - 1];
+      questions.push({ surah: surahName, ayah: displayText, blank: item.text, wrong: wrongAyahs.map(a => a.text), qtype: 'reverse', ayahNum: item.num });
+    }
   });
   return questions.sort(() => Math.random()-0.5);
 }
@@ -5505,6 +5650,17 @@ function buildReviewQuestions(surahName) {
       let chosen = candidates[0].q;
       for (const c of candidates) { rand -= c.weight; if (rand <= 0) { chosen = c.q; break; } }
       questions.push(chosen);
+    } else {
+      // fallback للآيات القصيرة جداً — سؤال ما بعدها أو ما قبلها
+      const pool = ayahs.filter((_,i) => i !== idx).sort(() => Math.random()-0.5);
+      if (pool.length >= 2) {
+        const useNext = idx < ayahs.length - 1;
+        const answer = useNext ? ayahs[idx+1].text : ayahs[idx-1].text;
+        const wrongFb = pool.filter(a => a.text !== answer).slice(0,3).map(a => a.text);
+        if (wrongFb.length >= 2) {
+          questions.push({ surah: surahName, ayah: item.text, blank: answer, wrong: wrongFb, qtype: useNext ? 'next' : 'prev', surahIdx: idx, ayahNum: item.num });
+        }
+      }
     }
   });
 
@@ -6822,10 +6978,22 @@ function _stopPolling() {
       </div>
     </div>
     <div id="filterJuzPanel" style="display:none;">
-      <div class="surah-filter-row">
-        <select class="surah-select" id="juzFilter" onchange="onJuzFilterChange()">
-          <option value="">اختر الجزء...</option>
-        </select>
+      <div class="surah-filter-row" style="position:relative;">
+        <div id="juzDropdownWrap" style="flex:1;position:relative;">
+          <div id="juzDropdownTrigger" onclick="toggleJuzDropdown()"
+            style="background:rgba(255,254,249,0.05);border:1.5px solid rgba(201,151,58,0.25);border-radius:12px;padding:10px 36px 10px 14px;font-family:'Cairo',sans-serif;font-size:14px;color:var(--cream);direction:rtl;cursor:pointer;transition:border-color .2s;user-select:none;position:relative;">
+            <span id="juzDropdownLabel">📚 كل الأجزاء (عشوائي)</span>
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:12px;opacity:0.5;">▼</span>
+          </div>
+          <div id="juzDropdownList"
+            style="display:none;position:absolute;top:calc(100% + 4px);right:0;left:0;z-index:9999;background:#1e1b10;border:1.5px solid rgba(201,151,58,0.35);border-radius:12px;max-height:260px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+            <div style="padding:8px 8px 4px;">
+              <input id="juzSearchInput" placeholder="🔍 ابحث عن جزء..." oninput="filterJuzDropdown(this.value)"
+                style="width:100%;background:rgba(255,254,249,0.06);border:1px solid rgba(201,151,58,0.2);border-radius:8px;padding:8px 12px;font-family:'Cairo',sans-serif;font-size:13px;color:var(--cream);direction:rtl;outline:none;box-sizing:border-box;">
+            </div>
+            <div id="juzDropdownItems" style="max-height:200px;overflow-y:auto;padding:0 4px 6px;"></div>
+          </div>
+        </div>
         <button class="surah-clear" onclick="clearJuzFilter()">✕</button>
       </div>
     </div>
