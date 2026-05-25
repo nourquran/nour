@@ -2748,7 +2748,7 @@ function lbRestGoTo(idx) {
 // ============================================================
 // ===== QUESTION COUNT =====
 // ============================================================
-let selectedQCount = 50;
+let selectedQCount = 20;
 
 function onQcountChange(val) {
   selectedQCount = parseInt(val);
@@ -3020,8 +3020,15 @@ function selectLevel(idx) {
     if (filterSec) filterSec.style.pointerEvents = 'none', filterSec.style.opacity = '0.3';
     if (filterJuz) filterJuz.style.pointerEvents = 'none', filterJuz.style.opacity = '0.3';
     if (sheetTabs) sheetTabs.style.pointerEvents = 'none', sheetTabs.style.opacity = '0.3';
-    // إظهار الـ dual slider بـ 1-50
-    _showRandomSlider();
+    // إظهار الـ dual slider بـ 1-50 لاختيار عدد الأسئلة
+    _dsMin = 1; _dsMax = 50; _dsFrom = 1; _dsTo = 20;
+    const wrap = document.getElementById('dualSliderWrap');
+    if (wrap) wrap.style.display = 'block';
+    const ticksEl = document.getElementById('dualTicks');
+    if (ticksEl) ticksEl.innerHTML = '<span>١</span><span>١٠</span><span>٢٠</span><span>٣٠</span><span>٤٠</span><span>٥٠</span>';
+    const resetBtn = document.getElementById('resetDualBtn');
+    if (resetBtn) resetBtn.textContent = '🔢 كل النطاق';
+    _dsRender(); _dsUpdate();
     showToast('🌐 الحكيم — مزيج عشوائي من كل القرآن دايماً');
   } else {
     // إعادة تفعيل الفلتر
@@ -3032,8 +3039,6 @@ function selectLevel(idx) {
     if (filterJuz) filterJuz.style.pointerEvents = '', filterJuz.style.opacity = '';
     if (sheetTabs) sheetTabs.style.pointerEvents = '', sheetTabs.style.opacity = '';
     const sh = document.getElementById('surahHint'); if (sh && sh.textContent.includes('لا يمكن')) sh.textContent = '';
-    // إظهار الـ slider في وضع العشوائي العادي كمان
-    if (!selectedSurah && !selectedJuz) _showRandomSlider();
   }
 
   // forcedMode: قفل الـ mode للمستويات الصعبة
@@ -3603,7 +3608,7 @@ function clearJuzFilter(silent=false) {
   if (inp) inp.value = '';
   if (!silent) {
     document.getElementById('surahHint').textContent = '';
-    _showRandomSlider();
+    _hideDualSlider();
     const lbl2 = document.getElementById('qcountLabelText');
     if (lbl2) lbl2.textContent = 'اختر عدد الأسئلة في كل جلسة';
   }
@@ -3730,7 +3735,7 @@ function _surahDropdownSelect(value, label) {
       _showDualSlider(realCount);
     }
   } else {
-    _showRandomSlider();
+    _hideDualSlider();
     selectedFromAyah = 1;
     selectedToAyah = null;
   }
@@ -3748,13 +3753,13 @@ function clearSurahFilter() {
   if (lbl) lbl.textContent = '🌿 كل السور (عشوائي)';
   document.getElementById('surahHint').textContent = '';
   updateQcountSliderMax();
-  _showRandomSlider();
+  _hideDualSlider();
 }
 
 // ============================================================
 // ===== CUSTOM DUAL SLIDER =====
 // ============================================================
-let _dsMin = 1, _dsMax = 50, _dsFrom = 1, _dsTo = 50;
+let _dsMin = 1, _dsMax = 50, _dsFrom = 1, _dsTo = 20;
 
 function _dsInit() {
   const wrap  = document.getElementById('dualTrackWrap');
@@ -3864,21 +3869,6 @@ function _showDualSlider(total) {
 
   _dsRender();
   _dsUpdate();
-}
-
-function _showRandomSlider() {
-  _dsMin = 1; _dsMax = 50;
-  if (_dsTo < 1 || _dsTo > 50) _dsTo = 50;
-  if (_dsFrom < 1 || _dsFrom > _dsTo) _dsFrom = 1;
-  const sw = document.getElementById('dualSliderWrap');
-  if (sw) sw.style.display = 'block';
-  const te = document.getElementById('dualTicks');
-  if (te) te.innerHTML = '<span>1</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span>';
-  const rb = document.getElementById('resetDualBtn');
-  if (rb) rb.textContent = 'كل النطاق (50)';
-  const lbl = document.getElementById('qcountLabelText');
-  if (lbl) lbl.textContent = 'اختر عدد الأسئلة في كل جلسة';
-  _dsRender(); _dsUpdate();
 }
 
 function _hideDualSlider() {
@@ -5110,20 +5100,7 @@ function openGameSheet() {
   if (wrap && !wrap.dataset.init) {
     wrap.dataset.init = '1';
     _dsInit();
-  }
-
-  // ★ إظهار الـ slider دايماً في وضع العشوائي (بدون سورة/جزء)
-  if (!selectedSurah && !selectedJuz) {
-    _dsMin = 1; _dsMax = 50;
-    if (_dsTo < 1 || _dsTo > 50) _dsTo = 50;
-    if (_dsFrom < 1 || _dsFrom > _dsTo) _dsFrom = 1;
-    const _sw = document.getElementById('dualSliderWrap');
-    if (_sw) _sw.style.display = 'block';
-    const _te = document.getElementById('dualTicks');
-    if (_te) _te.innerHTML = '<span>1</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span>';
-    const _rb = document.getElementById('resetDualBtn');
-    if (_rb) _rb.textContent = 'كل النطاق (50)';
-    _dsRender(); _dsUpdate();
+    _hideDualSlider();
   }
 
   // مزامنة الـ mode buttons مع المستوى الحالي
@@ -6428,6 +6405,12 @@ function _setRoomData(code, data) {
 
 function multiCreateRoom() {
   if (!currentUser) { showToast('⚠️ سجّل دخولك الأول'); return; }
+
+  // ★ تعطيل الزرار فوراً ومؤشر تحميل
+  const _createBtn = document.querySelector('#multiLobby button[onclick="multiCreateRoom()"]');
+  if (_createBtn) { _createBtn.disabled = true; _createBtn.textContent = '⏳ جاري الإنشاء...'; }
+  const _resetCreateBtn = () => { if (_createBtn) { _createBtn.disabled = false; _createBtn.textContent = '🚀 إنشاء الغرفة'; } };
+
   const code = _generateRoomCode();
   const surahVal = document.getElementById('multiSurahSelect').value;
   const qCountRaw = document.getElementById('multiQCount').value;
@@ -6450,7 +6433,6 @@ function multiCreateRoom() {
       const qCount = parseInt(qCountRaw) || 20;
       const lvlDef = LEVEL_DEFS[chosenDiff];
       if (lvlDef && lvlDef.dataKey === 'all') {
-        // استخدم buildQuestionsFromLocal للمستويات الصعبة
         const built = buildQuestionsFromLocal(qCount);
         questions = built || [];
       } else {
@@ -6464,11 +6446,10 @@ function multiCreateRoom() {
       }
     }
   } finally {
-    // أرجع المستوى الأصلي بعد بناء الأسئلة
     if (typeof state !== 'undefined') state.level = prevLevel;
   }
 
-  if (questions.length < 3) { showToast('⚠️ ما كفايش أسئلة، اختار سورة أطول'); return; }
+  if (questions.length < 3) { _resetCreateBtn(); showToast('⚠️ ما كفايش أسئلة، اختار سورة أطول'); return; }
 
   const playerKey = typeof window._makeKey === 'function'
     ? window._makeKey(currentUser.username, false)
@@ -6496,32 +6477,31 @@ function multiCreateRoom() {
   multiState.qTime = qTime;
   multiState.diffLevel = chosenDiff;
 
+  // ★ عرض الـ waiting room فوراً من الـ local cache — بدون انتظار Firebase
+  _showWaitingRoom(code);
+  _startPolling();
+  showToast('✅ تم إنشاء الغرفة — شارك الكود: ' + code, 4000);
+
+  // ★ رفع الغرفة على Firebase في الخلفية
   if (typeof window.fbMulti !== 'undefined') {
-    // نضمن Firebase Auth (anonymous) عشان DB rules تقبل الكتابة
     const _doCreate = () => {
-      // نضغط الأسئلة: نخلي بس الحقول المهمة عشان Firebase ما يرفضش الـ payload
       const compressQ = (q) => {
         const obj = { s: q.surah||'', a: q.ayah||'', b: q.blank||'', w: (q.wrong||[]).slice(0,3), t: q.qtype||'blank' };
         if (q.ayahNum) obj.n = q.ayahNum;
         return obj;
       };
-      // نشيل أي قيمة null/undefined من الـ room
       const rawRoom = { ...room, questions: questions.map(compressQ) };
-      delete rawRoom.startedAt; // null values بتسبب مشكلة في Firebase
+      delete rawRoom.startedAt;
       const cleanRoom = JSON.parse(JSON.stringify(rawRoom));
       window.fbMulti.createRoom(code, cleanRoom)
         .then(() => {
-          window.fbMulti.setDisconnect(code, playerKey, true); // المضيف
-          _showWaitingRoom(code);
-          _startPolling();
-          showToast('✅ تم إنشاء الغرفة — شارك الكود: ' + code, 4000);
+          window.fbMulti.setDisconnect(code, playerKey, true);
         })
         .catch((err) => {
           console.error('createRoom error:', err.code, err.message);
-          showToast('⚠️ خطأ في إنشاء الغرفة: ' + (err.message || 'تأكد من الاتصال'));
+          // الغرفة شغّالة محلياً — ما نزعجش المستخدم بخطأ
         });
     };
-    // نضمن وجود Firebase Auth قبل الكتابة
     if (typeof window.fbSignInAnon === 'function') {
       window.fbSignInAnon().then(_doCreate).catch(_doCreate);
     } else {
@@ -6529,9 +6509,6 @@ function multiCreateRoom() {
     }
   } else {
     _setRoomData(code, room);
-    _showWaitingRoom(code);
-    _startPolling();
-    showToast('✅ تم إنشاء الغرفة (وضع محلي)');
   }
 }
 
@@ -7349,7 +7326,7 @@ function _stopPolling() {
     <div class="qcount-wrap" style="margin-bottom:0;">
       <div class="qcount-label">
         <span id="qcountLabelText">اختر عدد الأسئلة في كل جلسة</span>
-        <span class="qcount-val" id="qcountDisplay">٥٠</span>
+        <span class="qcount-val" id="qcountDisplay">٢٠</span>
       </div>
       <!-- الـ dual slider — دايمًا ظاهر -->
       <div id="dualSliderWrap">
