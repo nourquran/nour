@@ -1199,6 +1199,12 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     if (!user) { _authDone = false; return; }
     if (_authDone) return;
     if (window._accountDeleted) return;
+    // تحقق من الـ deleted flag في localStorage قبل أي دخول
+    const _emailKeyCheck = user.email ? user.email.replace('@gmail.com','') : '';
+    if (_emailKeyCheck && localStorage.getItem('nour_deleted_' + _emailKeyCheck)) {
+      signOut(auth).catch(() => {});
+      return;
+    }
     _authDone = true;
 
     const emailKey = user.email.replace('@gmail.com','').replace('@gmail.com','');
@@ -2115,6 +2121,11 @@ let currentUser = null;
     if (window._accountDeleted) return;
     const lastUser = localStorage.getItem('nour_last_user');
     if (!lastUser) return;
+    // لو الحساب ده اتحذف من قبل — امنع الدخول التلقائي نهائياً
+    if (localStorage.getItem('nour_deleted_' + lastUser)) {
+      localStorage.removeItem('nour_last_user');
+      return;
+    }
     const users = JSON.parse(localStorage.getItem('nour_users') || '{}');
     const data  = users[lastUser];
     if (!data) { localStorage.removeItem('nour_last_user'); return; }
@@ -2157,6 +2168,12 @@ function doLogin() {
   const user = document.getElementById('loginUser').value.trim();
   const pass = document.getElementById('loginPass').value;
   if (!user || !pass) { showLoginErr('أدخل اسم المستخدم وكلمة المرور'); return; }
+
+  // لو الحساب ده اتحذف من قبل — امنع الدخول نهائياً
+  if (localStorage.getItem('nour_deleted_' + user)) {
+    showLoginErr('الحساب غير موجود، أنشئ حساباً جديداً');
+    return;
+  }
 
   // ── دخول فوري: أخفي اللوجين فوراً لو الباسورد صح محلياً ──
   const users = getUsers();
@@ -4919,6 +4936,7 @@ function deleteAccount() {
 
     // ⓪ أوقف أي دخول تلقائي فوراً — لازم يكون أول حاجة
     window._accountDeleted = true;
+    try { localStorage.setItem('nour_deleted_' + u, '1'); } catch(e) {}
 
     // ① مسح من nour_users أولاً — ده اللي بيمنع الدخول التلقائي
     const users = getUsers();
@@ -6958,16 +6976,27 @@ function _startPolling() {
         room.questions = room.questions.map(window._expandMultiQ);
       }
       window._multiRoomCache = room;
-      // Keep alive — كل ٣٠ ثانية بس عشان ما نسبّبش rate limiting
+      // Keep alive — كل ١٠ ثوانٍ في الـ waiting وكل ٣٠ أثناء اللعب عشان ما نسبّبش rate limiting
       const pk = multiState.playerKey || multiState.playerName;
       if (room.players && room.players[pk]) {
         const now = Date.now();
-        if (!window._lastKeepAlive || now - window._lastKeepAlive > 30000) {
+        const keepAliveInterval = (multiState.phase === 'waiting') ? 10000 : 30000;
+        if (!window._lastKeepAlive || now - window._lastKeepAlive > keepAliveInterval) {
           window._lastKeepAlive = now;
           window.fbMulti.updatePlayer(multiState.roomCode, pk, { lastSeen: now });
         }
       }
       if (multiState.phase === 'waiting') {
+        // ── حماية المضيف: لو نفسه اتشال من الغرفة (onDisconnect) يضيف نفسه تاني ──
+        const pk = multiState.playerKey || multiState.playerName;
+        if (multiState.isHost && pk && room.players && !room.players[pk]) {
+          const rejoinData = { name: multiState.playerName, score: 0, answered: false, ready: true, lastSeen: Date.now() };
+          window.fbMulti.updatePlayer(multiState.roomCode, pk, rejoinData).catch(() => {});
+          window.fbMulti.setDisconnect(multiState.roomCode, pk);
+          room.players = room.players || {};
+          room.players[pk] = rejoinData;
+          window._multiRoomCache = room;
+        }
         // لو الـ host بدأ اللعبة
         if (room.phase === 'playing' && !multiState.isHost) {
           multiState.phase = 'playing';
