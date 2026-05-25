@@ -1198,6 +1198,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   onAuthStateChanged(auth, (user) => {
     if (!user) { _authDone = false; return; }
     if (_authDone) return;
+    if (window._accountDeleted) return;
     _authDone = true;
 
     const emailKey = user.email.replace('@gmail.com','').replace('@gmail.com','');
@@ -1375,8 +1376,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     const data = snapshot.val() || {};
     const list = Object.entries(data)
-      .filter(([,d]) => (d.totalScore || 0) > 0)
-      .sort(([,a],[,b]) => (b.totalScore||0) - (a.totalScore||0));
+      .filter(([,d]) => (d.totalHasanat || 0) > 0)
+      .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
 
     if (list.length === 0) {
       podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">كن أول من يسجل نقاطه! 🌟</div>';
@@ -1407,7 +1408,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="lb-podium-rank">${emoji0}</div>
       <div class="lb-podium-info">
         <div class="lb-podium-name${isMe0?' is-me':''}">${d0.name}${isMe0?' (أنت)':''}</div>
-        <div class="lb-podium-hasanat">${toA(d0.totalScore||0)} ⭐</div>
+        <div class="lb-podium-hasanat">${toA(d0.totalHasanat||0)} ⭐</div>
         <div class="lb-podium-score">${toA(d0.totalGames||0)} جلسة</div>
       </div>
     </div>`;
@@ -2115,7 +2116,7 @@ let currentUser = null;
     if (!lastUser) return;
     const users = JSON.parse(localStorage.getItem('nour_users') || '{}');
     const data  = users[lastUser];
-    if (!data) return;
+    if (!data) { localStorage.removeItem('nour_last_user'); return; }
     // أخفي شاشة اللوجين فوراً بدون انتظار Firebase
     const ls = document.getElementById('loginScreen');
     if (ls) ls.classList.add('hide');
@@ -2509,8 +2510,8 @@ function renderLeaderboard() {
   // fallback local
   const users = getUsers();
   const list = Object.entries(users)
-    .filter(([,d]) => (d.totalScore || 0) > 0)
-    .sort(([,a],[,b]) => (b.totalScore||0) - (a.totalScore||0));
+    .filter(([,d]) => (d.totalHasanat || 0) > 0)
+    .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
 
   const podiumWrap = document.getElementById('lbPodiumWrap');
   const dotsEl    = document.getElementById('lbDots');
@@ -2548,7 +2549,7 @@ function renderLeaderboard() {
     <div class="lb-podium-rank">${emoji0}</div>
     <div class="lb-podium-info">
       <div class="lb-podium-name${isMe0?' is-me':''}">${name0}${isMe0?' (أنت)':''}</div>
-      <div class="lb-podium-hasanat">${toArabicNum(d0.totalScore||0)} ⭐</div>
+      <div class="lb-podium-hasanat">${toArabicNum(d0.totalHasanat||0)} ⭐</div>
       <div class="lb-podium-score">${toArabicNum(d0.totalGames||0)} جلسة</div>
     </div>
   </div>`;
@@ -2593,7 +2594,7 @@ function lbGoTo(idx) {
     slide.querySelector('.lb-podium-name').textContent = d.name + (isMe ? ' (أنت)' : '');
     slide.querySelector('.lb-podium-name').className = 'lb-podium-name' + (isMe ? ' is-me' : '');
     const toA = n => String(Math.round(n)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
-    slide.querySelector('.lb-podium-hasanat').textContent = toA(d.totalScore||0) + ' ⭐';
+    slide.querySelector('.lb-podium-hasanat').textContent = toA(d.totalHasanat||0) + ' ⭐';
     slide.querySelector('.lb-podium-score').textContent = toA(d.totalGames||0) + ' جلسة';
     // fade in
     slide.style.opacity = '1';
@@ -4933,7 +4934,9 @@ function deleteAccount() {
     keys.forEach(k => localStorage.removeItem(k));
 
     // ④ مسح من Firebase
+    window._accountDeleted = true;  // منع onAuthStateChanged من إعادة الدخول
     if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest);
+    if (typeof window.fbLogout === 'function') window.fbLogout();
 
     // تسجيل خروج
     currentUser = null;
@@ -4941,7 +4944,7 @@ function deleteAccount() {
     window._lbAllList = null;
     showScreen('homeScreen');
     document.getElementById('loginScreen').classList.remove('hide');
-    showToast('✅ تم حذف الحساب');
+    showToast('✅ تم حذف الحساب نهائياً');
   });
 }
 
