@@ -1335,9 +1335,26 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   window.fbDeleteUser = function(username, isGuest) {
     const key = makeKey(username, isGuest);
     console.log('Deleting Firebase key:', key);
+    // مسح من leaderboard
     remove(ref(db, 'leaderboard/' + key))
-      .then(() => console.log('Deleted OK'))
-      .catch(e => console.error('fbDelete error:', e));
+      .then(() => console.log('Deleted leaderboard OK'))
+      .catch(e => console.error('fbDelete leaderboard error:', e));
+    // مسح بيانات المستخدم من DB
+    if (!isGuest) {
+      remove(ref(db, 'users/' + key))
+        .then(() => console.log('Deleted user DB OK'))
+        .catch(e => console.error('fbDelete user DB error:', e));
+    }
+    // مسح حساب Firebase Auth نفسه
+    const fbUser = auth.currentUser;
+    if (fbUser) {
+      fbUser.delete()
+        .then(() => console.log('Deleted Auth account OK'))
+        .catch(e => {
+          // لو Firebase طلب re-auth نتجاهل — البيانات اتمسحت
+          console.warn('Auth delete warning:', e.code);
+        });
+    }
   };
 
   // استمع للتغييرات في الوقت الفعلي — رسم مباشر من الـ snapshot
@@ -1675,6 +1692,18 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
             <button class="mpl-btn" onclick="setMultiMaxPlayers(this,8)" style="flex:1;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٨</button>
           </div>
           <input type="hidden" id="multiMaxPlayers" value="4">
+
+          <!-- وقت كل سؤال -->
+          <div style="font-size:11px;color:rgba(245,217,139,0.55);margin-bottom:6px;">⏱️ وقت كل سؤال</div>
+          <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+            <button class="mqt-btn" onclick="setMultiQTime(this,10)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">١٠ث</button>
+            <button class="mqt-btn" onclick="setMultiQTime(this,15)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(201,151,58,0.15);border:1.5px solid var(--gold);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;transition:all .2s;">١٥ث</button>
+            <button class="mqt-btn" onclick="setMultiQTime(this,20)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٢٠ث</button>
+            <button class="mqt-btn" onclick="setMultiQTime(this,30)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٣٠ث</button>
+            <button class="mqt-btn" onclick="setMultiQTime(this,45)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٤٥ث</button>
+            <button class="mqt-btn" onclick="setMultiQTime(this,60)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٦٠ث</button>
+          </div>
+          <input type="hidden" id="multiQTime" value="15">
 
           <button onclick="multiCreateRoom()" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),#E8B84B);border:none;border-radius:14px;font-family:'Cairo',sans-serif;font-size:16px;font-weight:900;color:var(--ink);cursor:pointer;">🚀 إنشاء الغرفة</button>
         </div>
@@ -5977,6 +6006,16 @@ function setMultiMaxPlayers(btn, val) {
   btn.style.color='var(--gold)'; btn.style.fontWeight='700';
 }
 
+function setMultiQTime(btn, val) {
+  document.getElementById('multiQTime').value = val;
+  document.querySelectorAll('.mqt-btn').forEach(b => {
+    b.style.background='rgba(255,254,249,0.04)'; b.style.borderColor='rgba(201,151,58,0.2)';
+    b.style.color='rgba(245,217,139,0.6)'; b.style.fontWeight='400';
+  });
+  btn.style.background='rgba(201,151,58,0.15)'; btn.style.borderColor='var(--gold)';
+  btn.style.color='var(--gold)'; btn.style.fontWeight='700';
+}
+
 // Close dropdown when clicking outside
 document.addEventListener('click', e => {
   if (!e.target.closest('#multiSurahWrap')) {
@@ -6019,6 +6058,7 @@ function multiCreateRoom() {
   const surahVal = document.getElementById('multiSurahSelect').value;
   const qCountRaw = document.getElementById('multiQCount').value;
   const maxPlayers = parseInt(document.getElementById('multiMaxPlayers').value) || 4;
+  const qTime = parseInt(document.getElementById('multiQTime').value) || 15;
   const allSurah = (qCountRaw === 'all');
 
   // Build questions
@@ -6045,7 +6085,7 @@ function multiCreateRoom() {
   const room = {
     code, hostUser: currentUser.username, phase: 'waiting',
     surahFilter: surahVal, totalQ: questions.length,
-    questions: questions, maxPlayers: maxPlayers,
+    questions: questions, maxPlayers: maxPlayers, qTime: qTime,
     players: { [playerKey]: { name: currentUser.username, score: 0, answered: false, ready: true, lastSeen: Date.now() } },
     startedAt: null, currentQ: 0,
     createdAt: Date.now(),
@@ -6060,6 +6100,7 @@ function multiCreateRoom() {
   multiState.totalQ = questions.length;
   multiState.surahFilter = surahVal;
   multiState.phase = 'waiting';
+  multiState.qTime = qTime;
 
   if (typeof window.fbMulti !== 'undefined') {
     // نضمن Firebase Auth (anonymous) عشان DB rules تقبل الكتابة
@@ -6230,6 +6271,7 @@ function _updateWaitingUI() {
     }
     multiState.questions = room.questions;
     multiState.totalQ = room.totalQ || room.questions.length;
+    multiState.qTime = room.qTime || 15;
     _startMultiGame();
   }
 }
@@ -6344,8 +6386,8 @@ function _renderMultiQuestion() {
     }
   }
 
-  // ===== START QUESTION TIMER (15 seconds) =====
-  const MULTI_Q_TIME = 15;
+  // ===== START QUESTION TIMER =====
+  const MULTI_Q_TIME = multiState.qTime || 15;
   multiState.timeLeft = MULTI_Q_TIME;
   const timerRing = document.getElementById('multiTimerRing');
   const timerNum  = document.getElementById('multiTimerNum');
@@ -6622,6 +6664,23 @@ function multiLeaveRoom() {
   const pk = multiState.playerKey || multiState.playerName;
   clearInterval(multiState.questionTimer);
   _stopPolling();
+
+  // لو اللاعب خرج وهو في منتصف اللعب — نحفظ نقاطه بدون إحصاء جلسة كاملة
+  if (multiState.phase === 'playing' && multiState.myScore > 0) {
+    const _cu = currentUser || window.currentUser;
+    if (_cu && !_cu.isGuest) {
+      _cu.totalHasanat = (_cu.totalHasanat || 0) + multiState.myScore;
+      _cu.totalScore   = (_cu.totalScore   || 0) + multiState.myScore;
+      // totalGames لا تُزاد — لأن اللعبة لم تكتمل
+      currentUser = _cu;
+      window.currentUser = _cu;
+      saveCurrentUser();
+      updateHomeStats();
+      if (typeof window.fbIncrementScore === 'function') {
+        window.fbIncrementScore(_cu.username, multiState.myScore, multiState.myScore, 0);
+      }
+    }
+  }
   if (typeof window.fbMulti !== 'undefined' && code) {
     window.fbMulti.removePlayer(code, pk);
     // لو الـ host خرج يمسح الغرفة
@@ -6672,6 +6731,7 @@ function _startPolling() {
           // نتأكد إن الأسئلة اتوسّعت وتعدّت لـ multiState
           multiState.questions = room.questions; // room.questions اتوسّعت فوق
           multiState.totalQ = room.totalQ || room.questions.length;
+          multiState.qTime = room.qTime || 15;
           document.getElementById('multiWaiting').style.display = 'none';
           document.getElementById('multiGameArea').style.display = 'block';
           document.getElementById('multiQTotal').textContent = toArabicNum(multiState.totalQ);
