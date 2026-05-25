@@ -1503,9 +1503,9 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     <!-- STATS -->
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-val" id="totalScore">٠</div><div class="stat-lbl">مجموع النقاط</div></div>
+      <div class="stat-card" style="cursor:default;display:flex;align-items:center;justify-content:center;"><div id="totalScore" style="font-size:12px;font-weight:700;line-height:1.6;text-align:center;color:var(--gold-light);font-family:'Cairo',sans-serif;"></div></div>
       <div class="stat-card"><div class="stat-val" id="totalGames">٠</div><div class="stat-lbl">جلسة مكتملة</div></div>
-      <div class="stat-card"><div class="stat-val" id="totalHasanat">٠</div><div class="stat-lbl">نقطة ⭐</div></div>
+      <div class="stat-card"><div class="stat-val" id="totalHasanat">٠</div><div class="stat-lbl">نقاط ⭐</div></div>
     </div>
 
     <!-- LEVELS -->
@@ -2323,9 +2323,23 @@ function renderLevels() {
 
 function updateHomeStats() {
   if (!currentUser) return;
-  document.getElementById('totalScore').textContent = toArabicNum(currentUser.totalScore);
   document.getElementById('totalGames').textContent = toArabicNum(currentUser.totalGames);
   document.getElementById('totalHasanat').textContent = toArabicNum(currentUser.totalHasanat);
+
+  // رسالة تحفيزية متغيرة حسب مستوى اللاعب
+  const _games = currentUser.totalGames || 0;
+  const _motives = [
+    { min:0,  max:0,   msgs:['✨ كل رحلة<br>تبدأ بخطوة','🌙 افتح القرآن<br>وابدأ الآن','📖 ابدأ واجعل<br>قلبك يتعلم'] },
+    { min:1,  max:3,   msgs:['🌱 ما شاء الله<br>بداية موفقة','💪 أنت على<br>الطريق الصح','🤍 بارك الله<br>في همتك'] },
+    { min:4,  max:10,  msgs:['📖 كل جلسة<br>نور في قلبك','✨ الملائكة<br>تحب من يقرأ','🌟 أنت تتقدم<br>كل يوم أجمل'] },
+    { min:11, max:25,  msgs:['💎 أنت من<br>أهل القرآن','🌙 القرآن يشفع<br>لأهله غداً','🏅 حافظ ماهر<br>على الدرب'] },
+    { min:26, max:50,  msgs:['👑 أنت قدوة<br>لمن حولك','🕋 القرآن رفيقك<br>في الدارين','🌟 مواظبتك<br>تُسعد الله'] },
+    { min:51, max:Infinity, msgs:['🕋 أنت من<br>حملة القرآن','👑 خيركم من<br>تعلّم وعلّم','🌟 بارك الله<br>فيك يا نور'] },
+  ];
+  const _lvl = _motives.find(l => _games >= l.min && _games <= l.max) || _motives[0];
+  const _msg = _lvl.msgs[Math.floor(Date.now() / 3600000) % _lvl.msgs.length];
+  const _el = document.getElementById('totalScore');
+  if (_el) _el.innerHTML = _msg;
   document.getElementById('streakDays').textContent = toArabicNum(currentUser.streak) + ' أيام متتالية';
   document.getElementById('userLevelDisplay').textContent = 'المستوى ' + toArabicNum(state.level + 1);
 
@@ -6422,10 +6436,10 @@ function _multiAnswer(chosen, correct, q, clickedBtn, e) {
     const bonusEl = document.getElementById('multiSpeedBonus');
     if (bonusEl) {
       if (speedBonus > 0) {
-        bonusEl.textContent = `⚡ +${earned} (سرعة +${speedBonus})`;
+        bonusEl.textContent = `⚡ +${toArabicNum(earned)} (سرعة +${toArabicNum(speedBonus)})`;
         bonusEl.style.color = '#7DFFC9';
       } else {
-        bonusEl.textContent = `+${earned}`;
+        bonusEl.textContent = `+${toArabicNum(earned)}`;
         bonusEl.style.color = 'rgba(245,217,139,0.6)';
       }
     }
@@ -6446,13 +6460,18 @@ function _multiAnswer(chosen, correct, q, clickedBtn, e) {
   fb.style.border = isRight ? '1px solid rgba(46,175,120,0.3)' : '1px solid rgba(192,57,43,0.3)';
   fb.textContent = isRight ? '✅ ' + getCorrectMsg() : '❌ الصحيح: ' + (q.qtype==='num' ? 'آية '+toArabicNum(parseInt(correct)) : correct);
 
-  // Sync score to Firebase
+  // Sync score to Firebase + تحديث الـ cache فوراً
   const pk = multiState.playerKey || multiState.playerName;
   if (typeof window.fbMulti !== 'undefined') {
     window.fbMulti.updatePlayer(multiState.roomCode, pk, {
       score: multiState.myScore, answered: true, lastSeen: Date.now()
     });
-    // تحديث الـ cache
+    // تحديث الـ cache فوراً عشان live scores تتغير على طول
+    if (!window._multiRoomCache) window._multiRoomCache = { players: {} };
+    if (!window._multiRoomCache.players) window._multiRoomCache.players = {};
+    if (!window._multiRoomCache.players[pk]) window._multiRoomCache.players[pk] = {};
+    window._multiRoomCache.players[pk].score = multiState.myScore;
+    window._multiRoomCache.players[pk].answered = true;
     const room2 = window._multiRoomCache;
     if (room2 && room2.players && room2.players[pk]) {
       room2.players[pk].score = multiState.myScore;
@@ -6501,7 +6520,7 @@ function _updateMultiLiveScores() {
   if (!room) return;
   const players = room.players || {};
   const pk = multiState.playerKey || multiState.playerName;
-  const sorted = Object.entries(players).sort((a,b) => b[1].score - a[1].score);
+  const sorted = Object.entries(players).sort((a,b) => (b[1].score||0) - (a[1].score||0));
   const medals = ['🥇','🥈','🥉','🎖️'];
 
   // تحديث المركز الحالي
@@ -6516,7 +6535,7 @@ function _updateMultiLiveScores() {
       <span style="font-size:16px;">${medals[i]||'👤'}</span>
       <span style="flex:1;font-size:13px;color:${u===pk?'var(--gold)':'var(--cream)'};">${p.name}${u===pk?' (أنت)':''}</span>
       ${p.answered?'<span style="font-size:10px;color:rgba(46,175,120,0.6);">✓</span>':''}
-      <span style="font-size:14px;font-weight:700;color:var(--emerald-light);">${toArabicNum(p.score)}</span>
+      <span style="font-size:14px;font-weight:700;color:var(--emerald-light);">${toArabicNum(p.score||0)}</span>
     </div>`
   ).join('');
 }
@@ -6540,11 +6559,14 @@ function _showMultiResults() {
   }
 
   // ===== إضافة نقاط اللعب الجماعي على رصيد اللاعب =====
-  if (currentUser && !currentUser.isGuest && multiState.myScore > 0) {
-    currentUser.totalHasanat = (currentUser.totalHasanat || 0) + multiState.myScore;
-    currentUser.totalScore   = (currentUser.totalScore   || 0) + multiState.myScore;
-    currentUser.totalGames   = (currentUser.totalGames   || 0) + 1;
-    currentUser.lastPlay     = Date.now();
+  const _cu = currentUser || window.currentUser;
+  if (_cu && !_cu.isGuest && multiState.myScore > 0) {
+    _cu.totalHasanat = (_cu.totalHasanat || 0) + multiState.myScore;
+    _cu.totalScore   = (_cu.totalScore   || 0) + multiState.myScore;
+    _cu.totalGames   = (_cu.totalGames   || 0) + 1;
+    _cu.lastPlay     = Date.now();
+    currentUser = _cu;
+    window.currentUser = _cu;
     saveCurrentUser();
     updateHomeStats();
   }
@@ -6554,7 +6576,7 @@ function _showMultiResults() {
 
   const finalRoom = window._multiRoomCache;
   const players = finalRoom ? (finalRoom.players || {}) : {};
-  const sorted = Object.entries(players).sort((a,b) => b[1].score - a[1].score);
+  const sorted = Object.entries(players).sort((a,b) => (b[1].score||0) - (a[1].score||0));
   const medals = ['🥇','🥈','🥉','🎖️'];
 
   const winner = sorted[0];
