@@ -2109,15 +2109,12 @@ function doLogin() {
   if (typeof window.fbLogin === 'function') {
     window.fbLogin(user, pass,
       () => {
-        // onAuthStateChanged هيستدعي loginSuccess عادةً
-        // لو مجاش خلال ثانية (مثلاً حالة too-many-requests) ندخل محلياً
-        setTimeout(() => {
-          if (!window.currentUser) {
-            const users = getUsers();
-            const data = users[user] || createDefaultUserData();
-            loginSuccess(user, data);
-          }
-        }, 1000);
+        // ندخله محلياً فوراً — onAuthStateChanged هيحدّث البيانات من Firebase لو نجح
+        if (!window.currentUser) {
+          const users = getUsers();
+          const data = users[user] || createDefaultUserData();
+          loginSuccess(user, data);
+        }
       },
       (errMsg) => { showLoginErr(errMsg); }
     );
