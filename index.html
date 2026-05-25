@@ -2274,28 +2274,46 @@ function renderInProgressSurahs() {
   if (!section || !list) return;
   if (!currentUser || currentUser.isGuest) { section.style.display = 'none'; return; }
 
-  // اجمع كل السور اللي nextIndex > 0 (بدأها ومش خلصها)
-  const progKey = 'nour_surahprog_' + currentUser.username;
+  // التحدي العادي: nour_surahprog_ (nextIndex > 0 = بدأها ومش خلصها)
   let progData = {};
-  try { progData = JSON.parse(localStorage.getItem(progKey) || '{}'); } catch {}
+  try { progData = JSON.parse(localStorage.getItem('nour_surahprog_' + currentUser.username) || '{}'); } catch {}
 
-  // السور المتاحة في القاعدة
+  // مراجعة السور: nour_revprog_ (inProgress = true)
+  let revData = {};
+  try { revData = JSON.parse(localStorage.getItem('nour_revprog_' + currentUser.username) || '{}'); } catch {}
+
   const allPool = typeof QURAN_DB !== 'undefined' ? Object.values(QURAN_DB).flat() : [];
   const surahTotals = {};
   allPool.forEach(q => { if(q.surah) surahTotals[q.surah] = (surahTotals[q.surah]||0)+1; });
 
-  const started = Object.entries(progData)
-    .filter(([surah, nextIdx]) => nextIdx > 0 && surahTotals[surah])
-    .map(([surah, nextIdx]) => ({ surah, nextIdx, total: surahTotals[surah] }))
-    .sort((a,b) => a.surah.localeCompare(b.surah, 'ar'));
+  // اجمع السور من المصدرين بدون تكرار
+  const surahMap = {};
+
+  // من التحدي العادي
+  Object.entries(progData).forEach(([surah, nextIdx]) => {
+    if (nextIdx > 0 && surahTotals[surah]) {
+      surahMap[surah] = { surah, nextIdx, total: surahTotals[surah], type: 'game' };
+    }
+  });
+
+  // من المراجعة (inProgress = true)
+  Object.entries(revData).forEach(([surah, prog]) => {
+    if (prog.inProgress && surahTotals[surah] && !surahMap[surah]) {
+      const done = prog.done || 0;
+      const total = prog.total || surahTotals[surah];
+      surahMap[surah] = { surah, nextIdx: done, total, type: 'review' };
+    }
+  });
+
+  const started = Object.values(surahMap).sort((a,b) => a.surah.localeCompare(b.surah, 'ar'));
 
   if (started.length === 0) { section.style.display = 'none'; return; }
 
   section.style.display = 'block';
   list.innerHTML = '';
 
-  started.forEach(({ surah, nextIdx, total }) => {
-    const pct = Math.round((nextIdx / total) * 100);
+  started.forEach(({ surah, nextIdx, total, type }) => {
+    const pct = total > 0 ? Math.round((nextIdx / total) * 100) : 0;
     const chip = document.createElement('div');
     chip.style.cssText = `
       background:linear-gradient(135deg,rgba(27,107,74,0.22),rgba(46,175,120,0.10));
@@ -2307,9 +2325,12 @@ function renderInProgressSurahs() {
     chip.onmouseenter = () => chip.style.borderColor = 'rgba(46,175,120,0.85)';
     chip.onmouseleave = () => chip.style.borderColor = 'rgba(46,175,120,0.45)';
     chip.onclick = () => {
-      // افتح شيت التحدي مع السورة محددة مسبقاً
-      _surahDropdownSelect(surah, SURAHS_META.findIndex(s=>s[0]===surah)+1 + '. سورة ' + surah);
-      openGameSheet();
+      if (type === 'review') {
+        startSurahReview(surah);
+      } else {
+        _surahDropdownSelect(surah, SURAHS_META.findIndex(s=>s[0]===surah)+1 + '. سورة ' + surah);
+        openGameSheet();
+      }
     };
 
     chip.innerHTML = `
