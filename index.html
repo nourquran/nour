@@ -1050,7 +1050,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, set, remove, onValue, get, update, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously, EmailAuthProvider, reauthenticateWithCredential, updateEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDHoGH9K-xFvZfrYGsViDe0NC4c1o0MPrQ",
@@ -1086,28 +1086,45 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   function toFbEmail(username) {
     return makeKey(username, false).toLowerCase() + '@gmail.com';
   }
+  function toFbEmailUnique(username) {
+    // email فريد لكل تسجيل — يضمن إن نفس الـ username يتسجل تاني بدون مشاكل
+    return makeKey(username, false).toLowerCase() + '_' + Date.now() + '@nour.app';
+  }
   function padPass(p) { return p + '__nr'; }
 
   window.fbRegister = function(username, password, onSuccess, onError) {
-    const email = toFbEmail(username);
-    createUserWithEmailAndPassword(auth, email, padPass(password))
-      .then(() => {
-        // احفظ اسم المستخدم الحقيقي في DB
-        set(ref(db, 'users/' + makeKey(username, false) + '/profile'), {
-          username, createdAt: Date.now()
-        }).catch(() => {});
-        onSuccess();
-      })
+    const key = makeKey(username, false);
+
+    // ★ نشوف لو فيه email قديم محفوظ لنفس الـ username في DB (لأي login مستقبلي)
+    // بنستخدم email فريد لكل تسجيل — بيضمن إن Firebase مش هيقول "محجوز" أبداً
+    const uniqueEmail = toFbEmailUnique(username);
+
+    const _finishRegister = (emailUsed) => {
+      // احفظ الـ email الجديد في DB عشان fbLogin يقدر يلاقيه
+      set(ref(db, 'users/' + key + '/profile'), {
+        username, createdAt: Date.now(), authEmail: emailUsed
+      }).catch(() => {});
+      remove(ref(db, 'nour_deleted/' + key)).catch(() => {});
+      remove(ref(db, 'nour_lb/' + key)).catch(() => {});
+      onSuccess();
+    };
+
+    createUserWithEmailAndPassword(auth, uniqueEmail, padPass(password))
+      .then(() => _finishRegister(uniqueEmail))
       .catch(e => {
-        if (e.code === 'auth/email-already-in-use') onError('اسم المستخدم محجوز، اختر اسماً آخر');
-        else if (e.code === 'auth/weak-password') onError('كلمة المرور قصيرة جداً');
+        if (e.code === 'auth/weak-password') onError('كلمة المرور قصيرة جداً');
         else onError('خطأ في الإنشاء، حاول مجدداً');
       });
   };
 
+
   window.fbLogin = function(username, password, onSuccess, onError) {
-    const email = toFbEmail(username);
-    signInWithEmailAndPassword(auth, email, padPass(password))
+    const key = makeKey(username, false);
+    // نجيب الـ email الحقيقي من DB (ممكن يكون unique email من التسجيل الجديد)
+    get(ref(db, 'users/' + key + '/profile')).then(snap => {
+      const profile = snap.exists() ? snap.val() : {};
+      const email = profile.authEmail || toFbEmail(username); // fallback للحسابات القديمة
+      signInWithEmailAndPassword(auth, email, padPass(password))
       .then(() => {
         // احفظ الباسورد محلياً عشان المرة الجاية يدخل فوري بدون Firebase
         try {
@@ -1136,6 +1153,16 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
           onError('اسم المستخدم أو كلمة المرور خاطئة');
         }
       });
+    }).catch(() => {
+      // DB غير متاح — جرب الـ email القديم مباشرة
+      const emailFallback = toFbEmail(username);
+      signInWithEmailAndPassword(auth, emailFallback, padPass(password))
+        .then(() => {
+          try { const _u = JSON.parse(localStorage.getItem('nour_users')||'{}'); if(!_u[username])_u[username]={}; _u[username].password=btoa(password); localStorage.setItem('nour_users',JSON.stringify(_u)); } catch(e) {}
+          onSuccess();
+        })
+        .catch(e2 => onError(e2.code==='auth/wrong-password'||e2.code==='auth/invalid-credential'?'كلمة المرور خاطئة':'الحساب غير موجود'));
+    });
   };
 
   window.fbLogout = function() { signOut(auth).catch(() => {}); };
@@ -1199,6 +1226,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     if (!user) { _authDone = false; return; }
     if (_authDone) return;
     if (window._accountDeleted) return;
+    if (window._registerInProgress) return; // جاري التحقق من حساب محذوف — انتظر
 
     const emailKey0 = (user.email || '').replace(/@.*$/, '');
 
@@ -1330,10 +1358,16 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     },
 
     setDisconnect: function(roomCode, playerKey) {
-      // لو الشخص خرج من النت تلقائي يتشال من الغرفة
+      // لو الشخص خرج من النت — بس نشيله من الـ players مش من الغرفة كلها
+      // الغرفة بتتشال فقط لو مفيش لاعبين خالص (cleanOldRooms بتتكفل بيها)
       onDisconnect(ref(db, ROOMS_PATH + roomCode + '/players/' + playerKey)).remove();
+      // ★ مسح الغرفة لو مفيش لاعبين — بس بعد أقل من ١٠ دقايق من الإنشاء ما نمسحش
+      // (نعتمد على cleanOldRooms للمسح بعد ساعتين)
     },
 
+    updateRoom: function(roomCode, data) {
+      return update(ref(db, ROOMS_PATH + roomCode), data);
+    },
     deleteRoom: function(roomCode) {
       return remove(ref(db, ROOMS_PATH + roomCode));
     },
@@ -1365,7 +1399,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   };
 
   // حذف المستخدم من اللوحة عند التصفير
-  window.fbDeleteUser = function(username, isGuest) {
+  window.fbDeleteUser = function(username, isGuest, encodedPass) {
     const key = makeKey(username, isGuest);
     const keyAlt = makeKey(username, !isGuest);
     console.log('Deleting Firebase key:', key);
@@ -1392,15 +1426,29 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
         .then(() => console.log('Deleted user DB OK'))
         .catch(e => console.error('fbDelete user DB error:', e));
     }
-    // مسح حساب Firebase Auth نفسه
+    // ★ تحرير الـ username في Firebase Auth عن طريق تغيير الـ email
+    // ده بيضمن إن أي حد يقدر يسجل بنفس الاسم بعد الحذف بأي باسورد
     const fbUser = auth.currentUser;
     if (fbUser) {
-      fbUser.delete()
-        .then(() => console.log('Deleted Auth account OK'))
-        .catch(e => {
-          // لو Firebase طلب re-auth نتجاهل — البيانات اتمسحت والـ blacklist شغّال
-          console.warn('Auth delete warning:', e.code);
-        });
+      const _freeAndDelete = () => {
+        // غيّر الـ email لـ timestamp عشان تحرر الـ username نهائياً
+        const freedEmail = 'deleted_' + Date.now() + '_' + Math.random().toString(36).slice(2) + '@nour-deleted.invalid';
+        updateEmail(fbUser, freedEmail)
+          .then(() => fbUser.delete().catch(() => {}))
+          .catch(() => fbUser.delete().catch(() => {}));
+      };
+      // re-auth الأول عشان Firebase يقبل updateEmail
+      try {
+        const _sp = encodedPass || null;
+        if (_sp) {
+          const _cred = EmailAuthProvider.credential(fbUser.email, padPass(atob(_sp)));
+          reauthenticateWithCredential(fbUser, _cred)
+            .then(_freeAndDelete)
+            .catch(() => fbUser.delete().catch(() => {}));
+        } else {
+          _freeAndDelete();
+        }
+      } catch(e) { fbUser.delete().catch(() => {}); }
     }
   };
 
@@ -2255,6 +2303,10 @@ function doRegister() {
   if (pass.length < 4) { showLoginErr('كلمة المرور يجب أن تكون ٤ أحرف على الأقل'); return; }
   if (pass !== pass2) { showLoginErr('كلمتا المرور غير متطابقتين'); return; }
 
+  // ★ إعادة تعيين الـ flags عشان التسجيل الجديد يشتغل بشكل كامل
+  window._accountDeleted = false;
+  if (typeof window._resetAuthDone === 'function') window._resetAuthDone();
+
   if (typeof window.fbRegister === 'function') {
     window.fbRegister(user, pass,
       () => {
@@ -2267,6 +2319,15 @@ function doRegister() {
     );
   } else {
     const users = getUsers();
+    // تحقق من الـ blacklist أولاً — الحسابات المحذوفة يُسمح بإعادة تسجيلها
+    try {
+      const deleted = JSON.parse(localStorage.getItem('nour_deleted_accounts') || '{}');
+      const userKey = user.replace(/[.#$\/\[\]]/g, '_');
+      if (deleted[userKey]) {
+        // حساب محذوف — امسح بياناته القديمة واسمح بالتسجيل
+        delete users[user];
+      }
+    } catch(e) {}
     if (users[user]) { showLoginErr('اسم المستخدم محجوز، اختر اسماً آخر'); return; }
     const newData = { ...createDefaultUserData(), password: btoa(pass) };
     users[user] = newData;
@@ -4994,16 +5055,27 @@ function deleteAccount() {
     directKeys.forEach(k => localStorage.removeItem(k));
 
     // ④ مسح أي مفاتيح ديناميكية (multi، وغيرها) — بنمسح كل حاجة بتبدأ بـ nour_
+    // ★ نحفظ الباسورد وnour_deleted_accounts قبل المسح
+    let _savedPass = null;
+    try { _savedPass = (JSON.parse(localStorage.getItem('nour_users') || '{}')[u] || {}).password || null; } catch(e) {}
+    const _savedDeleted = localStorage.getItem('nour_deleted_accounts');
     const allKeys = Object.keys(localStorage);
     allKeys.forEach(k => {
       if (k.startsWith('nour_multi_') || k.startsWith('nour_')) {
         localStorage.removeItem(k);
       }
     });
+    // ★ نضيف الحساب المحذوف للـ blacklist ونعيد حفظها بعد المسح
+    try {
+      const _del = JSON.parse(_savedDeleted || '{}');
+      const _delKey = u.replace(/[.#$\/\[\]]/g, '_');
+      _del[_delKey] = Date.now();
+      localStorage.setItem('nour_deleted_accounts', JSON.stringify(_del));
+    } catch(e) {}
 
     // ⑤ مسح من Firebase (leaderboard + users + auth)
     window._accountDeleted = true;  // منع onAuthStateChanged من إعادة الدخول
-    if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest);
+    if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest, _savedPass);
     if (typeof window.fbLogout === 'function') window.fbLogout();
 
     // ⑥ تسجيل خروج وتنظيف الحالة
@@ -6385,7 +6457,7 @@ function multiCreateRoom() {
       const cleanRoom = JSON.parse(JSON.stringify(rawRoom));
       window.fbMulti.createRoom(code, cleanRoom)
         .then(() => {
-          window.fbMulti.setDisconnect(code, playerKey);
+          // ★ الـ host مش بيتشال لو انقطع النت — بيفضل في الغرفة لحد ما باقي اللاعبين ينضموا
           _showWaitingRoom(code);
           _startPolling();
           showToast('✅ تم إنشاء الغرفة — شارك الكود: ' + code, 4000);
@@ -7012,11 +7084,24 @@ function _startPolling() {
       window._multiRoomCache = room;
       // Keep alive — كل ٣٠ ثانية بس عشان ما نسبّبش rate limiting
       const pk = multiState.playerKey || multiState.playerName;
+      // ★ لو الـ host رجع وبياناته اتمسحت من الـ players — أعد إضافته تلقائياً
+      if (pk && room.players && !room.players[pk] && multiState.isHost && multiState.phase === 'waiting') {
+        window.fbMulti.updatePlayer && window.fbMulti.updatePlayer(
+          multiState.roomCode, pk,
+          { name: multiState.playerName, score: 0, answered: false, ready: true, lastSeen: Date.now() }
+        );
+      }
       if (room.players && room.players[pk]) {
         const now = Date.now();
         if (!window._lastKeepAlive || now - window._lastKeepAlive > 30000) {
           window._lastKeepAlive = now;
           window.fbMulti.updatePlayer(multiState.roomCode, pk, { lastSeen: now });
+          // ★ لو الـ host — جدّد الـ createdAt عشان الغرفة ما تتمسحش
+          if (multiState.isHost) {
+            window.fbMulti.updateRoom && window.fbMulti.updateRoom(
+              multiState.roomCode, { lastActivity: now }
+            );
+          }
         }
       }
       if (multiState.phase === 'waiting') {
@@ -7262,11 +7347,16 @@ const _FIREBASE_CONFIG = {
 
     // ─── مسح الغرف القديمة (أقدم من ساعتين) ─────────────────
     function cleanOldRooms() {
-      const cutoff = Date.now() - 2 * 3600 * 1000;
+      const now = Date.now();
+      const cutoff = now - 2 * 3600 * 1000;       // أقدم من ساعتين → امسح
+      const minAge  = now - 10 * 60 * 1000;        // أصغر من ١٠ دقايق → لا تمس
       db.ref('nour_rooms').once('value').then(snap => {
         const rooms = snap.val() || {};
         Object.entries(rooms).forEach(([code, room]) => {
-          if ((room.createdAt || 0) < cutoff) db.ref('nour_rooms/'+code).remove();
+          const created = room.createdAt || 0;
+          const lastAct = room.lastActivity || created;
+          if (lastAct > minAge) return;              // ★ محمية لو فيه نشاط في آخر ١٠ دقايق
+          if (created < cutoff) db.ref('nour_rooms/'+code).remove();
         });
       });
     }
