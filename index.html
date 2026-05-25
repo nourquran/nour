@@ -1090,16 +1090,37 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
   window.fbRegister = function(username, password, onSuccess, onError) {
     const email = toFbEmail(username);
+    const key   = makeKey(username, false);
+
+    function _clearBlacklist() {
+      try {
+        const deleted = JSON.parse(localStorage.getItem('nour_deleted_accounts') || '{}');
+        delete deleted[key];
+        localStorage.setItem('nour_deleted_accounts', JSON.stringify(deleted));
+      } catch(e) {}
+      remove(ref(db, 'nour_deleted/' + key)).catch(() => {});
+      window._accountDeleted = false;
+    }
+
     createUserWithEmailAndPassword(auth, email, padPass(password))
       .then(() => {
-        // احفظ اسم المستخدم الحقيقي في DB
-        set(ref(db, 'users/' + makeKey(username, false) + '/profile'), {
+        _clearBlacklist();
+        set(ref(db, 'users/' + key + '/profile'), {
           username, createdAt: Date.now()
         }).catch(() => {});
         onSuccess();
       })
       .catch(e => {
-        if (e.code === 'auth/email-already-in-use') onError('اسم المستخدم محجوز، اختر اسماً آخر');
+        if (e.code === 'auth/email-already-in-use') {
+          signInWithEmailAndPassword(auth, email, padPass(password))
+            .then(() => {
+              _clearBlacklist();
+              onSuccess();
+            })
+            .catch(() => {
+              onError('اسم المستخدم محجوز، اختر اسماً آخر أو سجّل دخولاً');
+            });
+        }
         else if (e.code === 'auth/weak-password') onError('كلمة المرور قصيرة جداً');
         else onError('خطأ في الإنشاء، حاول مجدداً');
       });
@@ -1198,6 +1219,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   onAuthStateChanged(auth, (user) => {
     if (!user) { _authDone = false; return; }
     if (_authDone) return;
+    if (window._registering) return;  // جاري تسجيل حساب جديد — لا تتدخل
     if (window._accountDeleted) return;
 
     const emailKey0 = (user.email || '').replace(/@.*$/, '');
@@ -1329,9 +1351,14 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       }
     },
 
-    setDisconnect: function(roomCode, playerKey) {
-      // لو الشخص خرج من النت تلقائي يتشال من الغرفة
-      onDisconnect(ref(db, ROOMS_PATH + roomCode + '/players/' + playerKey)).remove();
+    setDisconnect: function(roomCode, playerKey, isHost) {
+      if (isHost) {
+        // المضيف — بس يحدّث phase لـ closed لو انقطع، مش يتشال من players
+        onDisconnect(ref(db, ROOMS_PATH + roomCode + '/phase')).set('closed');
+      } else {
+        // لاعب عادي — يتشال من الغرفة لو انقطع
+        onDisconnect(ref(db, ROOMS_PATH + roomCode + '/players/' + playerKey)).remove();
+      }
     },
 
     deleteRoom: function(roomCode) {
@@ -2156,13 +2183,20 @@ let currentUser = null;
     if (window._accountDeleted) return;
     const lastUser = localStorage.getItem('nour_last_user');
     if (!lastUser) return;
+    // ★ تحقق من الـ blacklist قبل الدخول التلقائي
+    try {
+      const deleted = JSON.parse(localStorage.getItem('nour_deleted_accounts') || '{}');
+      const key = lastUser.replace(/[\.\#\$\/\[\]]/g, '_').toLowerCase();
+      if (deleted[key] || deleted[lastUser]) {
+        localStorage.removeItem('nour_last_user');
+        return;
+      }
+    } catch(e) {}
     const users = JSON.parse(localStorage.getItem('nour_users') || '{}');
     const data  = users[lastUser];
     if (!data) { localStorage.removeItem('nour_last_user'); return; }
-    // أخفي شاشة اللوجين فوراً بدون انتظار Firebase
     const ls = document.getElementById('loginScreen');
     if (ls) ls.classList.add('hide');
-    // سجّل الدخول محلياً وإحنا شايلين إن Firebase ممكن يبدل البيانات بعدين
     currentUser = { username: lastUser, isGuest: false, ...(data || {}) };
     window.currentUser = currentUser;
   } catch(e) {}
@@ -2255,19 +2289,29 @@ function doRegister() {
   if (pass.length < 4) { showLoginErr('كلمة المرور يجب أن تكون ٤ أحرف على الأقل'); return; }
   if (pass !== pass2) { showLoginErr('كلمتا المرور غير متطابقتين'); return; }
 
+  // ★ مهم: نمسح أي session قديمة عشان loginSuccess ما تتعطّلش
+  currentUser = null;
+  window.currentUser = null;
+  if (typeof window._resetAuthDone === 'function') window._resetAuthDone();
+  window._accountDeleted = false;  // ★ امسح flag الحذف عشان التسجيل الجديد يشتغل
+  window._registering = true;
+
   if (typeof window.fbRegister === 'function') {
     window.fbRegister(user, pass,
       () => {
+        const defaultData = createDefaultUserData();
         if (typeof window.fbSaveFullUserData === 'function') {
-          window.fbSaveFullUserData(user, createDefaultUserData());
+          window.fbSaveFullUserData(user, defaultData);
         }
-        // onAuthStateChanged هيستدعي loginSuccess تلقائياً
+        // نستدعي loginSuccess مباشرة بدل الاعتماد على onAuthStateChanged
+        window._registering = false;
+        loginSuccess(user, defaultData);
       },
-      (errMsg) => { showLoginErr(errMsg); }
+      (errMsg) => { window._registering = false; showLoginErr(errMsg); }
     );
   } else {
     const users = getUsers();
-    if (users[user]) { showLoginErr('اسم المستخدم محجوز، اختر اسماً آخر'); return; }
+    if (users[user]) { if (users[user].password === btoa(pass)) { loginSuccess(user, users[user]); } else { showLoginErr('اسم المستخدم محجوز، اختر اسماً آخر أو سجّل دخولاً'); } return; }
     const newData = { ...createDefaultUserData(), password: btoa(pass) };
     users[user] = newData;
     saveUsers(users);
@@ -2293,7 +2337,8 @@ function loginSuccess(username, data, isGuest=false) {
     }
     return;
   }
-  if (window.currentUser && window.currentUser.username !== username) return;
+  // لو في مستخدم آخر logged in فعلاً (مش مجرد بقايا session) — لا تستبدله
+  if (window.currentUser && window.currentUser.username !== username && !window.currentUser._fromAuth) return;
   currentUser = { username, isGuest, ...(data || {}) };
   window.currentUser = currentUser;
   _finishLogin(username, isGuest);
@@ -5131,7 +5176,24 @@ function goHome() {
   state.reviewSurah = null;
   state.score = 0;
   state.sessionHasanat = 0;
-  // إيقاف polling الـ multiplayer لو كان شغال
+  // إيقاف polling الـ multiplayer — ومسح اللاعب من الغرفة لو كان فيها
+  if (multiState && multiState.roomCode && multiState.phase !== 'lobby') {
+    const code = multiState.roomCode;
+    const pk = multiState.playerKey || multiState.playerName;
+    clearInterval(multiState.questionTimer);
+    _stopPolling();
+    if (typeof window.fbMulti !== 'undefined' && code) {
+      window.fbMulti.removePlayer(code, pk);
+      const room = window._multiRoomCache;
+      if (room && room.hostUser === (currentUser && currentUser.username)) {
+        window.fbMulti.updateRoom(code, { phase: 'closed' }).catch(() => {});
+        setTimeout(() => window.fbMulti.deleteRoom(code).catch(() => {}), 1500);
+      }
+    }
+    window._multiRoomCache = null;
+    multiState.roomCode = null;
+    multiState.phase = 'lobby';
+  }
   if (typeof _stopPolling === 'function') _stopPolling();
   showScreen('homeScreen');
   updateHomeStats();
@@ -6385,7 +6447,7 @@ function multiCreateRoom() {
       const cleanRoom = JSON.parse(JSON.stringify(rawRoom));
       window.fbMulti.createRoom(code, cleanRoom)
         .then(() => {
-          window.fbMulti.setDisconnect(code, playerKey);
+          window.fbMulti.setDisconnect(code, playerKey, true); // المضيف
           _showWaitingRoom(code);
           _startPolling();
           showToast('✅ تم إنشاء الغرفة — شارك الكود: ' + code, 4000);
@@ -6441,7 +6503,7 @@ function multiJoinRoom() {
             room.questions = room.questions.map(window._expandMultiQ);
           }
           window._multiRoomCache = room;
-          window.fbMulti.setDisconnect(code, playerKey);
+          window.fbMulti.setDisconnect(code, playerKey, false); // لاعب عادي
           resetJoinBtn();
           multiState.roomCode = code;
           multiState.isHost = false;
@@ -6925,13 +6987,30 @@ function _showMultiResults() {
 function multiPlayAgain() {
   clearInterval(multiState.questionTimer);
   if (multiState.isHost) {
-    // Host resets room
     const room = _getRoomData(multiState.roomCode);
     if (room) {
+      // reset محلي
       room.phase = 'waiting';
       room.currentQ = 0;
-      Object.keys(room.players).forEach(u => { room.players[u].score = 0; room.players[u].answered = false; room.players[u].done = false; });
+      Object.keys(room.players).forEach(u => {
+        room.players[u].score = 0;
+        room.players[u].answered = false;
+        room.players[u].done = false;
+      });
       _setRoomData(multiState.roomCode, room);
+      // ★ reset على Firebase عشان اللاعبين التانيين يشوفوا الـ waiting
+      if (typeof window.fbMulti !== 'undefined') {
+        window.fbMulti.updateRoom(multiState.roomCode, {
+          phase: 'waiting',
+          currentQ: 0,
+        }).catch(() => {});
+        // reset نقاط كل لاعب على Firebase
+        Object.keys(room.players).forEach(pk => {
+          window.fbMulti.updatePlayer(multiState.roomCode, pk, {
+            score: 0, answered: false, done: false
+          }).catch(() => {});
+        });
+      }
     }
     multiState.phase = 'waiting';
     multiState.myScore = 0;
@@ -6980,10 +7059,11 @@ function multiLeaveRoom() {
   }
   if (typeof window.fbMulti !== 'undefined' && code) {
     window.fbMulti.removePlayer(code, pk);
-    // لو الـ host خرج يمسح الغرفة
+    // لو الـ host خرج يحدّث phase لـ closed أولاً عشان اللاعبين يعرفوا، ثم يمسح الغرفة
     const room = window._multiRoomCache;
     if (room && room.hostUser === (currentUser && currentUser.username)) {
-      window.fbMulti.deleteRoom(code);
+      window.fbMulti.updateRoom(code, { phase: 'closed' }).catch(() => {});
+      setTimeout(() => window.fbMulti.deleteRoom(code).catch(() => {}), 1500);
     }
   } else {
     const room = _getRoomData(code);
@@ -7004,10 +7084,52 @@ function _startPolling() {
     // بدل polling — استخدم Firebase realtime listener
     window.fbMulti.stopListen(multiState.roomCode);
     window.fbMulti.listenRoom(multiState.roomCode, (room) => {
-      if (!room) return;
+      if (!room) {
+        // الغرفة اتمسحت (المضيف خرج) — أخرج اللاعب فوراً
+        if (multiState.phase !== 'lobby') {
+          _stopPolling();
+          window._multiRoomCache = null;
+          multiState.roomCode = null;
+          multiState.phase = 'lobby';
+          showToast('🚪 انتهت الغرفة أو خرج المضيف');
+          showMultiScreen();
+        }
+        return;
+      }
+      // لو المضيف خرج من قائمة اللاعبين وإحنا في waiting
+      if (multiState.phase === 'waiting' && room.hostUser) {
+        const hostKey = typeof window._makeKey === 'function'
+          ? window._makeKey(room.hostUser, false)
+          : room.hostUser;
+        const players = room.players || {};
+        const hostStillIn = Object.keys(players).some(k =>
+          k === hostKey || (players[k].name && players[k].name === room.hostUser)
+        );
+        if (!hostStillIn) {
+          _stopPolling();
+          window._multiRoomCache = null;
+          multiState.roomCode = null;
+          multiState.phase = 'lobby';
+          showToast('🚪 خرج المضيف من الغرفة');
+          showMultiScreen();
+          return;
+        }
+      }
       // توسيع الأسئلة المضغوطة لو جاية من Firebase
       if (room.questions && room.questions.length > 0 && room.questions[0].s !== undefined) {
         room.questions = room.questions.map(window._expandMultiQ);
+      }
+      // لو المضيف أغلق الغرفة أثناء اللعب
+      if (room.phase === 'closed') {
+        _stopPolling();
+        clearInterval(multiState.questionTimer);
+        clearTimeout(multiState.answerTimer);
+        window._multiRoomCache = null;
+        multiState.roomCode = null;
+        multiState.phase = 'lobby';
+        showToast('🚪 أغلق المضيف الغرفة');
+        showMultiScreen();
+        return;
       }
       window._multiRoomCache = room;
       // Keep alive — كل ٣٠ ثانية بس عشان ما نسبّبش rate limiting
