@@ -1200,7 +1200,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     if (_authDone) return;
     _authDone = true;
 
-    const emailKey = user.email.replace('@gmail.com','').replace('@gmail.com','');
+    const emailKey = user.email.replace('@gmail.com','');
     const tryGetProfile = (path) => get(ref(db, path)).then(s => s.exists() ? s.val() : null).catch(() => null);
 
     Promise.all([
@@ -2232,6 +2232,8 @@ function loginSuccess(username, data, isGuest=false) {
   if (window.currentUser && window.currentUser.username === username) {
     if (data) {
       Object.assign(window.currentUser, data);
+      // تحديث حالة الضيف لو اتغيرت (مثلاً دخل كضيف وبعدين سجّل)
+      if (!isGuest) window.currentUser.isGuest = false;
       currentUser = window.currentUser;
       updateHomeStats();
     }
@@ -4745,6 +4747,10 @@ function handleResult(isRight, e) {
     }
   }
   nextBtn.className = 'next-btn show';
+  // أضف أزرار الصوت على الخيارات بعد الإجابة
+  if (typeof addAudioBtnsAfterAnswer === 'function') {
+    try { addAudioBtnsAfterAnswer(q); } catch(e) {}
+  }
 }
 
 function nextQuestion() {
@@ -6180,7 +6186,7 @@ function _selectMultiSurah(val, label) {
 }
 
 function setMultiQCount(btn, val) {
-  _multiQCountValue = val;
+  _multiQCountValue = val === 'all' ? 'all' : parseInt(val) || 20;
   document.getElementById('multiQCount').value = val;
   document.querySelectorAll('.mqc-btn').forEach(b => {
     b.style.background='rgba(255,254,249,0.04)'; b.style.borderColor='rgba(201,151,58,0.2)';
