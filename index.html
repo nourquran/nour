@@ -1108,7 +1108,16 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   window.fbLogin = function(username, password, onSuccess, onError) {
     const email = toFbEmail(username);
     signInWithEmailAndPassword(auth, email, padPass(password))
-      .then(() => onSuccess())
+      .then(() => {
+        // احفظ الباسورد محلياً عشان المرة الجاية يدخل فوري بدون Firebase
+        try {
+          const _u = JSON.parse(localStorage.getItem('nour_users') || '{}');
+          if (!_u[username]) _u[username] = {};
+          _u[username].password = btoa(password);
+          localStorage.setItem('nour_users', JSON.stringify(_u));
+        } catch(e) {}
+        onSuccess();
+      })
       .catch((e) => {
         if (e.code === 'auth/too-many-requests') {
           // Firebase جمّد الحساب مؤقتاً — ندخل محلياً بدون ما نزعج المستخدم
@@ -2109,24 +2118,30 @@ function doLogin() {
 
   // ── دخول فوري: أخفي اللوجين فوراً لو الباسورد صح محلياً ──
   const users = getUsers();
-  if (users[user]) {
-    if (users[user].password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
-    // أخفي اللوجين في نفس اللحظة قبل أي حاجة تانية
+  const localData = users[user];
+
+  if (localData && localData.password) {
+    // بيانات محلية فيها باسورد → تحقق فوري
+    if (localData.password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
     document.getElementById('loginScreen').classList.add('hide');
-    loginSuccess(user, users[user]);
-    // Firebase في الـ background بصمت
+    loginSuccess(user, localData);
+    // Firebase في الـ background بصمت للمزامنة
     if (typeof window.fbLogin === 'function') window.fbLogin(user, pass, () => {}, () => {});
     return;
   }
 
-  // جهاز جديد أو أول مرة → Firebase
+  // مستخدم Firebase (مفيش باسورد محلي) أو جهاز جديد → Firebase أولاً
   if (typeof window.fbLogin === 'function') {
     window.fbLogin(user, pass,
       () => {
-        if (!window.currentUser) {
-          const u2 = getUsers();
-          loginSuccess(user, u2[user] || createDefaultUserData());
-        }
+        // لو onAuthStateChanged مجاش خلال ثانية ندخله محلياً
+        setTimeout(() => {
+          if (!window.currentUser) {
+            const u2 = getUsers();
+            document.getElementById('loginScreen').classList.add('hide');
+            loginSuccess(user, u2[user] || createDefaultUserData());
+          }
+        }, 1500);
       },
       (errMsg) => { showLoginErr(errMsg); }
     );
