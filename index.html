@@ -1112,14 +1112,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       })
       .catch(e => {
         if (e.code === 'auth/email-already-in-use') {
-          signInWithEmailAndPassword(auth, email, padPass(password))
-            .then(() => {
-              _clearBlacklist();
-              onSuccess();
-            })
-            .catch(() => {
-              onError('اسم المستخدم محجوز، اختر اسماً آخر أو سجّل دخولاً');
-            });
+          // الحساب موجود بالفعل — لا ندخّل المستخدم مهما كانت كلمة المرور
+          onError('هذا الاسم مستخدم بالفعل، سجّل دخولاً أو اختر اسماً آخر');
         }
         else if (e.code === 'auth/weak-password') onError('كلمة المرور قصيرة جداً');
         else onError('خطأ في الإنشاء، حاول مجدداً');
@@ -1407,7 +1401,6 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     // مسح من leaderboard — نمسح بالـ key الصحيح والبديل معاً لضمان الحذف الكامل
     remove(ref(db, 'leaderboard/' + key))
-      .then(() => console.log('Deleted leaderboard OK'))
       .catch(e => console.error('fbDelete leaderboard error:', e));
     if (key !== keyAlt) remove(ref(db, 'leaderboard/' + keyAlt)).catch(() => {});
     // مسح من nour_lb كمان (مسار بديل)
@@ -1416,16 +1409,13 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     // مسح بيانات المستخدم من DB
     if (!isGuest) {
       remove(ref(db, 'users/' + key))
-        .then(() => console.log('Deleted user DB OK'))
         .catch(e => console.error('fbDelete user DB error:', e));
     }
     // مسح حساب Firebase Auth نفسه
     const fbUser = auth.currentUser;
     if (fbUser) {
       fbUser.delete()
-        .then(() => console.log('Deleted Auth account OK'))
         .catch(e => {
-          // لو Firebase طلب re-auth نتجاهل — البيانات اتمسحت والـ blacklist شغّال
           console.warn('Auth delete warning:', e.code);
         });
     }
@@ -1763,7 +1753,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
           <input type="hidden" id="multiQCount" value="20">
 
           <!-- عدد اللاعبين -->
-          <div style="font-size:11px;color:rgba(245,217,139,0.55);margin-bottom:6px;">👥 الحد الأقصى للاعبين</div>
+          <div style="font-size:11px;color:rgba(245,217,139,0.55);margin-bottom:6px;">👥 عدد اللاعبين</div>
           <div style="display:flex;gap:6px;margin-bottom:14px;">
             <button class="mpl-btn" onclick="setMultiMaxPlayers(this,2)" style="flex:1;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٢</button>
             <button class="mpl-btn" onclick="setMultiMaxPlayers(this,3)" style="flex:1;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٣</button>
@@ -1776,12 +1766,12 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
           <!-- وقت كل سؤال -->
           <div style="font-size:11px;color:rgba(245,217,139,0.55);margin-bottom:6px;">⏱️ وقت كل سؤال</div>
           <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-            <button class="mqt-btn" onclick="setMultiQTime(this,10)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">١٠ث</button>
-            <button class="mqt-btn" onclick="setMultiQTime(this,15)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(201,151,58,0.15);border:1.5px solid var(--gold);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;transition:all .2s;">١٥ث</button>
-            <button class="mqt-btn" onclick="setMultiQTime(this,20)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٢٠ث</button>
-            <button class="mqt-btn" onclick="setMultiQTime(this,30)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٣٠ث</button>
-            <button class="mqt-btn" onclick="setMultiQTime(this,45)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٤٥ث</button>
-            <button class="mqt-btn" onclick="setMultiQTime(this,60)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٦٠ث</button>
+            <button class="mqt-btn" onclick="setMultiQTime(this,10)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">١٠ ث</button>
+            <button class="mqt-btn" onclick="setMultiQTime(this,15)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(201,151,58,0.15);border:1.5px solid var(--gold);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;transition:all .2s;">١٥ ث</button>
+            <button class="mqt-btn" onclick="setMultiQTime(this,20)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٢٠ ث</button>
+            <button class="mqt-btn" onclick="setMultiQTime(this,30)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٣٠ ث</button>
+            <button class="mqt-btn" onclick="setMultiQTime(this,45)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٤٥ ث</button>
+            <button class="mqt-btn" onclick="setMultiQTime(this,60)" style="flex:1;min-width:50px;padding:9px 4px;background:rgba(255,254,249,0.04);border:1.5px solid rgba(201,151,58,0.2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:rgba(245,217,139,0.6);cursor:pointer;transition:all .2s;">٦٠ ث</button>
           </div>
           <input type="hidden" id="multiQTime" value="15">
 
@@ -2311,7 +2301,7 @@ function doRegister() {
     );
   } else {
     const users = getUsers();
-    if (users[user]) { if (users[user].password === btoa(pass)) { loginSuccess(user, users[user]); } else { showLoginErr('اسم المستخدم محجوز، اختر اسماً آخر أو سجّل دخولاً'); } return; }
+    if (users[user]) { showLoginErr('هذا الاسم محجوز، اختر اسماً آخر أو سجّل دخولاً'); window._registering = false; return; }
     const newData = { ...createDefaultUserData(), password: btoa(pass) };
     users[user] = newData;
     saveUsers(users);
@@ -2322,7 +2312,22 @@ function doRegister() {
 function guestLogin() {
   const guestName = 'ضيف_' + Math.floor(Math.random()*9999);
   const data = createDefaultUserData();
-  loginSuccess(guestName, data, true);
+  currentUser = { username: guestName, isGuest: true, ...data };
+  window.currentUser = currentUser;
+  // إخفاء شاشة الدخول فوراً
+  document.getElementById('loginScreen').classList.add('hide');
+  document.getElementById('userNameDisplay').textContent = '👤 ' + guestName;
+  showToast('مرحباً ' + guestName + '! 🌙');
+  // العمليات الثقيلة في الخلفية بعد الدخول
+  requestAnimationFrame(() => {
+    checkStreak();
+    renderLevels();
+    updateHomeStats();
+    populateSurahFilter();
+    populateJuzFilter();
+    loadMemorizedSurahs();
+    requestAnimationFrame(() => renderLeaderboard());
+  });
 }
 
 function loginSuccess(username, data, isGuest=false) {
@@ -3015,6 +3020,15 @@ function selectLevel(idx) {
     if (filterSec) filterSec.style.pointerEvents = 'none', filterSec.style.opacity = '0.3';
     if (filterJuz) filterJuz.style.pointerEvents = 'none', filterJuz.style.opacity = '0.3';
     if (sheetTabs) sheetTabs.style.pointerEvents = 'none', sheetTabs.style.opacity = '0.3';
+    // إظهار الـ dual slider بـ 1-50 لاختيار عدد الأسئلة
+    _dsMin = 1; _dsMax = 50; _dsFrom = 1; _dsTo = 20;
+    const wrap = document.getElementById('dualSliderWrap');
+    if (wrap) wrap.style.display = 'block';
+    const ticksEl = document.getElementById('dualTicks');
+    if (ticksEl) ticksEl.innerHTML = '<span>١</span><span>١٠</span><span>٢٠</span><span>٣٠</span><span>٤٠</span><span>٥٠</span>';
+    const resetBtn = document.getElementById('resetDualBtn');
+    if (resetBtn) resetBtn.textContent = '🔢 كل النطاق';
+    _dsRender(); _dsUpdate();
     showToast('🌐 الحكيم — مزيج عشوائي من كل القرآن دايماً');
   } else {
     // إعادة تفعيل الفلتر
@@ -3813,6 +3827,7 @@ function _dsRender() {
 }
 
 function _dsUpdate() {
+  const isRandom = !selectedSurah && !selectedJuz;
   selectedFromAyah = _dsFrom;
   selectedToAyah   = _dsTo;
   selectedQCount   = _dsTo - _dsFrom + 1;
@@ -3821,7 +3836,7 @@ function _dsUpdate() {
   if (_dsFrom === _dsMin && _dsTo === _dsMax) {
     summary.textContent = selectedSurah
       ? ('📖 كل السورة — ' + toArabicNum(_dsMax) + ' ' + ayatWord(_dsMax))
-      : ('📖 كل النطاق — ' + toArabicNum(_dsMax) + ' سؤال');
+      : ('🔢 كل النطاق — ' + toArabicNum(_dsMax) + ' سؤال');
   } else {
     summary.textContent = selectedSurah
       ? ('من آية ' + toArabicNum(_dsFrom) + ' إلى آية ' + toArabicNum(_dsTo) + ' ـ ' + toArabicNum(selectedQCount) + ' ' + ayatWord(selectedQCount))
@@ -3840,14 +3855,15 @@ function _showDualSlider(total) {
   const resetBtn = document.getElementById('resetDualBtn');
   if (resetBtn) resetBtn.textContent = selectedSurah ? '📖 كل السورة' : '📖 كل النطاق';
 
-  _dsMin = 1; _dsMax = total; _dsFrom = 1; _dsTo = total;
+  const cap = total;
+  _dsMin = 1; _dsMax = cap; _dsFrom = 1; _dsTo = cap;
 
   // ticks
   const ticksEl = document.getElementById('dualTicks');
-  if (total <= 20) {
-    ticksEl.innerHTML = Array.from({length: total}, (_,i) => `<span>${toArabicNum(i+1)}</span>`).join('');
+  if (cap <= 20) {
+    ticksEl.innerHTML = Array.from({length: cap}, (_,i) => `<span>${toArabicNum(i+1)}</span>`).join('');
   } else {
-    const steps = [1, Math.round(total*0.25), Math.round(total*0.5), Math.round(total*0.75), total];
+    const steps = [1, Math.round(cap*0.25), Math.round(cap*0.5), Math.round(cap*0.75), cap];
     ticksEl.innerHTML = steps.map(n => `<span>${toArabicNum(n)}</span>`).join('');
   }
 
@@ -4471,7 +4487,8 @@ function useHint(n) {
     if (state.hints.h2 <= 0) return;
     state.hints.h2--;
     document.getElementById('hintBtn2').disabled = true;
-    const btns = document.getElementById('mcqWrap').querySelectorAll('.choice-btn:not(:disabled)');
+    const wrap = document.getElementById('mcqWrap');
+    const btns = wrap ? wrap.querySelectorAll('.choice-btn:not(:disabled)') : [];
     const wrongBtns = [...btns].filter(b => b.textContent !== q.blank);
     if (wrongBtns.length > 0) {
       const remove = wrongBtns[Math.floor(Math.random() * wrongBtns.length)];
@@ -4495,6 +4512,7 @@ function useHint(n) {
 }
 
 function renderQuestion() {
+  if (!state.questions || state.qIndex >= state.questions.length) { showResults(); return; }
   const q = state.questions[state.qIndex];
   const total = state.questions.length;
   const lvl = LEVEL_DEFS[state.level];
@@ -6225,6 +6243,7 @@ let multiState = {
   roomCode: null,
   isHost: false,
   playerName: null,
+  playerKey: null,
   players: {},       // { username: { name, score, answered, ready } }
   questions: [],
   qIndex: 0,
@@ -6232,11 +6251,13 @@ let multiState = {
   totalQ: 20,
   surahFilter: '',
   phase: 'lobby',   // lobby | waiting | playing | results
+  qTime: 15,
   answerTimer: null,
   syncTimer: null,
   pollTimer: null,
   questionTimer: null,
   timeLeft: 15,
+  diffLevel: 0,
 };
 
 const MULTI_PREFIX = 'nour_multi_';
@@ -6391,21 +6412,39 @@ function multiCreateRoom() {
   const qTime = parseInt(document.getElementById('multiQTime').value) || 15;
   const allSurah = (qCountRaw === 'all');
 
+  // ─── استخدم مستوى اللاعب الحالي مباشرة ───
+  const chosenDiff = (typeof state !== 'undefined' && state.level != null) ? state.level : 0;
+  const prevLevel = (typeof state !== 'undefined') ? state.level : 0;
+  if (typeof state !== 'undefined') state.level = chosenDiff;
+
   // Build questions
   let questions = [];
-  if (surahVal) {
-    questions = buildReviewQuestions(surahVal);
-    if (!allSurah) questions = questions.slice(0, parseInt(qCountRaw) || 20);
-  } else {
-    const qCount = parseInt(qCountRaw) || 20;
-    const allNums = Object.keys(QURAN_LOCAL).map(Number).sort(() => Math.random()-0.5);
-    for (const num of allNums) {
-      if (questions.length >= qCount * 3) break;
-      const qs = buildReviewQuestions(SURAHS_META[num-1]?.[0] || '');
-      questions = questions.concat(qs);
+  try {
+    if (surahVal) {
+      questions = buildReviewQuestions(surahVal);
+      if (!allSurah) questions = questions.slice(0, parseInt(qCountRaw) || 20);
+    } else {
+      const qCount = parseInt(qCountRaw) || 20;
+      const lvlDef = LEVEL_DEFS[chosenDiff];
+      if (lvlDef && lvlDef.dataKey === 'all') {
+        // استخدم buildQuestionsFromLocal للمستويات الصعبة
+        const built = buildQuestionsFromLocal(qCount);
+        questions = built || [];
+      } else {
+        const allNums = Object.keys(QURAN_LOCAL).map(Number).sort(() => Math.random()-0.5);
+        for (const num of allNums) {
+          if (questions.length >= qCount * 3) break;
+          const qs = buildReviewQuestions(SURAHS_META[num-1]?.[0] || '');
+          questions = questions.concat(qs);
+        }
+        questions = questions.sort(() => Math.random()-0.5).slice(0, qCount);
+      }
     }
-    questions = questions.sort(() => Math.random()-0.5).slice(0, qCount);
+  } finally {
+    // أرجع المستوى الأصلي بعد بناء الأسئلة
+    if (typeof state !== 'undefined') state.level = prevLevel;
   }
+
   if (questions.length < 3) { showToast('⚠️ ما كفايش أسئلة، اختار سورة أطول'); return; }
 
   const playerKey = typeof window._makeKey === 'function'
@@ -6416,6 +6455,7 @@ function multiCreateRoom() {
     code, hostUser: currentUser.username, phase: 'waiting',
     surahFilter: surahVal, totalQ: questions.length,
     questions: questions, maxPlayers: maxPlayers, qTime: qTime,
+    diffLevel: chosenDiff,
     players: { [playerKey]: { name: currentUser.username, score: 0, answered: false, ready: true, lastSeen: Date.now() } },
     startedAt: null, currentQ: 0,
     createdAt: Date.now(),
@@ -6431,6 +6471,7 @@ function multiCreateRoom() {
   multiState.surahFilter = surahVal;
   multiState.phase = 'waiting';
   multiState.qTime = qTime;
+  multiState.diffLevel = chosenDiff;
 
   if (typeof window.fbMulti !== 'undefined') {
     // نضمن Firebase Auth (anonymous) عشان DB rules تقبل الكتابة
@@ -6512,6 +6553,7 @@ function multiJoinRoom() {
           multiState.questions = room.questions;
           multiState.totalQ = room.totalQ;
           multiState.phase = 'waiting';
+          multiState.diffLevel = room.diffLevel != null ? room.diffLevel : 0;
           _showWaitingRoom(code);
           _startPolling();
           showToast('✅ انضممت للغرفة!');
@@ -6528,6 +6570,7 @@ function multiJoinRoom() {
       multiState.questions = room.questions;
       multiState.totalQ = room.totalQ;
       multiState.phase = 'waiting';
+      multiState.diffLevel = room.diffLevel != null ? room.diffLevel : 0;
       _showWaitingRoom(code);
       _startPolling();
       showToast('✅ انضممت للغرفة!');
@@ -6551,6 +6594,16 @@ function _showWaitingRoom(code) {
   document.getElementById('multiLobby').style.display = 'none';
   document.getElementById('multiWaiting').style.display = 'block';
   document.getElementById('multiRoomCode').textContent = code;
+  // عرض badge المستوى المختار
+  const lvlDef = LEVEL_DEFS[multiState.diffLevel != null ? multiState.diffLevel : 0];
+  let diffBadge = document.getElementById('multiDiffBadge');
+  if (!diffBadge) {
+    diffBadge = document.createElement('div');
+    diffBadge.id = 'multiDiffBadge';
+    diffBadge.style.cssText = 'text-align:center;margin-top:8px;font-size:13px;color:var(--gold);';
+    document.getElementById('multiRoomCode').parentElement.appendChild(diffBadge);
+  }
+  if (lvlDef) diffBadge.textContent = lvlDef.icon + ' ' + lvlDef.name + ' — ' + lvlDef.desc;
   _updateWaitingUI();
 }
 
