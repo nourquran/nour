@@ -1201,44 +1201,56 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     });
   };
 
-  // مراقبة حالة الـ Auth — دخول تلقائي لو عنده جلسة
-  let _authHandled = false;
+  // مراقبة حالة الـ Auth
+  let _authDone = false;
+  window._resetAuthDone = () => { _authDone = false; };
 
-  function _doAuthLogin(user) {
-    if (!user || window.currentUser || _authHandled) return;
-    _authHandled = true;
+  onAuthStateChanged(auth, (user) => {
+    if (!user) { _authDone = false; return; }
+    if (_authDone) return;
+    _authDone = true;
+
     const emailKey = user.email.replace('@nour-quran.app','').replace('@nour.app','');
     const tryGetProfile = (path) => get(ref(db, path)).then(s => s.exists() ? s.val() : null).catch(() => null);
+
     Promise.all([
       tryGetProfile('users/' + emailKey + '/profile'),
       tryGetProfile('nour_users/' + window._makeKey(emailKey, false)),
     ]).then(([profileNew, profileOld]) => {
       const profile = profileNew || profileOld;
       const realUsername = (profile && profile.username) ? profile.username : emailKey;
-      window.fbGetUserData(realUsername, (data) => {
-        // استنى loginSuccess تكون جاهزة (module script بيسبق regular script أحياناً)
-        const tryLogin = () => {
-          if (typeof window.loginSuccess === 'function') {
-            if (!window.currentUser) {
-              window.loginSuccess(realUsername, data || { totalScore:0, totalGames:0, totalHasanat:0, streak:0, lastPlay:null });
-            }
-            _authHandled = false;
-          } else {
-            setTimeout(tryLogin, 50);
-          }
-        };
-        tryLogin();
-      });
-    }).catch(() => { _authHandled = false; });
-  }
 
-  onAuthStateChanged(auth, (user) => {
-    if (user && !window.currentUser && !_authHandled) {
-      _doAuthLogin(user);
-    }
-    if (!user) {
-      _authHandled = false;
-    }
+      get(ref(db, 'users/' + makeKey(realUsername, false) + '/data'))
+        .then(snap => {
+          const fbData = snap.exists() ? snap.val() : {};
+          const merged = {
+            totalScore:   fbData.totalScore   || 0,
+            totalGames:   fbData.totalGames   || 0,
+            totalHasanat: fbData.totalHasanat || 0,
+            streak:       fbData.streak       || 0,
+            lastPlay:     fbData.lastPlay      || null,
+          };
+          // استنى loginSuccess لو لسه الـ regular script ما اتحملش
+          const doIt = () => {
+            if (typeof window.loginSuccess === 'function') {
+              window.loginSuccess(realUsername, merged);
+            } else {
+              setTimeout(doIt, 30);
+            }
+          };
+          doIt();
+        })
+        .catch(() => {
+          const doIt = () => {
+            if (typeof window.loginSuccess === 'function') {
+              window.loginSuccess(realUsername, { totalScore:0, totalGames:0, totalHasanat:0, streak:0, lastPlay:null });
+            } else {
+              setTimeout(doIt, 30);
+            }
+          };
+          doIt();
+        });
+    }).catch(() => { _authDone = false; });
   });
 
   // ============================================================
@@ -2146,26 +2158,6 @@ function guestLogin() {
 
 function loginSuccess(username, data, isGuest=false) {
   if (window.currentUser) return;
-
-  if (!isGuest && typeof window.fbGetUserData === 'function') {
-    window.currentUser = '__pending__'; // قفل مؤقت
-    window.fbGetUserData(username, (fbData) => {
-      if (window.currentUser !== '__pending__') return;
-      const localData = data || {};
-      const merged = {
-        totalScore:   Math.max(fbData?.totalScore   || 0, localData.totalScore   || 0),
-        totalGames:   Math.max(fbData?.totalGames   || 0, localData.totalGames   || 0),
-        totalHasanat: Math.max(fbData?.totalHasanat || 0, localData.totalHasanat || 0),
-        streak:       fbData?.streak   ?? localData.streak   ?? 0,
-        lastPlay:     fbData?.lastPlay ?? localData.lastPlay ?? null,
-      };
-      currentUser = { username, isGuest: false, ...merged };
-      window.currentUser = currentUser;
-      _finishLogin(username, isGuest);
-    });
-    return;
-  }
-
   currentUser = { username, isGuest, ...(data || {}) };
   window.currentUser = currentUser;
   _finishLogin(username, isGuest);
@@ -2190,6 +2182,7 @@ function doLogout() {
   saveCurrentUser();
   currentUser = null;
   window.currentUser = null;
+  if (typeof window._resetAuthDone === 'function') window._resetAuthDone();
   if (typeof window.fbLogout === 'function') window.fbLogout();
   document.getElementById('loginScreen').classList.remove('hide');
   goHome();
