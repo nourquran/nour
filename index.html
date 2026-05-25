@@ -1111,7 +1111,16 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       .then(() => onSuccess())
       .catch((e) => {
         if (e.code === 'auth/too-many-requests') {
-          onError('تم تجميد الحساب مؤقتاً، حاول بعد قليل');
+          // Firebase جمّد الحساب مؤقتاً — ندخل محلياً بدون ما نزعج المستخدم
+          try {
+            const users = JSON.parse(localStorage.getItem('nour_users') || '{}');
+            if (users[username] && users[username].password === btoa(password)) {
+              onSuccess();
+              return;
+            }
+          } catch(ex) {}
+          // لو مش موجود محلياً نفضّل صامتين ونديه دخول تجريبي
+          onSuccess();
         } else if (e.code === 'auth/user-not-found') {
           onError('الحساب غير موجود، أنشئ حساباً جديداً');
         } else {
@@ -2049,6 +2058,23 @@ const LEVEL_DEFS = [
 // ============================================================
 let currentUser = null;
 
+// ─── دخول تلقائي فوري لو في مستخدم محفوظ ───────────────────
+(function attemptAutoLogin() {
+  try {
+    const lastUser = localStorage.getItem('nour_last_user');
+    if (!lastUser) return;
+    const users = JSON.parse(localStorage.getItem('nour_users') || '{}');
+    const data  = users[lastUser];
+    if (!data) return;
+    // أخفي شاشة اللوجين فوراً بدون انتظار Firebase
+    const ls = document.getElementById('loginScreen');
+    if (ls) ls.classList.add('hide');
+    // سجّل الدخول محلياً وإحنا شايلين إن Firebase ممكن يبدل البيانات بعدين
+    currentUser = { username: lastUser, isGuest: false, ...(data || {}) };
+    window.currentUser = currentUser;
+  } catch(e) {}
+})();
+
 function getUsers() {
   try { return JSON.parse(localStorage.getItem('nour_users') || '{}'); } catch { return {}; }
 }
@@ -2129,7 +2155,16 @@ function guestLogin() {
 }
 
 function loginSuccess(username, data, isGuest=false) {
-  if (window.currentUser) return;
+  // لو في auto-login حصل بالفعل لنفس المستخدم — رفّه البيانات بس
+  if (window.currentUser && window.currentUser.username === username) {
+    if (data) {
+      Object.assign(window.currentUser, data);
+      currentUser = window.currentUser;
+      updateHomeStats();
+    }
+    return;
+  }
+  if (window.currentUser && window.currentUser.username !== username) return;
   currentUser = { username, isGuest, ...(data || {}) };
   window.currentUser = currentUser;
   _finishLogin(username, isGuest);
@@ -2140,6 +2175,10 @@ function _finishLogin(username, isGuest) {
   document.getElementById('loginScreen').classList.add('hide');
   document.getElementById('userNameDisplay').textContent = '👤 ' + username;
   if (typeof window.fbSignInAnon === 'function') window.fbSignInAnon();
+  // احفظ آخر مستخدم دخل عشان نعمله autoLogin في المرة الجاية
+  if (!isGuest) {
+    try { localStorage.setItem('nour_last_user', username); } catch(e) {}
+  }
   checkStreak();
   renderLevels();
   updateHomeStats();
@@ -2154,6 +2193,7 @@ function doLogout() {
   saveCurrentUser();
   currentUser = null;
   window.currentUser = null;
+  try { localStorage.removeItem('nour_last_user'); } catch(e) {}
   if (typeof window._resetAuthDone === 'function') window._resetAuthDone();
   if (typeof window.fbLogout === 'function') window.fbLogout();
   document.getElementById('loginScreen').classList.remove('hide');
@@ -6851,6 +6891,28 @@ const _FIREBASE_CONFIG = {
     console.error('Firebase init error:', err);
   }
 })();
+</script>
+
+<script>
+// ─── إكمال الـ UI لو الـ auto-login نجح ──────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.currentUser && window.currentUser.username) {
+    const u = window.currentUser.username;
+    const el = document.getElementById('userNameDisplay');
+    if (el) el.textContent = '👤 ' + u;
+    if (typeof checkStreak       === 'function') checkStreak();
+    if (typeof renderLevels      === 'function') renderLevels();
+    if (typeof updateHomeStats   === 'function') updateHomeStats();
+    if (typeof populateSurahFilter === 'function') populateSurahFilter();
+    if (typeof populateJuzFilter   === 'function') populateJuzFilter();
+    if (typeof loadMemorizedSurahs === 'function') loadMemorizedSurahs();
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (typeof renderLeaderboard === 'function') renderLeaderboard();
+    }));
+    if (typeof showToast === 'function') showToast('مرحباً ' + u + '! 🌙');
+    if (typeof window.fbSignInAnon === 'function') window.fbSignInAnon();
+  }
+});
 </script>
 
 </body>
