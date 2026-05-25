@@ -1140,13 +1140,6 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
   window.fbLogout = function() { signOut(auth).catch(() => {}); };
 
-  // حذف حساب Firebase Auth نهائياً (مش بس sign out)
-  window.fbDeleteAuthUser = function() {
-    const u = auth.currentUser;
-    if (u) return u.delete().catch(() => {});
-    return Promise.resolve();
-  };
-
   // جلب/حفظ بيانات المستخدم من Firebase DB
   window.fbGetUserData = function(username, onResult) {
     const key = makeKey(username, false);
@@ -2179,25 +2172,26 @@ function doLogin() {
     return;
   }
 
-  // مفيش بيانات محلية → لازم نستنى Firebase يتأكد الأول (مش ندخّل حد محذوف)
-  if (typeof window.fbLogin !== 'function') {
-    showLoginErr('الحساب غير موجود، أنشئ حساباً جديداً');
-    return;
+  // مستخدم Firebase (مفيش باسورد محلي) أو جهاز جديد → أخفي فوراً وFirebase في الـ background
+  document.getElementById('loginScreen').classList.add('hide');
+  loginSuccess(user, localData || createDefaultUserData());
+  if (typeof window.fbLogin === 'function') {
+    window.fbLogin(user, pass,
+      () => {
+        // Firebase نجح → حدّث البيانات لو موجودة
+        const u2 = getUsers();
+        if (u2[user] && window.currentUser) Object.assign(window.currentUser, u2[user]);
+      },
+      (errMsg) => {
+        // Firebase فشل (باسورد غلط فعلاً) → نرجّع اللوجين
+        if (!localData) {
+          currentUser = null; window.currentUser = null;
+          document.getElementById('loginScreen').classList.remove('hide');
+          showLoginErr(errMsg);
+        }
+      }
+    );
   }
-  const _loginBtn = document.querySelector('#loginForm .login-btn');
-  if (_loginBtn) { _loginBtn.disabled = true; _loginBtn.style.opacity = '0.6'; }
-  window.fbLogin(user, pass,
-    () => {
-      if (_loginBtn) { _loginBtn.disabled = false; _loginBtn.style.opacity = ''; }
-      const u2 = getUsers();
-      document.getElementById('loginScreen').classList.add('hide');
-      loginSuccess(user, u2[user] || createDefaultUserData());
-    },
-    (errMsg) => {
-      if (_loginBtn) { _loginBtn.disabled = false; _loginBtn.style.opacity = ''; }
-      showLoginErr(errMsg);
-    }
-  );
 }
 
 function doRegister() {
@@ -4958,7 +4952,6 @@ function deleteAccount() {
     // ⑤ مسح من Firebase (leaderboard + users + auth)
     window._accountDeleted = true;  // منع onAuthStateChanged من إعادة الدخول
     if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest);
-    if (typeof window.fbDeleteAuthUser === 'function') window.fbDeleteAuthUser(); // حذف Auth Account نهائياً
     if (typeof window.fbLogout === 'function') window.fbLogout();
 
     // ⑥ تسجيل خروج وتنظيف الحالة
