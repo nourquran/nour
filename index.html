@@ -2112,6 +2112,7 @@ let currentUser = null;
 // ─── دخول تلقائي فوري لو في مستخدم محفوظ ───────────────────
 (function attemptAutoLogin() {
   try {
+    if (window._accountDeleted) return;
     const lastUser = localStorage.getItem('nour_last_user');
     if (!lastUser) return;
     const users = JSON.parse(localStorage.getItem('nour_users') || '{}');
@@ -2229,6 +2230,8 @@ function guestLogin() {
 }
 
 function loginSuccess(username, data, isGuest=false) {
+  // لو الحساب اتحذف — منع أي دخول تاني نهائياً
+  if (window._accountDeleted) return;
   // لو في auto-login حصل بالفعل لنفس المستخدم — رفّه البيانات بس
   if (window.currentUser && window.currentUser.username === username) {
     if (data) {
@@ -2246,6 +2249,7 @@ function loginSuccess(username, data, isGuest=false) {
 window.loginSuccess = loginSuccess;
 
 function _finishLogin(username, isGuest) {
+  if (window._accountDeleted) return;  // حماية إضافية
   document.getElementById('loginScreen').classList.add('hide');
   document.getElementById('userNameDisplay').textContent = '👤 ' + username;
   if (typeof window.fbSignInAnon === 'function') window.fbSignInAnon();
@@ -4912,6 +4916,9 @@ function deleteAccount() {
   const isGuest = currentUser.isGuest;
   const u = currentUser.username;
   showConfirm('هيتحذف حسابك وكل بياناتك نهائياً. متأكد؟', () => {
+
+    // ⓪ أوقف أي دخول تلقائي فوراً — لازم يكون أول حاجة
+    window._accountDeleted = true;
 
     // ① مسح من nour_users أولاً — ده اللي بيمنع الدخول التلقائي
     const users = getUsers();
