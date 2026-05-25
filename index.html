@@ -2382,7 +2382,8 @@ function renderInProgressSurahs() {
 
   if (started.length === 0) { section.style.display = 'none'; return; }
 
-  section.style.display = 'block';
+  // section مخفي دايماً من الصفحة الرئيسية
+  // section.style.display = 'block';
   list.innerHTML = '';
 
   started.forEach(({ surah, nextIdx, total, type }) => {
