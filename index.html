@@ -449,7 +449,7 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 @keyframes pulse-urgent { 0%,100%{transform:scale(1);}50%{transform:scale(1.15);} }
 
 /* ===== MODES ===== */
-.modes-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:20px; }
+.modes-row { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:20px; }
 .mode-btn { background:rgba(255,254,249,0.04); border:1px solid rgba(201,151,58,0.15); border-radius:14px; padding:14px 10px; cursor:pointer; text-align:center; transition:all .2s; color:var(--cream); }
 .mode-btn:hover, .mode-btn.active { border-color:var(--emerald-light); background:rgba(46,175,120,0.1); }
 .mode-icon { font-size:22px; margin-bottom:6px; }
@@ -4933,10 +4933,15 @@ function deleteAccount() {
   const u = currentUser.username;
   showConfirm('هيتحذف حسابك وكل بياناتك نهائياً. متأكد؟', () => {
 
-    // مسح من Firebase أولاً (قبل ما نصفر currentUser)
-    if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest);
+    // ① مسح من nour_users أولاً — ده اللي بيمنع الدخول التلقائي
+    const users = getUsers();
+    delete users[u];
+    saveUsers(users);
 
-    // مسح كل بيانات المستخدم من localStorage
+    // ② مسح nour_last_user فوراً عشان الـ auto-login مايلاقيش حاجة
+    localStorage.removeItem('nour_last_user');
+
+    // ③ مسح باقي بيانات المستخدم من localStorage
     const keys = [
       'nour_mistakes_'       + u,
       'nour_mistakes_guest',
@@ -4946,14 +4951,11 @@ function deleteAccount() {
       'nour_memorized_'      + u,
       'nour_surahprog_'      + u,
       'nour_session',
-      'nour_last_user',         // ← مهم: لمنع الدخول التلقائي
     ];
     keys.forEach(k => localStorage.removeItem(k));
 
-    // مسح من nour_users نهائياً
-    const users = getUsers();
-    delete users[u];
-    saveUsers(users);
+    // ④ مسح من Firebase
+    if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest);
 
     // تسجيل خروج من Firebase Auth
     if (typeof window.fbLogout === 'function') window.fbLogout();
@@ -7133,6 +7135,9 @@ function _stopPolling() {
       </div>
       <div class="mode-btn" onclick="selectMode('typing')" id="mode-typing">
         <div class="mode-icon">✍️</div><div class="mode-name">كتابة</div><div class="mode-sub">اكتب الكلمة</div>
+      </div>
+      <div class="mode-btn" onclick="selectMode('listen')" id="mode-listen">
+        <div class="mode-icon">👁️</div><div class="mode-name">تذكر</div><div class="mode-sub">اقرأ وتذكر</div>
       </div>
       <div class="mode-btn" onclick="selectMode('timed')" id="mode-timed">
         <div class="mode-icon">⚡</div><div class="mode-name">فوري</div><div class="mode-sub">ضد الوقت</div>
