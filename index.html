@@ -1375,8 +1375,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     const data = snapshot.val() || {};
     const list = Object.entries(data)
-      .filter(([,d]) => (d.totalHasanat || 0) > 0)
-      .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
+      .filter(([,d]) => (d.totalScore || 0) > 0)
+      .sort(([,a],[,b]) => (b.totalScore||0) - (a.totalScore||0));
 
     if (list.length === 0) {
       podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">كن أول من يسجل نقاطه! 🌟</div>';
@@ -1407,7 +1407,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="lb-podium-rank">${emoji0}</div>
       <div class="lb-podium-info">
         <div class="lb-podium-name${isMe0?' is-me':''}">${d0.name}${isMe0?' (أنت)':''}</div>
-        <div class="lb-podium-hasanat">${toA(d0.totalHasanat||0)} ⭐</div>
+        <div class="lb-podium-hasanat">${toA(d0.totalScore||0)} ⭐</div>
         <div class="lb-podium-score">${toA(d0.totalGames||0)} جلسة</div>
       </div>
     </div>`;
@@ -2115,11 +2115,7 @@ let currentUser = null;
     if (!lastUser) return;
     const users = JSON.parse(localStorage.getItem('nour_users') || '{}');
     const data  = users[lastUser];
-    if (!data) {
-      // المستخدم اتحذف — امسح nour_last_user عشان ما يحاولش تاني
-      localStorage.removeItem('nour_last_user');
-      return;
-    }
+    if (!data) return;
     // أخفي شاشة اللوجين فوراً بدون انتظار Firebase
     const ls = document.getElementById('loginScreen');
     if (ls) ls.classList.add('hide');
@@ -2175,30 +2171,17 @@ function doLogin() {
   }
 
   // مستخدم Firebase (مفيش باسورد محلي) أو جهاز جديد → أخفي فوراً وFirebase في الـ background
+  document.getElementById('loginScreen').classList.add('hide');
+  loginSuccess(user, localData || createDefaultUserData());
   if (typeof window.fbLogin === 'function') {
-    // لو مفيش بيانات محلية خالص → Firebase مطلوب للتحقق
-    if (!localData) {
-      document.getElementById('loginBtn') && (document.getElementById('loginBtn').disabled = true);
-      window.fbLogin(user, pass,
-        () => {
-          const u2 = getUsers();
-          loginSuccess(user, u2[user] || createDefaultUserData());
-        },
-        (errMsg) => {
-          showLoginErr(errMsg || 'اسم المستخدم أو كلمة المرور غير صحيحة');
-        }
-      );
-      return;
-    }
-    // في بيانات محلية بدون باسورد → دخول فوري + Firebase في الخلفية
-    document.getElementById('loginScreen').classList.add('hide');
-    loginSuccess(user, localData);
     window.fbLogin(user, pass,
       () => {
+        // Firebase نجح → حدّث البيانات لو موجودة
         const u2 = getUsers();
         if (u2[user] && window.currentUser) Object.assign(window.currentUser, u2[user]);
       },
       (errMsg) => {
+        // Firebase فشل (باسورد غلط فعلاً) → نرجّع اللوجين
         if (!localData) {
           currentUser = null; window.currentUser = null;
           document.getElementById('loginScreen').classList.remove('hide');
@@ -2206,11 +2189,6 @@ function doLogin() {
         }
       }
     );
-  } else {
-    // لا يوجد Firebase — لو مفيش بيانات محلية: حساب غير موجود
-    if (!localData) { showLoginErr('اسم المستخدم غير موجود'); return; }
-    document.getElementById('loginScreen').classList.add('hide');
-    loginSuccess(user, localData);
   }
 }
 
@@ -2531,8 +2509,8 @@ function renderLeaderboard() {
   // fallback local
   const users = getUsers();
   const list = Object.entries(users)
-    .filter(([,d]) => (d.totalHasanat || 0) > 0)
-    .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
+    .filter(([,d]) => (d.totalScore || 0) > 0)
+    .sort(([,a],[,b]) => (b.totalScore||0) - (a.totalScore||0));
 
   const podiumWrap = document.getElementById('lbPodiumWrap');
   const dotsEl    = document.getElementById('lbDots');
@@ -2570,7 +2548,7 @@ function renderLeaderboard() {
     <div class="lb-podium-rank">${emoji0}</div>
     <div class="lb-podium-info">
       <div class="lb-podium-name${isMe0?' is-me':''}">${name0}${isMe0?' (أنت)':''}</div>
-      <div class="lb-podium-hasanat">${toArabicNum(d0.totalHasanat||0)} ⭐</div>
+      <div class="lb-podium-hasanat">${toArabicNum(d0.totalScore||0)} ⭐</div>
       <div class="lb-podium-score">${toArabicNum(d0.totalGames||0)} جلسة</div>
     </div>
   </div>`;
@@ -2615,7 +2593,7 @@ function lbGoTo(idx) {
     slide.querySelector('.lb-podium-name').textContent = d.name + (isMe ? ' (أنت)' : '');
     slide.querySelector('.lb-podium-name').className = 'lb-podium-name' + (isMe ? ' is-me' : '');
     const toA = n => String(Math.round(n)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
-    slide.querySelector('.lb-podium-hasanat').textContent = toA(d.totalHasanat||0) + ' ⭐';
+    slide.querySelector('.lb-podium-hasanat').textContent = toA(d.totalScore||0) + ' ⭐';
     slide.querySelector('.lb-podium-score').textContent = toA(d.totalGames||0) + ' جلسة';
     // fade in
     slide.style.opacity = '1';
@@ -2962,7 +2940,7 @@ function selectLevel(idx) {
     document.querySelectorAll('.mode-sub').forEach(sub => {
       if (sub.textContent === '🔒 مفروض') {
         const modeId = sub.closest('.mode-btn')?.id?.replace('mode-','');
-        const origSubs = {mcq:'4 خيارات', typing:'اكتب الكلمة', timed:'ضد الوقت'};
+        const origSubs = {mcq:'4 خيارات', typing:'اكتب الكلمة', listen:'اقرأ وتذكر', timed:'ضد الوقت'};
         if (modeId && origSubs[modeId]) sub.textContent = origSubs[modeId];
       }
     });
@@ -4957,17 +4935,13 @@ function deleteAccount() {
     // ④ مسح من Firebase
     if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest);
 
-    // تسجيل خروج من Firebase Auth
-    if (typeof window.fbLogout === 'function') window.fbLogout();
-
-    // تصفير الحالة
+    // تسجيل خروج
     currentUser = null;
     window.currentUser = null;
     window._lbAllList = null;
-
     showScreen('homeScreen');
     document.getElementById('loginScreen').classList.remove('hide');
-    showToast('✅ تم حذف الحساب نهائياً');
+    showToast('✅ تم حذف الحساب');
   });
 }
 
@@ -5013,7 +4987,7 @@ function openGameSheet() {
       } else {
         b.style.opacity = '0.35';
         b.style.pointerEvents = 'none';
-        const origSubs = {mcq:'4 خيارات', typing:'اكتب الكلمة', timed:'ضد الوقت'};
+        const origSubs = {mcq:'4 خيارات', typing:'اكتب الكلمة', listen:'اقرأ وتذكر', timed:'ضد الوقت'};
         if (sub && origSubs[modeId]) sub.textContent = origSubs[modeId];
       }
     });
@@ -5028,7 +5002,7 @@ function openGameSheet() {
       if (sub.textContent === '🔒 مفروض') {
         // إرجاع النص الأصلي
         const modeId = sub.closest('.mode-btn')?.id?.replace('mode-','');
-        const origSubs = {mcq:'4 خيارات', typing:'اكتب الكلمة', timed:'ضد الوقت'};
+        const origSubs = {mcq:'4 خيارات', typing:'اكتب الكلمة', listen:'اقرأ وتذكر', timed:'ضد الوقت'};
         if (modeId && origSubs[modeId]) sub.textContent = origSubs[modeId];
       }
     });
