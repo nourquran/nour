@@ -1086,10 +1086,11 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   function toFbEmail(username) {
     return makeKey(username, false).toLowerCase() + '@gmail.com';
   }
+  function padPass(p) { return p + '__nr'; }
 
   window.fbRegister = function(username, password, onSuccess, onError) {
     const email = toFbEmail(username);
-    createUserWithEmailAndPassword(auth, email, password)
+    createUserWithEmailAndPassword(auth, email, padPass(password))
       .then(() => {
         // احفظ اسم المستخدم الحقيقي في DB
         set(ref(db, 'users/' + makeKey(username, false) + '/profile'), {
@@ -1106,7 +1107,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
   window.fbLogin = function(username, password, onSuccess, onError) {
     const email = toFbEmail(username);
-    signInWithEmailAndPassword(auth, email, password)
+    signInWithEmailAndPassword(auth, email, padPass(password))
       .then(() => onSuccess())
       .catch((e) => {
         if (e.code === 'auth/too-many-requests') {
