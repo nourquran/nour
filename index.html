@@ -1567,25 +1567,6 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="lb-rest" id="leaderboard" style="display:none;"></div>
     </div>
 
-    <!-- مركز المستخدم في اللوحة -->
-    <div id="myRankCard" style="display:none;margin-top:14px;background:linear-gradient(135deg,rgba(27,107,74,0.18),rgba(46,175,120,0.08));border:1.5px solid rgba(46,175,120,0.4);border-radius:18px;padding:14px 18px;direction:rtl;">
-      <div style="font-size:11px;color:rgba(125,255,201,0.6);margin-bottom:8px;font-weight:600;letter-spacing:.4px;">📍 مركزك في لوحة الشرف</div>
-      <div style="display:flex;align-items:center;gap:14px;">
-        <div style="text-align:center;min-width:52px;">
-          <div id="myRankNum" style="font-size:28px;font-weight:900;color:#7DFFC9;font-family:'Cairo',sans-serif;line-height:1;">#١</div>
-          <div style="font-size:10px;color:rgba(125,255,201,0.5);margin-top:2px;">مركزك</div>
-        </div>
-        <div style="width:1px;height:40px;background:rgba(46,175,120,0.25);flex-shrink:0;"></div>
-        <div style="flex:1;">
-          <div style="font-size:14px;font-weight:700;color:var(--cream);" id="myRankName">—</div>
-          <div style="display:flex;gap:14px;margin-top:5px;flex-wrap:wrap;">
-            <div style="font-size:12px;color:rgba(245,217,139,0.7);">⭐ <span id="myRankScore">٠</span> نقطة</div>
-            <div style="font-size:12px;color:rgba(125,255,201,0.6);">🎮 <span id="myRankGames">٠</span> جلسة</div>
-          </div>
-        </div>
-        <div id="myRankEmoji" style="font-size:26px;flex-shrink:0;">🌱</div>
-      </div>
-    </div>
 
     <div style="text-align:center;font-size:12px;color:rgba(245,217,139,0.3);line-height:1.8;margin-top:20px;">
       كل آية تحفظها صدقة جارية 🤍<br>
@@ -1977,7 +1958,7 @@ const QURAN_DB = {
     { surah:"إبراهيم", ayah:"وَإِذْ تَأَذَّنَ رَبُّكُمْ لَئِن شَكَرْتُمْ لَأَزِيدَنَّكُمْ", blank:"لَأَزِيدَنَّكُمْ", wrong:["لَأُكْرِمَنَّكُمْ","لَأُبَارِكَنَّكُمْ","لَأَرْحَمَنَّكُمْ"] },
     { surah:"طه", ayah:"وَقُل رَّبِّ زِدْنِي عِلْمًا", blank:"عِلْمًا", wrong:["إِيمَانًا","صَبْرًا","يَقِينًا"] },
     { surah:"الكهف", ayah:"وَلَا تَقُولَنَّ لِشَيْءٍ إِنِّي فَاعِلٌ ذَٰلِكَ غَدًا", blank:"غَدًا", wrong:["الْيَوْمَ","بَعْدَهُ","قَرِيبًا"] },
-    { surah:"مريم", ayah:"وَكَانَ رَبُّكَ قَدِيرًا", blank:"قَدِيرًا", wrong:["عَلِيمًا","رَحِيمًا","بَصِيرًا"] },
+    { surah:"الفرقان", ayah:"وَكَانَ رَبُّكَ قَدِيرًا", blank:"قَدِيرًا", wrong:["عَلِيمًا","رَحِيمًا","بَصِيرًا"] },
     { surah:"الأنبياء", ayah:"وَمَا أَرْسَلْنَاكَ إِلَّا رَحْمَةً لِّلْعَالَمِينَ", blank:"رَحْمَةً", wrong:["نِعْمَةً","بُشْرَىٰ","هِدَايَةً"] },
     { surah:"الحج", ayah:"وَأَذِّن فِي النَّاسِ بِالْحَجِّ يَأْتُوكَ رِجَالًا", blank:"يَأْتُوكَ", wrong:["يَلْبُّوكَ","يَقْصِدُوكَ","يَأْمُّوكَ"] },
     { surah:"النور", ayah:"اللَّهُ نُورُ السَّمَاوَاتِ وَالْأَرْضِ", blank:"نُورُ", wrong:["خَالِقُ","رَازِقُ","مَلِكُ"] },
@@ -1988,7 +1969,7 @@ const QURAN_DB = {
     { surah:"العنكبوت", ayah:"وَمَا الْحَيَاةُ الدُّنْيَا إِلَّا لَعِبٌ وَلَهْوٌ", blank:"وَلَهْوٌ", wrong:["وَزَهْرَةٌ","وَغُرُورٌ","وَبَهْجَةٌ"] },
     { surah:"لقمان", ayah:"وَلَقَدْ آتَيْنَا لُقْمَانَ الْحِكْمَةَ", blank:"الْحِكْمَةَ", wrong:["الْعِلْمَ","النُّبُوَّةَ","الْفَهْمَ"] },
     { surah:"الزمر", ayah:"وَنُفِخَ فِي الصُّورِ فَصَعِقَ مَن فِي السَّمَاوَاتِ وَمَن فِي الْأَرْضِ", blank:"فَصَعِقَ", wrong:["فَخَرَّ","فَسَقَطَ","فَمَاتَ"] },
-    { surah:"الأحزاب", ayah:"وَاذْكُرُوا اللَّهَ كَثِيرًا لَّعَلَّكُمْ تُفْلِحُونَ", blank:"تُفْلِحُونَ", wrong:["تَنْجَحُونَ","تَسْعَدُونَ","تُرْحَمُونَ"] },
+    { surah:"الجمعة", ayah:"وَاذْكُرُوا اللَّهَ كَثِيرًا لَّعَلَّكُمْ تُفْلِحُونَ", blank:"تُفْلِحُونَ", wrong:["تَنْجَحُونَ","تَسْعَدُونَ","تُرْحَمُونَ"] },
   ],
 
   // ===== المستوى ٣: المتقدم - آيات أعمق =====
@@ -2036,7 +2017,7 @@ const QURAN_DB = {
     { surah:"المائدة", ayah:"وَمَن أَحْيَاهَا فَكَأَنَّمَا أَحْيَا النَّاسَ جَمِيعًا", blank:"النَّاسَ جَمِيعًا", wrong:["الْبَشَرَ كُلَّهُمْ","الْخَلْقَ أَجْمَعَ","كُلَّ إِنْسَانٍ"] },
     { surah:"الأنفال", ayah:"وَأَطِيعُوا اللَّهَ وَرَسُولَهُ وَلَا تَنَازَعُوا فَتَفْشَلُوا", blank:"فَتَفْشَلُوا", wrong:["فَتَهْلِكُوا","فَتَضْعُفُوا","فَتَخْسَرُوا"] },
     { surah:"التوبة", ayah:"التَّائِبُونَ الْعَابِدُونَ الْحَامِدُونَ السَّائِحُونَ الرَّاكِعُونَ السَّاجِدُونَ", blank:"السَّائِحُونَ", wrong:["الصَّائِمُونَ","الشَّاكِرُونَ","الصَّادِقُونَ"] },
-    { surah:"هود", ayah:"أَلَا إِنَّ أَوْلِيَاءَ اللَّهِ لَا خَوْفٌ عَلَيْهِمْ وَلَا هُمْ يَحْزَنُونَ", blank:"لَا خَوْفٌ عَلَيْهِمْ", wrong:["مُكَرَّمُونَ عِنْدَهُ","مَحْفُوظُونَ بِهِ","لَهُمُ الْبُشْرَى"] },
+    { surah:"يونس", ayah:"أَلَا إِنَّ أَوْلِيَاءَ اللَّهِ لَا خَوْفٌ عَلَيْهِمْ وَلَا هُمْ يَحْزَنُونَ", blank:"لَا خَوْفٌ عَلَيْهِمْ", wrong:["مُكَرَّمُونَ عِنْدَهُ","مَحْفُوظُونَ بِهِ","لَهُمُ الْبُشْرَى"] },
     { surah:"يوسف", ayah:"وَاللَّهُ غَالِبٌ عَلَىٰ أَمْرِهِ وَلَٰكِنَّ أَكْثَرَ النَّاسِ لَا يَعْلَمُونَ", blank:"غَالِبٌ", wrong:["قَادِرٌ","حَاكِمٌ","مُتَصَرِّفٌ"] },
     { surah:"الرعد", ayah:"إِنَّ اللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا مَا بِأَنفُسِهِمْ", blank:"يُغَيِّرُوا", wrong:["يُصْلِحُوا","يُحَوِّلُوا","يُبَدِّلُوا"] },
     { surah:"إبراهيم", ayah:"وَإِذْ قَالَ إِبْرَاهِيمُ رَبِّ اجْعَلْ هَٰذَا الْبَلَدَ آمِنًا", blank:"آمِنًا", wrong:["مُبَارَكًا","عَظِيمًا","طَيِّبًا"] },
@@ -2075,7 +2056,7 @@ const QURAN_DB = {
     { surah:"التوبة", ayah:"إِنَّ اللَّهَ اشْتَرَىٰ مِنَ الْمُؤْمِنِينَ أَنفُسَهُمْ وَأَمْوَالَهُم بِأَنَّ لَهُمُ الْجَنَّةَ", blank:"اشْتَرَىٰ", wrong:["قَبِلَ","اتَّخَذَ","أَخَذَ"] },
     { surah:"يونس", ayah:"أَلَا إِنَّ أَوْلِيَاءَ اللَّهِ لَا خَوْفٌ عَلَيْهِمْ وَلَا هُمْ يَحْزَنُونَ", blank:"لَا خَوْفٌ عَلَيْهِمْ وَلَا هُمْ يَحْزَنُونَ", wrong:["لَهُمُ الْبُشْرَى فِي الْحَيَاةِ","مُنَعَّمُونَ فِي الْجَنَّةِ","مَحْفُوظُونَ بِرَحْمَةِ اللَّهِ"] },
     { surah:"هود", ayah:"وَإِلَى ثَمُودَ أَخَاهُمْ صَالِحًا قَالَ يَا قَوْمِ اعْبُدُوا اللَّهَ مَا لَكُم مِّنْ إِلَٰهٍ غَيْرُهُ", blank:"اعْبُدُوا اللَّهَ", wrong:["آمِنُوا بِاللَّهِ","أَطِيعُوا اللَّهَ","اتَّقُوا اللَّهَ"] },
-    { surah:"يوسف", ayah:"وَأُفَوِّضُ أَمْرِي إِلَى اللَّهِ إِنَّ اللَّهَ بَصِيرٌ بِالْعِبَادِ", blank:"أُفَوِّضُ", wrong:["أَكِلُ","أَسْلِمُ","أَرُدُّ"] },
+    { surah:"غافر", ayah:"وَأُفَوِّضُ أَمْرِي إِلَى اللَّهِ إِنَّ اللَّهَ بَصِيرٌ بِالْعِبَادِ", blank:"أُفَوِّضُ", wrong:["أَكِلُ","أَسْلِمُ","أَرُدُّ"] },
     { surah:"الرعد", ayah:"أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ", blank:"تَطْمَئِنُّ", wrong:["تَسْكُنُ","تَرْتَاحُ","تَهْدَأُ"] },
     { surah:"إبراهيم", ayah:"رَّبِّ اجْعَلْنِي مُقِيمَ الصَّلَاةِ وَمِن ذُرِّيَّتِي رَبَّنَا وَتَقَبَّلْ دُعَاءِ", blank:"مُقِيمَ الصَّلَاةِ", wrong:["مُحَافِظًا عَلَى الصَّلَاةِ","مُؤَدِّيًا لِلصَّلَاةِ","مُلَازِمًا لِلصَّلَاةِ"] },
     { surah:"الحجر", ayah:"وَلَقَدْ خَلَقْنَا الْإِنسَانَ مِن صَلْصَالٍ مِّنْ حَمَإٍ مَّسْنُونٍ", blank:"صَلْصَالٍ", wrong:["طِينٍ","تُرَابٍ","فَخَّارٍ"] },
@@ -2084,7 +2065,7 @@ const QURAN_DB = {
     { surah:"الكهف", ayah:"وَلَا تَقُولَنَّ لِشَيْءٍ إِنِّي فَاعِلٌ ذَٰلِكَ غَدًا إِلَّا أَن يَشَاءَ اللَّهُ", blank:"إِلَّا أَن يَشَاءَ اللَّهُ", wrong:["إِلَّا بِإِذْنِ اللَّهِ","إِلَّا أَنْ يَأْذَنَ اللَّهُ","إِلَّا بِتَوْفِيقِ اللَّهِ"] },
     { surah:"طه", ayah:"فَاصْبِرْ عَلَىٰ مَا يَقُولُونَ وَسَبِّحْ بِحَمْدِ رَبِّكَ قَبْلَ طُلُوعِ الشَّمْسِ وَقَبْلَ غُرُوبِهَا", blank:"قَبْلَ طُلُوعِ الشَّمْسِ", wrong:["قَبْلَ الشُّرُوقِ","بَكَرَةً","فِي الْفَجْرِ"] },
     { surah:"الأنبياء", ayah:"رَبِّ لَا تَذَرْنِي فَرْدًا وَأَنتَ خَيْرُ الْوَارِثِينَ", blank:"خَيْرُ الْوَارِثِينَ", wrong:["أَحْسَنُ الرَّازِقِينَ","أَكْرَمُ الرَّاحِمِينَ","أَرْحَمُ الرَّاحِمِينَ"] },
-    { surah:"الحج", ayah:"وَإِن تَعُدُّوا نِعْمَةَ اللَّهِ لَا تُحْصُوهَا", blank:"لَا تُحْصُوهَا", wrong:["لَا تَسْتَطِيعُوهَا","لَا تَعُدُّوهَا","لَا تُطِيقُوهَا"] },
+    { surah:"النحل", ayah:"وَإِن تَعُدُّوا نِعْمَةَ اللَّهِ لَا تُحْصُوهَا", blank:"لَا تُحْصُوهَا", wrong:["لَا تَسْتَطِيعُوهَا","لَا تَعُدُّوهَا","لَا تُطِيقُوهَا"] },
     { surah:"المؤمنون", ayah:"وَالَّذِينَ هُمْ لِأَمَانَاتِهِمْ وَعَهْدِهِمْ رَاعُونَ", blank:"رَاعُونَ", wrong:["مُحَافِظُونَ","وَافُونَ","قَائِمُونَ"] },
     { surah:"النور", ayah:"يَهْدِي اللَّهُ لِنُورِهِ مَن يَشَاءُ وَيَضْرِبُ اللَّهُ الْأَمْثَالَ لِلنَّاسِ", blank:"وَيَضْرِبُ اللَّهُ الْأَمْثَالَ", wrong:["وَيُبَيِّنُ اللَّهُ الطُّرُقَ","وَيُوَضِّحُ اللَّهُ السُّبُلَ","وَيُرِي اللَّهُ الْحَقَّ"] },
     { surah:"الفرقان", ayah:"وَقَالَ الرَّسُولُ يَا رَبِّ إِنَّ قَوْمِي اتَّخَذُوا هَٰذَا الْقُرْآنَ مَهْجُورًا", blank:"مَهْجُورًا", wrong:["مَتْرُوكًا","مُهْمَلًا","مَكْرُوهًا"] },
@@ -2286,8 +2267,6 @@ function doLogout() {
   currentUser = null;
   window.currentUser = null;
   window._lbAllList = null;
-  const _rc = document.getElementById('myRankCard');
-  if (_rc) _rc.style.display = 'none';
   try { localStorage.removeItem('nour_last_user'); } catch(e) {}
   if (typeof window._resetAuthDone === 'function') window._resetAuthDone();
   if (typeof window.fbLogout === 'function') window.fbLogout();
@@ -2336,61 +2315,8 @@ function saveCurrentUser() {
 // ============================================================
 // ===== MY RANK IN LEADERBOARD =====
 // ============================================================
-window._renderMyRank = function(list) {
-  const card = document.getElementById('myRankCard');
-  if (!card) return;
-  if (!window.currentUser || !window.currentUser.username) { card.style.display = 'none'; return; }
-
-  const me = window.currentUser;
-  const myKey = typeof window._makeKey === 'function'
-    ? window._makeKey(me.username, me.isGuest || false)
-    : me.username;
-
-  // البحث عن المستخدم في القائمة المرتبة — القائمة مرتبة تنازلياً بـ totalScore
-  // list = [[key, data], ...]
-  let rank = -1;
-  let myEntry = null;
-
-  // نبحث عن المستخدم بالـ key أو بالاسم
-  for (let i = 0; i < list.length; i++) {
-    const [k, d] = list[i];
-    if (k === myKey || d.name === me.username) {
-      rank = i + 1;
-      myEntry = d;
-      break;
-    }
-  }
-
-  // لو المستخدم عنده نقاط بس مش في اللوحة بعد (نقاطه صفر على Firebase)
-  // نعرض بياناته المحلية مع رتبة تقريبية
-  const myScore = me.totalScore || 0;
-  const myHasanat = me.totalHasanat || 0;
-  const myGames = me.totalGames || 0;
-
-  // لو مش في اللوحة وعنده نقاط → احسب رتبته التقريبية
-  if (rank === -1 && myScore > 0) {
-    rank = list.filter(([, d]) => (d.totalScore || 0) > myScore).length + 1;
-  }
-
-  // لو نقاطه صفر ومش في اللوحة — اخفي البطاقة
-  if (rank === -1 && myScore === 0) {
-    card.style.display = 'none';
-    return;
-  }
-
-  // رتبة الـ emoji
-  const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉'
-    : rank <= 10 ? '🏅' : rank <= 20 ? '⭐' : '🌱';
-
-  card.style.display = 'block';
-  const toA = n => String(Math.round(n || 0)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
-
-  document.getElementById('myRankNum').textContent = '#' + toA(rank);
-  document.getElementById('myRankName').textContent = me.username;
-  document.getElementById('myRankScore').textContent = toA(myEntry ? (myEntry.totalScore || 0) : myScore);
-  document.getElementById('myRankGames').textContent = toA(myEntry ? (myEntry.totalGames || 0) : myGames);
-  document.getElementById('myRankEmoji').textContent = rankEmoji;
-};
+// myRankCard تم إزالتها — هذه الدالة محتفظ بها للتوافق مع الكودات الأخرى
+window._renderMyRank = function(list) { return; };
 
 function showLoginErr(msg) {
   document.getElementById('loginErr').textContent = msg;
@@ -2684,6 +2610,9 @@ function lbGoTo(idx) {
     window.lbPodiumTimer = lbPodiumTimer;
   }
 }
+
+// alias للـ Firebase compat script اللي بيستدعيها
+window._lbShowSlide = lbGoTo;
 
 function lbRestGoTo(idx) {
   const pages = document.querySelectorAll('.lb-rest-page');
@@ -3825,9 +3754,9 @@ function _showDualSlider(total) {
 }
 
 function _hideDualSlider() {
+  const wrap = document.getElementById('dualSliderWrap');
+  if (wrap) wrap.style.display = 'none';
   _dsMin = 1; _dsMax = 50; _dsFrom = 1; _dsTo = 20;
-  _showDualSlider(50);
-  _dsTo = 20; _dsFrom = 1;
   _dsRender();
   _dsUpdate();
 }
@@ -4970,8 +4899,6 @@ function resetScore() {
     // Firebase — احذف المستخدم من اللوحة
     if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(currentUser.username, currentUser.isGuest);
     window._lbAllList = null;
-    const _rc = document.getElementById('myRankCard');
-    if (_rc) _rc.style.display = 'none';
     updateHomeStats();
     renderLeaderboard();
     showToast('✅ تم تصفير النقاط');
@@ -5010,7 +4937,6 @@ function deleteAccount() {
     currentUser = null;
     window.currentUser = null;
     window._lbAllList = null;
-    document.getElementById('myRankCard').style.display = 'none';
     showScreen('homeScreen');
     document.getElementById('loginScreen').classList.remove('hide');
     showToast('✅ تم حذف الحساب');
