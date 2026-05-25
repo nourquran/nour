@@ -1728,7 +1728,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
           </div>
         </div>
         <div id="multiAyahCard" style="background:rgba(255,254,249,0.04);border:1px solid rgba(201,151,58,0.2);border-radius:20px;padding:20px;margin-bottom:14px;text-align:center;">
-          <div id="multiSurahLbl" style="font-size:12px;color:var(--gold);margin-bottom:10px;"></div>
+          <div id="multiSurahLbl" style="font-size:12px;color:var(--gold);margin-bottom:6px;"></div>
+          <div id="multiQTypePill" style="display:none;margin-bottom:10px;"></div>
           <div id="multiAyahText" style="font-family:'Amiri',serif;font-size:26px;line-height:2.2;color:var(--cream);direction:rtl;"></div>
         </div>
         <div id="multiChoicesWrap" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;"></div>
@@ -2106,23 +2107,31 @@ function doLogin() {
   const pass = document.getElementById('loginPass').value;
   if (!user || !pass) { showLoginErr('أدخل اسم المستخدم وكلمة المرور'); return; }
 
+  // ── دخول فوري: أخفي اللوجين فوراً لو الباسورد صح محلياً ──
+  const users = getUsers();
+  if (users[user]) {
+    if (users[user].password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
+    // أخفي اللوجين في نفس اللحظة قبل أي حاجة تانية
+    document.getElementById('loginScreen').classList.add('hide');
+    loginSuccess(user, users[user]);
+    // Firebase في الـ background بصمت
+    if (typeof window.fbLogin === 'function') window.fbLogin(user, pass, () => {}, () => {});
+    return;
+  }
+
+  // جهاز جديد أو أول مرة → Firebase
   if (typeof window.fbLogin === 'function') {
     window.fbLogin(user, pass,
       () => {
-        // ندخله محلياً فوراً — onAuthStateChanged هيحدّث البيانات من Firebase لو نجح
         if (!window.currentUser) {
-          const users = getUsers();
-          const data = users[user] || createDefaultUserData();
-          loginSuccess(user, data);
+          const u2 = getUsers();
+          loginSuccess(user, u2[user] || createDefaultUserData());
         }
       },
       (errMsg) => { showLoginErr(errMsg); }
     );
   } else {
-    const users = getUsers();
-    if (!users[user]) { showLoginErr('اسم المستخدم غير موجود'); return; }
-    if (users[user].password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
-    loginSuccess(user, users[user]);
+    showLoginErr('اسم المستخدم غير موجود');
   }
 }
 
@@ -6244,6 +6253,22 @@ function _renderMultiQuestion() {
   document.getElementById('multiProgressFill').style.width = ((multiState.qIndex / multiState.totalQ) * 100) + '%';
   document.getElementById('multiMyScore').textContent = toArabicNum(multiState.myScore);
   document.getElementById('multiSurahLbl').textContent = 'سورة ' + q.surah;
+
+  // عنوان نوع السؤال
+  const multiPill = document.getElementById('multiQTypePill');
+  const pillLabels = {
+    next:      { text: '➡️ ما هي الآية التي تليها؟',       color: '#85C1E9' },
+    prev:      { text: '⬅️ ما هي الآية التي تسبقها؟',      color: '#C39BD3' },
+    num:       { text: '🔢 ما رقم هذه الآية؟',              color: 'var(--gold)' },
+    similar:   { text: '🔍 أي الخيارات هي الآية الصحيحة؟', color: '#85C1E9' },
+    firstword: { text: '🔤 أكمل الآية من أولها',             color: '#C39BD3' },
+    reverse:   { text: '🔃 أكمل الآية من آخرها',            color: 'var(--gold)' },
+    blank:     { text: '✏️ أكمل الكلمة الناقصة',            color: 'var(--gold)' },
+  };
+  const pInfo = pillLabels[q.qtype] || pillLabels['blank'];
+  multiPill.style.display = 'block';
+  multiPill.style.cssText = `display:block;font-size:13px;font-weight:700;font-family:'Cairo',sans-serif;color:${pInfo.color};background:rgba(255,254,249,0.05);border:1px solid ${pInfo.color}40;border-radius:20px;padding:5px 14px;display:inline-block;margin-bottom:10px;`;
+  multiPill.textContent = pInfo.text;
 
   // عرض الآية
   const blankHTML = '<span style="display:inline-block;background:rgba(201,151,58,0.15);border-bottom:2px solid var(--gold);min-width:80px;height:1.2em;vertical-align:middle;border-radius:4px;"></span>';
