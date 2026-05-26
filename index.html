@@ -1112,8 +1112,48 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       })
       .catch(e => {
         if (e.code === 'auth/email-already-in-use') {
-          // الحساب موجود بالفعل — لا ندخّل المستخدم مهما كانت كلمة المرور
-          onError('هذا الاسم مستخدم بالفعل، سجّل دخولاً أو اختر اسماً آخر');
+          // ★ تحقق لو الحساب ده كان محذوف من قبل (Auth user مش اتمسح بسبب توكن قديم)
+          get(ref(db, 'nour_deleted/' + key)).then(snap => {
+            if (snap.exists()) {
+              // الحساب محذوف فعلاً — حاول تعمل sign in ثم delete ثم create جديد
+              signInWithEmailAndPassword(auth, email, padPass(password))
+                .then(cred => cred.user.delete())
+                .then(() => {
+                  // Auth user اتحذف — دلوقتي اعمل الحساب الجديد
+                  return createUserWithEmailAndPassword(auth, email, padPass(password));
+                })
+                .then(() => {
+                  _clearBlacklist();
+                  set(ref(db, 'users/' + key + '/profile'), {
+                    username, createdAt: Date.now()
+                  }).catch(() => {});
+                  onSuccess();
+                })
+                .catch(e2 => {
+                  if (e2.code === 'auth/wrong-password' || e2.code === 'auth/invalid-credential') {
+                    // كلمة مرور الحساب القديم مختلفة — مستحيل نحذفه بدون re-auth
+                    // نعامله كحساب جديد تماماً بـ email مختلف (نضيف timestamp)
+                    const altEmail = key + '_' + Date.now() + '@gmail.com';
+                    createUserWithEmailAndPassword(auth, altEmail, padPass(password))
+                      .then(() => {
+                        _clearBlacklist();
+                        set(ref(db, 'users/' + key + '/profile'), {
+                          username, createdAt: Date.now()
+                        }).catch(() => {});
+                        onSuccess();
+                      })
+                      .catch(() => onError('خطأ في الإنشاء، حاول مجدداً'));
+                  } else {
+                    onError('خطأ في الإنشاء، حاول مجدداً');
+                  }
+                });
+            } else {
+              // الحساب موجود فعلاً ومش محذوف — ارفض
+              onError('هذا الاسم مستخدم بالفعل، سجّل دخولاً أو اختر اسماً آخر');
+            }
+          }).catch(() => {
+            onError('هذا الاسم مستخدم بالفعل، سجّل دخولاً أو اختر اسماً آخر');
+          });
         }
         else if (e.code === 'auth/weak-password') onError('كلمة المرور قصيرة جداً');
         else onError('خطأ في الإنشاء، حاول مجدداً');
@@ -1214,24 +1254,32 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     if (!user) { _authDone = false; return; }
     if (_authDone) return;
     if (window._registering) return;  // جاري تسجيل حساب جديد — لا تتدخل
-    if (window._accountDeleted) return;
+    if (window._accountDeleted) { signOut(auth).catch(() => {}); return; }
 
     const emailKey0 = (user.email || '').replace(/@.*$/, '');
+
+    // ★ لو الـ user مجهول (anonymous) — مش account حقيقي، تجاهل
+    if (user.isAnonymous) return;
 
     // ★ تحقق من الـ blacklist محلياً أولاً (سريع — بدون انتظار Firebase)
     try {
       const deleted = JSON.parse(localStorage.getItem('nour_deleted_accounts') || '{}');
       if (deleted[emailKey0]) {
         signOut(auth).catch(() => {});
+        // حاول تحذف الـ Auth user لو لسه موجود
+        user.delete().catch(() => {});
         return;
       }
     } catch(e) {}
 
     // ★ تحقق من الـ blacklist على Firebase (للأجهزة الجديدة)
+    // لا تعمل loginSuccess قبل ما الـ check يخلص — منع الدخول المبكر
     get(ref(db, 'nour_deleted/' + emailKey0)).then(snap => {
       if (snap.exists()) {
         // الحساب محذوف — أوقف Auth وامنع الدخول
         signOut(auth).catch(() => {});
+        // حاول تحذف الـ Auth user نهائياً
+        user.delete().catch(() => {});
         // احفظه محلياً عشان المرة الجاية تكون أسرع
         try {
           const del2 = JSON.parse(localStorage.getItem('nour_deleted_accounts') || '{}');
@@ -1386,7 +1434,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   };
 
   // حذف المستخدم من اللوحة عند التصفير
-  window.fbDeleteUser = function(username, isGuest) {
+  window.fbDeleteUser = function(username, isGuest, storedPass) {
     const key = makeKey(username, isGuest);
     const keyAlt = makeKey(username, !isGuest);
     console.log('Deleting Firebase key:', key);
@@ -1411,13 +1459,27 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       remove(ref(db, 'users/' + key))
         .catch(e => console.error('fbDelete user DB error:', e));
     }
-    // مسح حساب Firebase Auth نفسه
+
+    // ★ مسح حساب Firebase Auth نفسه مع re-auth لو محتاج
     const fbUser = auth.currentUser;
-    if (fbUser) {
-      fbUser.delete()
-        .catch(e => {
-          console.warn('Auth delete warning:', e.code);
+    if (fbUser && !fbUser.isAnonymous) {
+      const _doDelete = (userObj) => {
+        userObj.delete().catch(e => {
+          if (e.code === 'auth/requires-recent-login' && storedPass && userObj.email) {
+            // توكن قديم — نعمل re-auth بالباسورد المحفوظ
+            signInWithEmailAndPassword(auth, userObj.email, padPass(storedPass))
+              .then(cred => cred.user.delete())
+              .catch(() => {
+                // مش قدرنا نحذف — الـ blacklist على Firebase كافي لمنع الدخول
+                set(ref(db, 'nour_deleted/' + key), { deletedAt: Date.now(), username, permanent: true }).catch(() => {});
+              });
+          } else {
+            // خطأ تاني — نكتفي بالـ blacklist
+            set(ref(db, 'nour_deleted/' + key), { deletedAt: Date.now(), username, permanent: true }).catch(() => {});
+          }
         });
+      };
+      _doDelete(fbUser);
     }
   };
 
@@ -2748,7 +2810,7 @@ function lbRestGoTo(idx) {
 // ============================================================
 // ===== QUESTION COUNT =====
 // ============================================================
-let selectedQCount = 50;
+let selectedQCount = 20;
 
 function onQcountChange(val) {
   selectedQCount = parseInt(val);
@@ -3020,8 +3082,15 @@ function selectLevel(idx) {
     if (filterSec) filterSec.style.pointerEvents = 'none', filterSec.style.opacity = '0.3';
     if (filterJuz) filterJuz.style.pointerEvents = 'none', filterJuz.style.opacity = '0.3';
     if (sheetTabs) sheetTabs.style.pointerEvents = 'none', sheetTabs.style.opacity = '0.3';
-    // إظهار الـ dual slider بـ 1-50
-    _showRandomSlider();
+    // إظهار الـ dual slider بـ 0-50 لاختيار عدد الأسئلة
+    _dsMin = 0; _dsMax = 50; _dsFrom = 0; _dsTo = 20;
+    const wrap = document.getElementById('dualSliderWrap');
+    if (wrap) wrap.style.display = 'block';
+    const ticksEl = document.getElementById('dualTicks');
+    if (ticksEl) ticksEl.innerHTML = '<span>٠</span><span>١٠</span><span>٢٠</span><span>٣٠</span><span>٤٠</span><span>٥٠</span>';
+    const resetBtn = document.getElementById('resetDualBtn');
+    if (resetBtn) resetBtn.textContent = '🔢 كل النطاق';
+    _dsRender(); _dsUpdate();
     showToast('🌐 الحكيم — مزيج عشوائي من كل القرآن دايماً');
   } else {
     // إعادة تفعيل الفلتر
@@ -3032,8 +3101,6 @@ function selectLevel(idx) {
     if (filterJuz) filterJuz.style.pointerEvents = '', filterJuz.style.opacity = '';
     if (sheetTabs) sheetTabs.style.pointerEvents = '', sheetTabs.style.opacity = '';
     const sh = document.getElementById('surahHint'); if (sh && sh.textContent.includes('لا يمكن')) sh.textContent = '';
-    // إظهار الـ slider في وضع العشوائي العادي كمان
-    if (!selectedSurah && !selectedJuz) _showRandomSlider();
   }
 
   // forcedMode: قفل الـ mode للمستويات الصعبة
@@ -3730,6 +3797,7 @@ function _surahDropdownSelect(value, label) {
       _showDualSlider(realCount);
     }
   } else {
+    // مفيش سورة — أظهر السلايدر للـ random (0-50)
     _showRandomSlider();
     selectedFromAyah = 1;
     selectedToAyah = null;
@@ -3754,7 +3822,7 @@ function clearSurahFilter() {
 // ============================================================
 // ===== CUSTOM DUAL SLIDER =====
 // ============================================================
-let _dsMin = 1, _dsMax = 50, _dsFrom = 1, _dsTo = 50;
+let _dsMin = 0, _dsMax = 50, _dsFrom = 0, _dsTo = 20;
 
 function _dsInit() {
   const wrap  = document.getElementById('dualTrackWrap');
@@ -3769,6 +3837,9 @@ function _dsInit() {
       let pct = 1 - (clientX - rect.left) / rect.width;
       pct = Math.max(0, Math.min(1, pct));
       let val = Math.round(_dsMin + pct * (_dsMax - _dsMin));
+      // في الـ random mode: snap لأقرب زوجي (0,2,4,...50)
+      const isRandMode = !window.selectedSurah && !window.selectedJuz;
+      if (isRandMode) val = Math.round(val / 2) * 2;
       if (isFrom) {
         _dsFrom = Math.min(val, _dsTo);
       } else {
@@ -3793,8 +3864,9 @@ function _dsInit() {
     }, {passive:false});
     // keyboard
     thumb.addEventListener('keydown', e => {
-      if (e.key === 'ArrowRight') { isFrom ? (_dsFrom = Math.max(_dsMin, _dsFrom-1)) : (_dsTo = Math.max(_dsFrom, _dsTo-1)); _dsRender(); _dsUpdate(); }
-      if (e.key === 'ArrowLeft')  { isFrom ? (_dsFrom = Math.min(_dsTo, _dsFrom+1)) : (_dsTo = Math.min(_dsMax, _dsTo+1)); _dsRender(); _dsUpdate(); }
+      const _kstep = (!window.selectedSurah && !window.selectedJuz) ? 2 : 1;
+      if (e.key === 'ArrowRight') { isFrom ? (_dsFrom = Math.max(_dsMin, _dsFrom-_kstep)) : (_dsTo = Math.max(_dsFrom, _dsTo-_kstep)); _dsRender(); _dsUpdate(); }
+      if (e.key === 'ArrowLeft')  { isFrom ? (_dsFrom = Math.min(_dsTo, _dsFrom+_kstep)) : (_dsTo = Math.min(_dsMax, _dsTo+_kstep)); _dsRender(); _dsUpdate(); }
     });
   }
 
@@ -3825,17 +3897,25 @@ function _dsUpdate() {
   const isRandom = !selectedSurah && !selectedJuz;
   selectedFromAyah = _dsFrom;
   selectedToAyah   = _dsTo;
-  selectedQCount   = _dsTo - _dsFrom + 1;
+  if (isRandom) {
+    selectedQCount = _dsTo;
+  } else {
+    selectedQCount = _dsTo - _dsFrom + 1;
+  }
   document.getElementById('qcountDisplay').textContent = toArabicNum(selectedQCount);
   const summary = document.getElementById('dualRangeSummary');
-  if (_dsFrom === _dsMin && _dsTo === _dsMax) {
-    summary.textContent = selectedSurah
-      ? ('📖 كل السورة — ' + toArabicNum(_dsMax) + ' ' + ayatWord(_dsMax))
-      : ('🔢 كل النطاق — ' + toArabicNum(_dsMax) + ' سؤال');
+  if (isRandom) {
+    if (_dsFrom === _dsTo) {
+      summary.textContent = _dsTo === 0 ? '⚠️ اختر عدد أسئلة أكبر من صفر' : ('🎲 ' + toArabicNum(_dsTo) + ' سؤال عشوائي');
+    } else if (_dsFrom === 0) {
+      summary.textContent = '🎲 ' + toArabicNum(_dsTo) + ' سؤال عشوائي';
+    } else {
+      summary.textContent = '🎲 من ' + toArabicNum(_dsFrom) + ' إلى ' + toArabicNum(_dsTo) + ' سؤال — سيختار ' + toArabicNum(selectedQCount) + ' عشوائياً';
+    }
+  } else if (_dsFrom === _dsMin && _dsTo === _dsMax) {
+    summary.textContent = '📖 كل السورة — ' + toArabicNum(_dsMax) + ' ' + ayatWord(_dsMax);
   } else {
-    summary.textContent = selectedSurah
-      ? ('من آية ' + toArabicNum(_dsFrom) + ' إلى آية ' + toArabicNum(_dsTo) + ' ـ ' + toArabicNum(selectedQCount) + ' ' + ayatWord(selectedQCount))
-      : ('من سؤال ' + toArabicNum(_dsFrom) + ' إلى سؤال ' + toArabicNum(_dsTo) + ' — ' + toArabicNum(selectedQCount) + ' سؤال');
+    summary.textContent = 'من آية ' + toArabicNum(_dsFrom) + ' إلى آية ' + toArabicNum(_dsTo) + ' ـ ' + toArabicNum(selectedQCount) + ' ' + ayatWord(selectedQCount);
   }
 }
 
@@ -3843,6 +3923,27 @@ function ayatWord(n) {
   if (n === 1) return 'آية';
   if (n === 2) return 'آيتان';
   return 'آيات';
+}
+
+function _showRandomSlider() {
+  // أظهر السلايدر في وضع عشوائي: من 0 إلى 50 بخطوة 2
+  document.getElementById('dualSliderWrap').style.display = 'block';
+  const resetBtn = document.getElementById('resetDualBtn');
+  if (resetBtn) resetBtn.textContent = '🔢 كل النطاق';
+  _dsMin = 0; _dsMax = 50;
+  // لو القيم الحالية خارج النطاق أو كانت من سورة، أعد ضبطها
+  if (_dsFrom < 0 || _dsFrom > 50 || _dsTo < 0 || _dsTo > 50 || _dsMin > 1) {
+    _dsFrom = 0; _dsTo = 20;
+  }
+  // snap للأزواج
+  _dsFrom = Math.round(_dsFrom / 2) * 2;
+  _dsTo   = Math.round(_dsTo   / 2) * 2;
+  const ticksEl = document.getElementById('dualTicks');
+  if (ticksEl) ticksEl.innerHTML = '<span>٠</span><span>١٠</span><span>٢٠</span><span>٣٠</span><span>٤٠</span><span>٥٠</span>';
+  const lbl = document.getElementById('qcountLabelText');
+  if (lbl) lbl.textContent = 'عدد الأسئلة العشوائية';
+  _dsRender();
+  _dsUpdate();
 }
 
 function _showDualSlider(total) {
@@ -3866,25 +3967,10 @@ function _showDualSlider(total) {
   _dsUpdate();
 }
 
-function _showRandomSlider() {
-  _dsMin = 1; _dsMax = 50;
-  if (_dsTo < 1 || _dsTo > 50) _dsTo = 50;
-  if (_dsFrom < 1 || _dsFrom > _dsTo) _dsFrom = 1;
-  const sw = document.getElementById('dualSliderWrap');
-  if (sw) sw.style.display = 'block';
-  const te = document.getElementById('dualTicks');
-  if (te) te.innerHTML = '<span>1</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span>';
-  const rb = document.getElementById('resetDualBtn');
-  if (rb) rb.textContent = 'كل النطاق (50)';
-  const lbl = document.getElementById('qcountLabelText');
-  if (lbl) lbl.textContent = 'اختر عدد الأسئلة في كل جلسة';
-  _dsRender(); _dsUpdate();
-}
-
 function _hideDualSlider() {
   const wrap = document.getElementById('dualSliderWrap');
   if (wrap) wrap.style.display = 'none';
-  _dsMin = 1; _dsMax = 50; _dsFrom = 1; _dsTo = 20;
+  _dsMin = 0; _dsMax = 50; _dsFrom = 0; _dsTo = 20;
   _dsRender();
   _dsUpdate();
 }
@@ -4371,6 +4457,8 @@ function buildQuestionsFromLocal(count) {
 
 function startGame() {
   if (!currentUser) return;
+  // منع البدء لو عدد الأسئلة = 0
+  if (selectedQCount === 0) { showToast('⚠️ اختر عدد أسئلة أكبر من صفر'); return; }
 
   let qs = null;
   const lvlStart = LEVEL_DEFS[state.level];
@@ -5045,15 +5133,22 @@ function deleteAccount() {
     // ⓪ أوقف أي دخول تلقائي فوراً — لازم يكون أول حاجة
     window._accountDeleted = true;
 
-    // ① مسح من nour_users أولاً — ده اللي بيمنع الدخول التلقائي
+    // ① احفظ الباسورد قبل ما نمسح اللوكال ستوراج — محتاجينه للـ re-auth
+    let storedPass = null;
+    try {
+      const usersSnap = getUsers();
+      storedPass = usersSnap[u] && usersSnap[u].password ? atob(usersSnap[u].password) : null;
+    } catch(e) {}
+
+    // ② مسح من nour_users أولاً — ده اللي بيمنع الدخول التلقائي
     const users = getUsers();
     delete users[u];
     saveUsers(users);
 
-    // ② مسح nour_last_user فوراً عشان الـ auto-login مايلاقيش حاجة
+    // ③ مسح nour_last_user فوراً عشان الـ auto-login مايلاقيش حاجة
     localStorage.removeItem('nour_last_user');
 
-    // ③ مسح باقي بيانات المستخدم من localStorage — كل المفاتيح المرتبطة بالمستخدم
+    // ④ مسح باقي بيانات المستخدم من localStorage — كل المفاتيح المرتبطة بالمستخدم
     const directKeys = [
       'nour_mistakes_'       + u,
       'nour_mistakes_guest',
@@ -5066,20 +5161,22 @@ function deleteAccount() {
     ];
     directKeys.forEach(k => localStorage.removeItem(k));
 
-    // ④ مسح أي مفاتيح ديناميكية (multi، وغيرها) — بنمسح كل حاجة بتبدأ بـ nour_
+    // ⑤ مسح أي مفاتيح ديناميكية — بنمسح كل حاجة بتبدأ بـ nour_
+    // ★ استثناء: nour_deleted_accounts لازم يفضل موجود عشان يمنع الـ auto-login
     const allKeys = Object.keys(localStorage);
     allKeys.forEach(k => {
+      if (k === 'nour_deleted_accounts') return; // ★ لا تمسح الـ blacklist
       if (k.startsWith('nour_multi_') || k.startsWith('nour_')) {
         localStorage.removeItem(k);
       }
     });
 
-    // ⑤ مسح من Firebase (leaderboard + users + auth)
+    // ⑥ مسح من Firebase (leaderboard + users + auth) — نمرر الباسورد للـ re-auth
     window._accountDeleted = true;  // منع onAuthStateChanged من إعادة الدخول
-    if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest);
+    if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(u, isGuest, storedPass);
     if (typeof window.fbLogout === 'function') window.fbLogout();
 
-    // ⑥ تسجيل خروج وتنظيف الحالة
+    // ⑦ تسجيل خروج وتنظيف الحالة
     currentUser = null;
     window.currentUser = null;
     window._lbAllList = null;
@@ -5110,20 +5207,12 @@ function openGameSheet() {
   if (wrap && !wrap.dataset.init) {
     wrap.dataset.init = '1';
     _dsInit();
-  }
-
-  // ★ إظهار الـ slider دايماً في وضع العشوائي (بدون سورة/جزء)
-  if (!selectedSurah && !selectedJuz) {
-    _dsMin = 1; _dsMax = 50;
-    if (_dsTo < 1 || _dsTo > 50) _dsTo = 50;
-    if (_dsFrom < 1 || _dsFrom > _dsTo) _dsFrom = 1;
-    const _sw = document.getElementById('dualSliderWrap');
-    if (_sw) _sw.style.display = 'block';
-    const _te = document.getElementById('dualTicks');
-    if (_te) _te.innerHTML = '<span>1</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span>';
-    const _rb = document.getElementById('resetDualBtn');
-    if (_rb) _rb.textContent = 'كل النطاق (50)';
-    _dsRender(); _dsUpdate();
+    // لو مفيش سورة/جزء مختار → أظهر الـ random slider مباشرة
+    if (!selectedSurah && !selectedJuz) {
+      _showRandomSlider();
+    } else {
+      _hideDualSlider();
+    }
   }
 
   // مزامنة الـ mode buttons مع المستوى الحالي
@@ -6428,6 +6517,12 @@ function _setRoomData(code, data) {
 
 function multiCreateRoom() {
   if (!currentUser) { showToast('⚠️ سجّل دخولك الأول'); return; }
+
+  // ★ تعطيل الزرار فوراً ومؤشر تحميل
+  const _createBtn = document.querySelector('#multiLobby button[onclick="multiCreateRoom()"]');
+  if (_createBtn) { _createBtn.disabled = true; _createBtn.textContent = '⏳ جاري الإنشاء...'; }
+  const _resetCreateBtn = () => { if (_createBtn) { _createBtn.disabled = false; _createBtn.textContent = '🚀 إنشاء الغرفة'; } };
+
   const code = _generateRoomCode();
   const surahVal = document.getElementById('multiSurahSelect').value;
   const qCountRaw = document.getElementById('multiQCount').value;
@@ -6450,7 +6545,6 @@ function multiCreateRoom() {
       const qCount = parseInt(qCountRaw) || 20;
       const lvlDef = LEVEL_DEFS[chosenDiff];
       if (lvlDef && lvlDef.dataKey === 'all') {
-        // استخدم buildQuestionsFromLocal للمستويات الصعبة
         const built = buildQuestionsFromLocal(qCount);
         questions = built || [];
       } else {
@@ -6464,11 +6558,10 @@ function multiCreateRoom() {
       }
     }
   } finally {
-    // أرجع المستوى الأصلي بعد بناء الأسئلة
     if (typeof state !== 'undefined') state.level = prevLevel;
   }
 
-  if (questions.length < 3) { showToast('⚠️ ما كفايش أسئلة، اختار سورة أطول'); return; }
+  if (questions.length < 3) { _resetCreateBtn(); showToast('⚠️ ما كفايش أسئلة، اختار سورة أطول'); return; }
 
   const playerKey = typeof window._makeKey === 'function'
     ? window._makeKey(currentUser.username, false)
@@ -6496,32 +6589,31 @@ function multiCreateRoom() {
   multiState.qTime = qTime;
   multiState.diffLevel = chosenDiff;
 
+  // ★ عرض الـ waiting room فوراً من الـ local cache — بدون انتظار Firebase
+  _showWaitingRoom(code);
+  _startPolling();
+  showToast('✅ تم إنشاء الغرفة — شارك الكود: ' + code, 4000);
+
+  // ★ رفع الغرفة على Firebase في الخلفية
   if (typeof window.fbMulti !== 'undefined') {
-    // نضمن Firebase Auth (anonymous) عشان DB rules تقبل الكتابة
     const _doCreate = () => {
-      // نضغط الأسئلة: نخلي بس الحقول المهمة عشان Firebase ما يرفضش الـ payload
       const compressQ = (q) => {
         const obj = { s: q.surah||'', a: q.ayah||'', b: q.blank||'', w: (q.wrong||[]).slice(0,3), t: q.qtype||'blank' };
         if (q.ayahNum) obj.n = q.ayahNum;
         return obj;
       };
-      // نشيل أي قيمة null/undefined من الـ room
       const rawRoom = { ...room, questions: questions.map(compressQ) };
-      delete rawRoom.startedAt; // null values بتسبب مشكلة في Firebase
+      delete rawRoom.startedAt;
       const cleanRoom = JSON.parse(JSON.stringify(rawRoom));
       window.fbMulti.createRoom(code, cleanRoom)
         .then(() => {
-          window.fbMulti.setDisconnect(code, playerKey, true); // المضيف
-          _showWaitingRoom(code);
-          _startPolling();
-          showToast('✅ تم إنشاء الغرفة — شارك الكود: ' + code, 4000);
+          window.fbMulti.setDisconnect(code, playerKey, true);
         })
         .catch((err) => {
           console.error('createRoom error:', err.code, err.message);
-          showToast('⚠️ خطأ في إنشاء الغرفة: ' + (err.message || 'تأكد من الاتصال'));
+          // الغرفة شغّالة محلياً — ما نزعجش المستخدم بخطأ
         });
     };
-    // نضمن وجود Firebase Auth قبل الكتابة
     if (typeof window.fbSignInAnon === 'function') {
       window.fbSignInAnon().then(_doCreate).catch(_doCreate);
     } else {
@@ -6529,9 +6621,6 @@ function multiCreateRoom() {
     }
   } else {
     _setRoomData(code, room);
-    _showWaitingRoom(code);
-    _startPolling();
-    showToast('✅ تم إنشاء الغرفة (وضع محلي)');
   }
 }
 
@@ -7349,7 +7438,7 @@ function _stopPolling() {
     <div class="qcount-wrap" style="margin-bottom:0;">
       <div class="qcount-label">
         <span id="qcountLabelText">اختر عدد الأسئلة في كل جلسة</span>
-        <span class="qcount-val" id="qcountDisplay">٥٠</span>
+        <span class="qcount-val" id="qcountDisplay">٢٠</span>
       </div>
       <!-- الـ dual slider — دايمًا ظاهر -->
       <div id="dualSliderWrap">
@@ -7361,7 +7450,7 @@ function _stopPolling() {
         </div>
         <div class="dual-ticks-row">
           <div class="qcount-ticks" style="flex:1;" id="dualTicks">
-            <span>١</span><span>١٠</span><span>٢٠</span><span>٣٠</span><span>٤٠</span><span>٥٠</span>
+            <span>٠</span><span>١٠</span><span>٢٠</span><span>٣٠</span><span>٤٠</span><span>٥٠</span>
           </div>
           <button id="resetDualBtn" onclick="resetDualSlider()" style="background:rgba(201,151,58,0.1);border:1px solid rgba(201,151,58,0.3);border-radius:8px;padding:5px 10px;color:rgba(245,217,139,0.6);font-family:'Cairo',sans-serif;font-size:11px;cursor:pointer;white-space:nowrap;">📖 كل النطاق</button>
         </div>
