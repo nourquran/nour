@@ -140,6 +140,14 @@ body { font-family:'Cairo',sans-serif; background:var(--ink); color:var(--cream)
   display:flex; align-items:stretch; justify-content:flex-end;
   overflow:hidden;
 }
+@media(max-width:700px) {
+  #loginScreen { align-items:flex-start; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .login-panel {
+    min-height:100%; justify-content:flex-start;
+    padding-top:max(40px, env(safe-area-inset-top, 20px));
+    padding-bottom:max(40px, env(safe-area-inset-bottom, 20px));
+  }
+}
 body:has(#loginScreen:not(.hide)) { overflow:hidden; }
 #loginScreen.hide { display:none; }
 
@@ -286,7 +294,7 @@ body:has(#loginScreen:not(.hide)) { overflow:hidden; }
   .login-brand { margin-bottom:20px; }
   .login-tabs { margin-bottom:16px; }
   .login-field { margin-bottom:10px; }
-  .login-field input { padding:10px 14px 10px 40px; font-size:14px; }
+  .login-field input { padding:10px 14px 10px 40px; font-size:16px; } /* 16px+ منع zoom iOS */
   .login-btn { padding:12px; font-size:15px; }
   .login-divider { margin:10px 0; }
   .login-guest { padding:6px; font-size:12px; }
@@ -919,6 +927,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
   /* typing */
   .typing-input { font-size:19px; padding:13px 14px; }
+  /* iOS: font-size < 16px يسبب zoom تلقائي — نمنعه */
+  .login-field input { font-size:16px; }
   .typing-submit { font-size:14px; padding:11px; }
 
   /* section title */
@@ -945,6 +955,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 @media(max-width:360px) {
   .ayah-text { font-size:19px; }
   .choice-btn { font-size:15px; padding:10px 8px; }
+  .choices-grid { grid-template-columns:1fr; }
   .logo-title { font-size:26px; }
   .modes-row { gap:6px; }
   .mode-btn { padding:10px 6px; }
@@ -1191,8 +1202,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
               return;
             }
           } catch(ex) {}
-          // لو مش موجود محلياً نفضّل صامتين ونديه دخول تجريبي
-          onSuccess();
+          // لو مش موجود محلياً — ارفض بدل ما ندخّله بدون تحقق
+          onError('الخادم مشغول، حاول مرة أخرى بعد قليل');
         } else if (e.code === 'auth/user-not-found') {
           onError('الحساب غير موجود، أنشئ حساباً جديداً');
         } else {
@@ -1581,7 +1592,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   </div>
 
   <!-- البانل الأيمن -->
-  <div class="login-panel">
+  <div class="login-panel" id="loginPanel">
     <div class="login-brand">
       <div class="login-brand-icon">🌙</div>
       <div class="login-brand-text">
@@ -1599,12 +1610,12 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="login-field">
         <label>اسم المستخدم</label>
         <span class="login-field-icon">👤</span>
-        <input type="text" id="loginUser" placeholder="أدخل اسمك...">
+        <input type="text" id="loginUser" placeholder="أدخل اسمك..." inputmode="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
       </div>
       <div class="login-field">
         <label>كلمة المرور</label>
         <span class="login-field-icon">🔒</span>
-        <input type="password" id="loginPass" placeholder="••••••••">
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
       </div>
       <button class="login-btn" onclick="doLogin()">دخول ✨</button>
     </div>
@@ -1613,17 +1624,17 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       <div class="login-field">
         <label>اسم المستخدم</label>
         <span class="login-field-icon">👤</span>
-        <input type="text" id="regUser" placeholder="اختر اسمك...">
+        <input type="text" id="regUser" placeholder="اختر اسمك..." inputmode="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
       </div>
       <div class="login-field">
         <label>كلمة المرور</label>
         <span class="login-field-icon">🔒</span>
-        <input type="password" id="regPass" placeholder="كلمة مرور قوية...">
+        <input type="password" id="regPass" placeholder="كلمة مرور قوية..." autocomplete="new-password">
       </div>
       <div class="login-field">
         <label>تأكيد كلمة المرور</label>
         <span class="login-field-icon">✅</span>
-        <input type="password" id="regPass2" placeholder="أعد كتابة كلمة المرور...">
+        <input type="password" id="regPass2" placeholder="أعد كتابة كلمة المرور..." autocomplete="new-password">
       </div>
       <button class="login-btn" onclick="doRegister()">إنشاء الحساب 🌟</button>
     </div>
@@ -2325,7 +2336,7 @@ function doLogin() {
     if (typeof window.fbCheckDeleted === 'function') {
       // عندنا Firebase — تحقق من الـ blacklist قبل الدخول
       // ★ نظهر حالة تحميل ونمنع التفاعل حتى يرجع الرد
-      const loginBtn = document.querySelector('#loginPanel .login-btn');
+      const loginBtn = document.querySelector('.login-panel .login-btn');
       if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = 'جاري التحقق...'; }
       window.fbCheckDeleted(userKeyLocal,
         () => {
@@ -2351,18 +2362,23 @@ function doLogin() {
     return;
   }
 
-  // ★ مستخدم Firebase (مفيش باسورد محلي) — تحقق من الـ blacklist على Firebase قبل الدخول
+  // ★ مستخدم Firebase (مفيش باسورد محلي)
   if (typeof window.fbLogin === 'function') {
+    const fbLoginBtn = document.querySelector('.login-panel .login-btn');
+    if (fbLoginBtn) { fbLoginBtn.disabled = true; fbLoginBtn.textContent = 'جاري التحقق...'; }
+    const restoreBtn = () => { if (fbLoginBtn) { fbLoginBtn.disabled = false; fbLoginBtn.textContent = 'دخول ✨'; } };
     window.fbLogin(user, pass,
       () => {
-        // Firebase نجح → حدّث البيانات لو موجودة
+        // Firebase نجح → جيب بيانات المستخدم واعمل loginSuccess
+        restoreBtn();
         const u2 = getUsers();
-        if (u2[user] && window.currentUser) Object.assign(window.currentUser, u2[user]);
+        const mergedData = u2[user] || createDefaultUserData();
+        document.getElementById('loginScreen').classList.add('hide');
+        loginSuccess(user, mergedData);
       },
       (errMsg) => {
-        // Firebase فشل (باسورد غلط أو حساب غير موجود) → أظهر الخطأ
+        restoreBtn();
         currentUser = null; window.currentUser = null;
-        document.getElementById('loginScreen').classList.remove('hide');
         showLoginErr(errMsg);
       }
     );
@@ -2446,8 +2462,8 @@ function loginSuccess(username, data, isGuest=false) {
     }
     return;
   }
-  // لو في مستخدم آخر logged in فعلاً (مش مجرد بقايا session) — لا تستبدله
-  if (window.currentUser && window.currentUser.username !== username && !window.currentUser._fromAuth) return;
+  // لو في مستخدم حقيقي مسجل (مش ضيف) — لا تستبدله بـ auth callback تلقائي
+  if (window.currentUser && window.currentUser.username !== username && !window.currentUser.isGuest && !window.currentUser._fromAuth) return;
   currentUser = { username, isGuest, ...(data || {}) };
   window.currentUser = currentUser;
   _finishLogin(username, isGuest);
@@ -3899,10 +3915,15 @@ function _dsInit() {
     });
     thumb.addEventListener('touchstart', e => {
       e.preventDefault();
-      const tm = e2 => onMove(e2.touches[0].clientX);
-      const te = () => { document.removeEventListener('touchmove', tm); document.removeEventListener('touchend', te); };
+      const tm = e2 => { e2.preventDefault(); onMove(e2.touches[0].clientX); };
+      const te = () => {
+        document.removeEventListener('touchmove', tm);
+        document.removeEventListener('touchend', te);
+        document.removeEventListener('touchcancel', te);
+      };
       document.addEventListener('touchmove', tm, {passive:false});
-      document.addEventListener('touchend', te);
+      document.addEventListener('touchend', te, {passive:true});
+      document.addEventListener('touchcancel', te, {passive:true});
     }, {passive:false});
     // keyboard
     thumb.addEventListener('keydown', e => {
