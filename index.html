@@ -1180,11 +1180,22 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       if (result.committed && result.snapshot.exists()) {
         const newData = result.snapshot.val();
         if (window.currentUser && window.currentUser.username === username) {
-          window.currentUser.totalScore   = newData.totalScore;
-          window.currentUser.totalGames   = newData.totalGames;
-          window.currentUser.totalHasanat = newData.totalHasanat;
-          if (typeof window.fbSaveUser === 'function' && newData.totalScore > 0) {
-            window.fbSaveUser(username, { totalScore: newData.totalScore, totalHasanat: newData.totalHasanat, totalGames: newData.totalGames, isGuest: false });
+          // خذ الأعلى — Firebase بعد Transaction هو الأصح
+          window.currentUser.totalScore   = Math.max(window.currentUser.totalScore   || 0, newData.totalScore   || 0);
+          window.currentUser.totalGames   = Math.max(window.currentUser.totalGames   || 0, newData.totalGames   || 0);
+          window.currentUser.totalHasanat = Math.max(window.currentUser.totalHasanat || 0, newData.totalHasanat || 0);
+          // حدّث localStorage بالقيم الجديدة
+          try {
+            const _llu = JSON.parse(localStorage.getItem('nour_users') || '{}');
+            if (_llu[username]) {
+              _llu[username].totalScore   = window.currentUser.totalScore;
+              _llu[username].totalGames   = window.currentUser.totalGames;
+              _llu[username].totalHasanat = window.currentUser.totalHasanat;
+              localStorage.setItem('nour_users', JSON.stringify(_llu));
+            }
+          } catch(e) {}
+          if (typeof window.fbSaveUser === 'function' && window.currentUser.totalScore > 0) {
+            window.fbSaveUser(username, { totalScore: window.currentUser.totalScore, totalHasanat: window.currentUser.totalHasanat, totalGames: window.currentUser.totalGames, isGuest: false });
           }
           if (typeof updateHomeStats === 'function') updateHomeStats();
         }
@@ -1266,21 +1277,23 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
           const fbScore   = fbData.totalScore   || 0;
           const fbHasanat = fbData.totalHasanat || 0;
           const fbGames   = fbData.totalGames   || 0;
+          // دمج صحيح: Firebase هو المصدر الرئيسي، لو المحلي أعلى ارفعه على Firebase
           const merged = {
-            totalScore:   fbScore   > 0 ? fbScore   : (_localData.totalScore   || 0),
-            totalGames:   fbGames   > 0 ? fbGames   : (_localData.totalGames   || 0),
-            totalHasanat: fbHasanat > 0 ? fbHasanat : (_localData.totalHasanat || 0),
-            streak:       fbData.streak  || _localData.streak  || 0,
+            totalScore:   Math.max(fbScore,   _localData.totalScore   || 0),
+            totalGames:   Math.max(fbGames,   _localData.totalGames   || 0),
+            totalHasanat: Math.max(fbHasanat, _localData.totalHasanat || 0),
+            streak:       Math.max(fbData.streak || 0, _localData.streak || 0),
             lastPlay:     fbData.lastPlay || _localData.lastPlay || null,
           };
           // استنى loginSuccess لو لسه الـ regular script ما اتحملش
           const doIt = () => {
             if (typeof window.loginSuccess === 'function') {
               window.loginSuccess(realUsername, merged);
-              // لو المحلي أعلى من Firebase — ارفع الصح على Firebase
+              // لو المحلي أعلى من Firebase — ارفع الدمج على Firebase فوراً (sync)
               const _fbS = fbData.totalScore   || 0;
               const _fbH = fbData.totalHasanat || 0;
-              if ((merged.totalScore > _fbS || merged.totalHasanat > _fbH) && !snap.exists() === false) {
+              const _fbG = fbData.totalGames   || 0;
+              if (merged.totalScore > _fbS || merged.totalHasanat > _fbH || merged.totalGames > _fbG) {
                 try {
                   if (typeof window.fbSaveFullUserData === 'function') {
                     window.fbSaveFullUserData(realUsername, merged);
@@ -1398,26 +1411,36 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   // ===== رفع بيانات المستخدم على Firebase =====
   window.fbSaveUser = function(username, data) {
     if (!username) return;
-    const displayName = username; // كل المستخدمين بيظهروا باسمهم الحقيقي في اللوحة
+    const displayName = username;
     const key = makeKey(username, data.isGuest);
-    set(ref(db, 'leaderboard/' + key), {
+    const payload = {
       name: displayName,
       totalHasanat: data.totalHasanat || 0,
       totalScore:   data.totalScore   || 0,
       totalGames:   data.totalGames   || 0,
       isGuest:      data.isGuest      || false,
       updatedAt:    Date.now(),
-    }).catch(e => console.error('fbSave error:', e));
+    };
+    // كتابة على المسارين معاً — leaderboard (الرئيسي) و nour_lb (مسار قديم) لضمان التوحيد
+    set(ref(db, 'leaderboard/' + key), payload).catch(e => console.error('fbSave error:', e));
+    set(ref(db, 'nour_lb/' + key), payload).catch(() => {});
   };
 
-  // ===== جلب اللوحة من Firebase وعرضها =====
+  // ===== جلب اللوحة من Firebase وعرضها (يدمج المسارين) =====
   window.fbRenderLeaderboard = function() {
     const podiumWrap = document.getElementById('lbPodiumWrap');
     if (!podiumWrap) return;
     podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">⏳ جاري تحميل اللوحة...</div>';
-    get(ref(db, 'leaderboard'))
-      .then(snapshot => window._renderLbFromSnapshot && window._renderLbFromSnapshot(snapshot))
-      .catch(() => { if(podiumWrap) podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:20px;">⚠️ تعذّر تحميل اللوحة</div>'; });
+    Promise.all([
+      get(ref(db, 'leaderboard')).then(s => s.val() || {}).catch(() => ({})),
+      get(ref(db, 'nour_lb')).then(s => s.val() || {}).catch(() => ({})),
+    ]).then(([main, old]) => {
+      const merged = { ...old };
+      Object.entries(main).forEach(([k, d]) => {
+        if (!merged[k] || (d.totalHasanat||0) >= (merged[k].totalHasanat||0)) merged[k] = d;
+      });
+      if (typeof window._renderLbFromData === 'function') window._renderLbFromData(merged);
+    }).catch(() => { if(podiumWrap) podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:20px;">⚠️ تعذّر تحميل اللوحة</div>'; });
   };
 
   // حذف المستخدم من اللوحة عند التصفير
@@ -1441,18 +1464,36 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     }
   };
 
-  // استمع للتغييرات في الوقت الفعلي — رسم مباشر من الـ snapshot
-  onValue(ref(db, 'leaderboard'), (snapshot) => {
-    window._renderLbFromSnapshot(snapshot);
+  // استمع للتغييرات في الوقت الفعلي — يدمج leaderboard و nour_lb معاً
+  let _lbMain = {}, _lbOld = {};
+  function _mergeLbAndRender() {
+    // دمج المسارين — لو نفس المستخدم في الاثنين، خذ الأعلى نقاطاً
+    const merged = { ..._lbOld };
+    Object.entries(_lbMain).forEach(([k, d]) => {
+      if (!merged[k] || (d.totalHasanat||0) >= (merged[k].totalHasanat||0)) merged[k] = d;
+    });
+    window._renderLbFromData(merged);
+  }
+  onValue(ref(db, 'leaderboard'), (snap) => {
+    _lbMain = snap.val() || {};
+    _mergeLbAndRender();
+  });
+  onValue(ref(db, 'nour_lb'), (snap) => {
+    _lbOld = snap.val() || {};
+    _mergeLbAndRender();
   });
 
   window._renderLbFromSnapshot = function(snapshot) {
+    _lbMain = snapshot.val() || {};
+    _mergeLbAndRender();
+  };
+
+  window._renderLbFromData = function(data) {
     const podiumWrap = document.getElementById('lbPodiumWrap');
     const dotsEl    = document.getElementById('lbDots');
     const lb        = document.getElementById('leaderboard');
     if (!podiumWrap) return;
 
-    const data = snapshot.val() || {};
     const list = Object.entries(data)
       .filter(([,d]) => (d.totalHasanat || 0) > 0)
       .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
@@ -2286,11 +2327,12 @@ function doLogin() {
         if (typeof window.fbGetUserData === 'function') {
           window.fbGetUserData(user, (fbData) => {
             if (!fbData || !window.currentUser || window.currentUser.username !== user) return;
+            // دمج صحيح: خذ الأعلى في كل حقل (تشغيل على أجهزة مختلفة)
             const merged = {
-              totalScore:   (fbData.totalScore   || 0) > 0 ? fbData.totalScore   : (localData.totalScore   || 0),
-              totalGames:   (fbData.totalGames   || 0) > 0 ? fbData.totalGames   : (localData.totalGames   || 0),
-              totalHasanat: (fbData.totalHasanat || 0) > 0 ? fbData.totalHasanat : (localData.totalHasanat || 0),
-              streak:   fbData.streak   || localData.streak   || 0,
+              totalScore:   Math.max(fbData.totalScore   || 0, localData.totalScore   || 0),
+              totalGames:   Math.max(fbData.totalGames   || 0, localData.totalGames   || 0),
+              totalHasanat: Math.max(fbData.totalHasanat || 0, localData.totalHasanat || 0),
+              streak:   Math.max(fbData.streak   || 0, localData.streak   || 0),
               lastPlay: fbData.lastPlay || localData.lastPlay || null,
             };
             Object.assign(window.currentUser, merged);
@@ -2375,11 +2417,27 @@ function guestLogin() {
 }
 
 function loginSuccess(username, data, isGuest=false) {
-  // لو في auto-login حصل بالفعل لنفس المستخدم — رفّه البيانات بس
+  // لو في auto-login حصل بالفعل لنفس المستخدم — اجمع البيانات (خذ الأعلى)
   if (window.currentUser && window.currentUser.username === username) {
     if (data) {
-      Object.assign(window.currentUser, data);
-      currentUser = window.currentUser;
+      const cu = window.currentUser;
+      cu.totalScore   = Math.max(cu.totalScore   || 0, data.totalScore   || 0);
+      cu.totalGames   = Math.max(cu.totalGames   || 0, data.totalGames   || 0);
+      cu.totalHasanat = Math.max(cu.totalHasanat || 0, data.totalHasanat || 0);
+      cu.streak       = Math.max(cu.streak       || 0, data.streak       || 0);
+      if (data.lastPlay) cu.lastPlay = data.lastPlay;
+      if (data.password) cu.password = data.password;
+      currentUser = cu;
+      window.currentUser = cu;
+      // لو فيه نقاط جديدة جاية من Firebase — ارفعها محلياً
+      const _lu = getUsers();
+      if (_lu[username]) {
+        _lu[username].totalScore   = cu.totalScore;
+        _lu[username].totalGames   = cu.totalGames;
+        _lu[username].totalHasanat = cu.totalHasanat;
+        _lu[username].streak       = cu.streak;
+        saveUsers(_lu);
+      }
       updateHomeStats();
     }
     return;
@@ -6533,7 +6591,7 @@ function multiCreateRoom() {
 function multiJoinRoom() {
   if (!currentUser) { showToast('⚠️ سجّل دخولك الأول'); return; }
   const code = document.getElementById('multiJoinCode').value.trim().toUpperCase();
-  if (code.length < 4) { showToast('⚠️ أدخل كود الغرفة كامل (٥ حروف)'); return; }
+  if (code.length < 5) { showToast('⚠️ أدخل كود الغرفة كامل (٥ حروف)'); return; }
 
   const joinBtn = document.querySelector('#multiLobby button[onclick="multiJoinRoom()"]');
   
@@ -6759,13 +6817,19 @@ function multiStartGame() {
   Object.keys(room.players).forEach(u => { room.players[u].score = 0; room.players[u].answered = false; });
   window._multiRoomCache = room;
   if (typeof window.fbMulti !== 'undefined') {
-    // نبعت phase + totalQ عشان اللاعبين التانيين يعرفوا عدد الأسئلة
+    // نبعت phase + الأسئلة المضغوطة معاً في نفس الـ update عشان اللاعبين يشوفوهم فوراً بدون delay
+    const compressQ = (q) => {
+      const obj = { s: q.surah||'', a: q.ayah||'', b: q.blank||'', w: (q.wrong||[]).slice(0,3), t: q.qtype||'blank' };
+      if (q.ayahNum) obj.n = q.ayahNum;
+      return obj;
+    };
     window.fbMulti.updateRoom(multiState.roomCode, {
       phase: 'playing',
       startedAt: room.startedAt,
       currentQ: 0,
       totalQ: room.totalQ || multiState.totalQ,
       qTime: room.qTime || multiState.qTime || 15,
+      questions: multiState.questions.map(compressQ),
     });
   } else {
     _setRoomData(multiState.roomCode, room);
@@ -7083,8 +7147,10 @@ function _showMultiResults() {
   }
 
   // ===== إضافة نقاط اللعب الجماعي على رصيد اللاعب (مسجل وضيف) =====
+  // guard: منع double-count لو اتستدعت مرتين
   const _cu = currentUser || window.currentUser;
-  if (_cu && multiState.myScore > 0) {
+  if (_cu && multiState.myScore > 0 && !multiState._scoreSavedThisRound) {
+    multiState._scoreSavedThisRound = true;
     _cu.totalHasanat = (_cu.totalHasanat || 0) + multiState.myScore;
     _cu.totalScore   = (_cu.totalScore   || 0) + multiState.myScore;
     _cu.totalGames   = (_cu.totalGames   || 0) + 1;
@@ -7163,6 +7229,7 @@ function multiPlayAgain() {
     multiState.phase = 'waiting';
     multiState.myScore = 0;
     multiState.qIndex = 0;
+    multiState._scoreSavedThisRound = false;
     document.getElementById('multiResults').style.display = 'none';
     document.getElementById('multiWaiting').style.display = 'block';
     _startPolling();
@@ -7327,11 +7394,14 @@ function _startPolling() {
             });
             return;
           }
+          // توسيع الأسئلة المضغوطة لو موجودة
+          const expandedQs = (_qs[0] && _qs[0].s !== undefined)
+            ? _qs.map(window._expandMultiQ) : _qs;
           multiState.phase = 'playing';
           multiState.myScore = 0;
           multiState.qIndex = 0;
-          multiState.questions = _qs;
-          multiState.totalQ = room.totalQ || _qs.length;
+          multiState.questions = expandedQs;
+          multiState.totalQ = room.totalQ || expandedQs.length;
           multiState.qTime = room.qTime || 15;
           document.getElementById('multiWaiting').style.display = 'none';
           document.getElementById('multiGameArea').style.display = 'block';
