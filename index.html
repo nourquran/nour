@@ -1832,7 +1832,7 @@ function _callWhenReady(fn, args) {
         <div id="multiFinalScores" style="background:rgba(255,254,249,0.03);border:1px solid rgba(201,151,58,0.15);border-radius:16px;padding:16px;margin-bottom:20px;"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <button onclick="multiPlayAgain()" style="padding:14px;background:linear-gradient(135deg,var(--gold),#E8B84B);border:none;border-radius:14px;font-family:'Cairo',sans-serif;font-size:15px;font-weight:700;color:var(--ink);cursor:pointer;">🔄 مرة تانية</button>
-          <button onclick="goHome()" style="padding:14px;background:rgba(255,254,249,0.05);border:1px solid rgba(201,151,58,0.25);border-radius:14px;font-family:'Cairo',sans-serif;font-size:15px;font-weight:700;color:var(--gold-light);cursor:pointer;">🏠 الرئيسية</button>
+          <button onclick="multiLeaveRoom()" style="padding:14px;background:rgba(255,254,249,0.05);border:1px solid rgba(201,151,58,0.25);border-radius:14px;font-family:'Cairo',sans-serif;font-size:15px;font-weight:700;color:var(--gold-light);cursor:pointer;">🏠 الرئيسية</button>
         </div>
       </div>
     </div>
@@ -6872,6 +6872,7 @@ function _showMultiResults() {
   clearInterval(multiState.questionTimer);
   _stopPolling();
   multiState.phase = 'results';
+  multiState._fromResults = true;
 
   const pk = multiState.playerKey || multiState.playerName;
   if (typeof window.fbMulti !== 'undefined') {
@@ -7039,7 +7040,7 @@ function multiLeaveRoom() {
   window._multiRoomCache = null;
   multiState.roomCode = null;
   multiState.phase = 'lobby';
-  showMultiScreen();
+  if (typeof goHome === 'function' && multiState._fromResults) { multiState._fromResults = false; goHome(); } else { showMultiScreen(); }
 }
 
 function _startPolling() {
@@ -7436,5 +7437,31 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+
+<script>
+// ─── مسح اللاعب من Firebase لو أغلق المتصفح أو انتقل لصفحة تانية ───
+window.addEventListener('pagehide', function() {
+  if (!window.multiState || !window.multiState.roomCode) return;
+  const code = window.multiState.roomCode;
+  const pk   = window.multiState.playerKey || window.multiState.playerName;
+  if (!code || !pk) return;
+
+  // sendBeacon مع PUT null — الطريقة الصحيحة لمسح node في Firebase REST API
+  // بيشتغل حتى لو الصفحة اتقفلت لأن المتصفح بيكمله في الـ background
+  const dbUrl = 'https://nour-75cc6-default-rtdb.europe-west1.firebasedatabase.app';
+  const url   = dbUrl + '/nour_rooms/' + code + '/players/' + pk + '.json';
+  navigator.sendBeacon(url, new Blob(['null'], { type: 'application/json' }));
+  // PUT null = حذف الـ node في Firebase REST API
+});
+
+// ─── Safety net: لو الصفحة اترجعت من الـ bfcache — نتأكد من تنظيف الحالة ───
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted && window.multiState && window.multiState.roomCode) {
+    // الصفحة اترجعت من bfcache وفيه غرفة قديمة — نمسح الحالة
+    window.multiState.roomCode = null;
+    window.multiState.phase = 'lobby';
+  }
+});
+</script>
 </body>
 </html>
