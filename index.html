@@ -1123,7 +1123,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       })
       .catch((e) => {
         if (e.code === 'auth/too-many-requests') {
-          // Firebase جمّد الحساب مؤقتاً — ندخل محلياً بدون ما نزعج المستخدم
+          // Firebase جمّد الحساب مؤقتاً — تحقق من الباسورد المحلي فقط، ولا تدخّل أحد بدونه
           try {
             const users = JSON.parse(localStorage.getItem('nour_users') || '{}');
             if (users[username] && users[username].password === btoa(password)) {
@@ -1131,8 +1131,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
               return;
             }
           } catch(ex) {}
-          // لو مش موجود محلياً نفضّل صامتين ونديه دخول تجريبي
-          onSuccess();
+          // ★ الإصلاح: مش هندخل حد بدون تحقق حتى لو Firebase محجوب
+          onError('الحساب محجوب مؤقتاً من Firebase، حاول بعد قليل');
         } else if (e.code === 'auth/user-not-found') {
           onError('الحساب غير موجود، أنشئ حساباً جديداً');
         } else {
@@ -1162,37 +1162,75 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   window.fbIncrementScore = function(username, scoreAdd, hasanatAdd, gamesAdd) {
     if (!username || (!scoreAdd && !hasanatAdd && !gamesAdd)) return;
     const key = makeKey(username, false);
-    const { increment } = window._fbServerValue || {};
-    // نستخدم get ثم update عشان نضمن الـ consistency
     const dataRef = ref(db, 'users/' + key + '/data');
-    get(dataRef).then(snap => {
-      const curr = snap.exists() ? snap.val() : {};
-      const newData = {
-        totalScore:   (curr.totalScore   || 0) + (scoreAdd   || 0),
-        totalGames:   (curr.totalGames   || 0) + (gamesAdd   || 0),
-        totalHasanat: (curr.totalHasanat || 0) + (hasanatAdd || 0),
-        streak:       curr.streak    || 0,
-        lastPlay:     curr.lastPlay  || null,
-        updatedAt:    Date.now(),
-      };
-      update(dataRef, newData).catch(() => {});
-      // sync currentUser مع القيم الجديدة من Firebase
-      if (window.currentUser && window.currentUser.username === username) {
-        window.currentUser.totalScore   = newData.totalScore;
-        window.currentUser.totalGames   = newData.totalGames;
-        window.currentUser.totalHasanat = newData.totalHasanat;
-        if (typeof updateHomeStats === 'function') updateHomeStats();
-      }
-    }).catch(() => {
-      // fallback لو Firebase مش متاح — نستخدم القيم الحالية من currentUser + الإضافة
-      const _cu = window.currentUser;
-      update(dataRef, {
-        totalScore:   (_cu ? (_cu.totalScore   || 0) : 0) + (scoreAdd   || 0),
-        totalGames:   (_cu ? (_cu.totalGames   || 0) : 0) + (gamesAdd   || 0),
-        totalHasanat: (_cu ? (_cu.totalHasanat || 0) : 0) + (hasanatAdd || 0),
-        updatedAt:    Date.now(),
-      }).catch(() => {});
-    });
+
+    // ★ الحل الصح: transaction — بيضمن إن الإضافة atomic ومفيش race condition بين الأجهزة
+    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js')
+      .then(({ runTransaction }) => {
+        runTransaction(dataRef, (curr) => {
+          if (curr === null) {
+            // Node مش موجود — ابدأ من الصفر
+            return {
+              totalScore:   scoreAdd   || 0,
+              totalGames:   gamesAdd   || 0,
+              totalHasanat: hasanatAdd || 0,
+              streak:       0,
+              lastPlay:     null,
+              updatedAt:    Date.now(),
+            };
+          }
+          return {
+            ...curr,
+            totalScore:   (curr.totalScore   || 0) + (scoreAdd   || 0),
+            totalGames:   (curr.totalGames   || 0) + (gamesAdd   || 0),
+            totalHasanat: (curr.totalHasanat || 0) + (hasanatAdd || 0),
+            updatedAt:    Date.now(),
+          };
+        }).then((result) => {
+          // بعد الـ transaction — حدّث currentUser بالقيم الجديدة من Firebase
+          if (result.committed && result.snapshot.exists()) {
+            const newData = result.snapshot.val();
+            if (window.currentUser && window.currentUser.username === username) {
+              window.currentUser.totalScore   = newData.totalScore;
+              window.currentUser.totalGames   = newData.totalGames;
+              window.currentUser.totalHasanat = newData.totalHasanat;
+              // حدّث الـ leaderboard بالقيم الجديدة الصحيحة
+              if (typeof window.fbSaveUser === 'function' && newData.totalScore > 0) {
+                window.fbSaveUser(username, {
+                  totalScore:   newData.totalScore,
+                  totalHasanat: newData.totalHasanat,
+                  totalGames:   newData.totalGames,
+                  isGuest:      false,
+                });
+              }
+              if (typeof updateHomeStats === 'function') updateHomeStats();
+            }
+          }
+        }).catch(() => {
+          // Transaction فشل — fallback بـ get+update
+          get(dataRef).then(snap => {
+            const curr = snap.exists() ? snap.val() : {};
+            update(dataRef, {
+              totalScore:   (curr.totalScore   || 0) + (scoreAdd   || 0),
+              totalGames:   (curr.totalGames   || 0) + (gamesAdd   || 0),
+              totalHasanat: (curr.totalHasanat || 0) + (hasanatAdd || 0),
+              updatedAt:    Date.now(),
+            }).catch(() => {});
+          }).catch(() => {});
+        });
+      })
+      .catch(() => {
+        // import فشل — fallback بـ get+update
+        get(dataRef).then(snap => {
+          const curr = snap.exists() ? snap.val() : {};
+          update(dataRef, {
+            totalScore:   (curr.totalScore   || 0) + (scoreAdd   || 0),
+            totalGames:   (curr.totalGames   || 0) + (gamesAdd   || 0),
+            totalHasanat: (curr.totalHasanat || 0) + (hasanatAdd || 0),
+            updatedAt:    Date.now(),
+          }).catch(() => {});
+        }).catch(() => {});
+      });
   };
 
   // مراقبة حالة الـ Auth
@@ -1200,10 +1238,34 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   window._resetAuthDone = () => { _authDone = false; };
 
   onAuthStateChanged(auth, (user) => {
-    if (!user) { _authDone = false; return; }
+    if (!user) {
+      _authDone = false;
+      // ★ لو Firebase قال "مفيش مستخدم" وفيه pending autoLogin — الغيه
+      if (window._pendingAutoLogin) {
+        window._pendingAutoLogin = null;
+        clearTimeout(window._autoLoginFallbackTimer);
+        if (window.currentUser && window.currentUser._pendingVerify) {
+          // الـ token انتهى أو المستخدم مش موجود — أرجع شاشة اللوجين
+          currentUser = null;
+          window.currentUser = null;
+          const ls = document.getElementById('loginScreen');
+          if (ls) ls.classList.remove('hide');
+          localStorage.removeItem('nour_last_user');
+        }
+      }
+      return;
+    }
     if (_authDone) return;
     if (window._registering) return;  // جاري تسجيل حساب جديد — لا تتدخل
     if (user.isAnonymous) return;     // anonymous فقط للـ multiplayer — مش حساب حقيقي
+
+    // ★ لو في pending autoLogin — أكّده وامسح الـ timer
+    if (window._pendingAutoLogin) {
+      const { username: pendingUser, data: pendingData } = window._pendingAutoLogin;
+      window._pendingAutoLogin = null;
+      clearTimeout(window._autoLoginFallbackTimer);
+      if (window.currentUser) window.currentUser._pendingVerify = false;
+    }
 
     const emailKey0 = (user.email || '').replace(/@.*$/, '');
 
@@ -1227,40 +1289,37 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       get(ref(db, 'users/' + makeKey(realUsername, false) + '/data'))
         .then(snap => {
           const fbData = snap.exists() ? snap.val() : {};
-          // نجيب البيانات المحلية كمان ونأخذ الأعلى (أمان ضد ضياع النقاط)
+          // ★ الإصلاح: Firebase هو المصدر الحقيقي — خذ قيمة Firebase دايماً
+          // فقط لو Firebase = 0 والمحلي أكبر (جهاز جديد لسه ما رفعش) نرفع المحلي
           const _localUsers = (() => { try { return JSON.parse(localStorage.getItem('nour_users') || '{}'); } catch(e) { return {}; } })();
           const _localData = _localUsers[realUsername] || {};
-          // لو في تصفير حديث (resetAt) → الجهاز اللي عنده أحدث resetAt هو الصح
-          const fbResetAt    = fbData.resetAt    || 0;
-          const localResetAt = _localData.resetAt || 0;
-          const latestResetAt = Math.max(fbResetAt, localResetAt);
-          // لو التصفير أحدث من آخر لعبة → نصفّر
-          const fbLastPlay    = fbData.lastPlay    || 0;
-          const localLastPlay = _localData.lastPlay || 0;
-          const useZero = latestResetAt > 0 && latestResetAt >= Math.max(fbLastPlay, localLastPlay);
-          const merged = useZero ? {
-            totalScore:   0, totalGames:0, totalHasanat:0, streak:0,
-            lastPlay:     null, resetAt: latestResetAt,
-          } : {
-            totalScore:   Math.max(fbData.totalScore   || 0, _localData.totalScore   || 0),
-            totalGames:   Math.max(fbData.totalGames   || 0, _localData.totalGames   || 0),
-            totalHasanat: Math.max(fbData.totalHasanat || 0, _localData.totalHasanat || 0),
-            streak:       Math.max(fbData.streak       || 0, _localData.streak       || 0),
+          const fbScore   = fbData.totalScore   || 0;
+          const fbHasanat = fbData.totalHasanat || 0;
+          const fbGames   = fbData.totalGames   || 0;
+          const merged = {
+            totalScore:   fbScore   > 0 ? fbScore   : (_localData.totalScore   || 0),
+            totalGames:   fbGames   > 0 ? fbGames   : (_localData.totalGames   || 0),
+            totalHasanat: fbHasanat > 0 ? fbHasanat : (_localData.totalHasanat || 0),
+            streak:       fbData.streak  || _localData.streak  || 0,
             lastPlay:     fbData.lastPlay || _localData.lastPlay || null,
           };
           // استنى loginSuccess لو لسه الـ regular script ما اتحملش
           const doIt = () => {
             if (typeof window.loginSuccess === 'function') {
               window.loginSuccess(realUsername, merged);
-              // دايماً ارفع الـ merged على Firebase (يصحح لو كان قديم أو أقل)
-              try {
-                if (typeof window.fbSaveFullUserData === 'function') {
-                  window.fbSaveFullUserData(realUsername, merged);
-                }
-                if (typeof window.fbSaveUser === 'function' && (merged.totalScore || 0) > 0) {
-                  window.fbSaveUser(realUsername, Object.assign({}, merged, {isGuest: false}));
-                }
-              } catch(e) {}
+              // لو المحلي أعلى من Firebase — ارفع الصح على Firebase
+              const _fbS = fbData.totalScore   || 0;
+              const _fbH = fbData.totalHasanat || 0;
+              if ((merged.totalScore > _fbS || merged.totalHasanat > _fbH) && !snap.exists() === false) {
+                try {
+                  if (typeof window.fbSaveFullUserData === 'function') {
+                    window.fbSaveFullUserData(realUsername, merged);
+                  }
+                  if (typeof window.fbSaveUser === 'function' && merged.totalScore > 0) {
+                    window.fbSaveUser(realUsername, Object.assign({}, merged, {isGuest: false}));
+                  }
+                } catch(e) {}
+              }
             } else {
               setTimeout(doIt, 30);
             }
@@ -2182,10 +2241,32 @@ let currentUser = null;
     const users = JSON.parse(localStorage.getItem('nour_users') || '{}');
     const data  = users[lastUser];
     if (!data) { localStorage.removeItem('nour_last_user'); return; }
+
+    // ★ الإصلاح: نخفي اللوجين مؤقتاً ونعمل Pre-fill، لكن لا ندخل المستخدم إلا بعد ما
+    // Firebase يأكد الـ token (onAuthStateChanged هيكمّل الدخول الحقيقي)
+    // فقط لو مفيش Firebase (offline) نكمّل من المحلي
+
+    // ضع علامة "في انتظار تأكيد Firebase" — onAuthStateChanged هيكمّل
+    window._pendingAutoLogin = { username: lastUser, data };
+
+    // أخفي اللوجين وشيل الـ loading (المستخدم مش محتاج يشوف شاشة اللوجين)
     const ls = document.getElementById('loginScreen');
     if (ls) ls.classList.add('hide');
-    currentUser = { username: lastUser, isGuest: false, ...(data || {}) };
+
+    // currentUser مبدئي — سيُؤكَّد أو يُلغى بعد Firebase
+    currentUser = { username: lastUser, isGuest: false, ...(data || {}), _pendingVerify: true };
     window.currentUser = currentUser;
+
+    // Fallback: لو Firebase ما جاش خلال 5 ثواني (offline) → اعتمد على المحلي
+    window._autoLoginFallbackTimer = setTimeout(() => {
+      if (window.currentUser && window.currentUser._pendingVerify) {
+        // لا يزال في انتظار Firebase — قبلنا المحلي لأن المستخدم offline
+        window.currentUser._pendingVerify = false;
+        currentUser = window.currentUser;
+        if (typeof loginSuccess === 'function') loginSuccess(lastUser, data);
+      }
+    }, 5000);
+
   } catch(e) {}
 })();
 
@@ -2225,55 +2306,60 @@ function doLogin() {
   const localData = users[user];
 
   if (localData && localData.password) {
-    // بيانات محلية فيها باسورد → تحقق فوري
+    // بيانات محلية فيها باسورد → تحقق منه أولاً
     if (localData.password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
-    document.getElementById('loginScreen').classList.add('hide');
 
-    // دالة merge تحترم resetAt وتاخد الأعلى
-    function _mergeData(localD, fbD) {
-      const fbResetAt    = (fbD  && fbD.resetAt)    || 0;
-      const localResetAt = (localD && localD.resetAt) || 0;
-      const latestReset  = Math.max(fbResetAt, localResetAt);
-      const fbLP    = (fbD  && fbD.lastPlay)    || 0;
-      const localLP = (localD && localD.lastPlay) || 0;
-      if (latestReset > 0 && latestReset >= Math.max(fbLP, localLP)) {
-        return { totalScore:0, totalGames:0, totalHasanat:0, streak:0, lastPlay:null, resetAt:latestReset };
-      }
-      return {
-        totalScore:   Math.max((fbD && fbD.totalScore)   || 0, (localD && localD.totalScore)   || 0),
-        totalGames:   Math.max((fbD && fbD.totalGames)   || 0, (localD && localD.totalGames)   || 0),
-        totalHasanat: Math.max((fbD && fbD.totalHasanat) || 0, (localD && localD.totalHasanat) || 0),
-        streak:       Math.max((fbD && fbD.streak)       || 0, (localD && localD.streak)       || 0),
-        lastPlay:     (fbD && fbD.lastPlay) || (localD && localD.lastPlay) || null,
-      };
-    }
-
-    // ادخل المستخدم فوراً بالبيانات المحلية (عشان الـ UX يكون سريع)
-    loginSuccess(user, localData);
-
-    // Firebase في الـ background — نجيب الرصيد ونعمل merge صح
+    // ★ الإصلاح: حتى لو الباسورد المحلي صح، لازم Firebase يأكد الـ token أولاً
+    // (ده يمنع محمد تاني يدخل بحساب محمد الأول لو عنده نفس الباسورد في localStorage)
     if (typeof window.fbLogin === 'function') {
-      window.fbLogin(user, pass, () => {
-        if (typeof window.fbGetUserData === 'function') {
-          window.fbGetUserData(user, (fbData) => {
-            if (!window.currentUser || window.currentUser.username !== user) return;
-            var merged = _mergeData(localData, fbData || {});
-            Object.assign(window.currentUser, merged);
-            currentUser = window.currentUser;
-            // حفظ محلي بالبيانات المتزامنة الصح
-            saveCurrentUser();
-            if (typeof updateHomeStats === 'function') updateHomeStats();
-            // ارفع الـ merged على Firebase عشان كل الأجهزة تشوف نفس الرقم
-            if (typeof window.fbSaveFullUserData === 'function') {
-              window.fbSaveFullUserData(user, merged);
-            }
-            if (typeof window.fbSaveUser === 'function' && (merged.totalHasanat || 0) > 0) {
-              window.fbSaveUser(user, Object.assign({}, merged, {isGuest: false}));
-            }
-          });
+      const loginBtn = document.querySelector('#loginForm .login-btn');
+      if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = 'جاري التحقق...'; }
+
+      window.fbLogin(user, pass,
+        () => {
+          // Firebase أكّد الهوية → دخول
+          if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'دخول ✨'; }
+          document.getElementById('loginScreen').classList.add('hide');
+
+          // نجيب البيانات المحدّثة من Firebase ونعمل merge مع المحلي
+          if (typeof window.fbGetUserData === 'function') {
+            window.fbGetUserData(user, (fbData) => {
+              var merged = {};
+              if (fbData) {
+                merged = {
+                  totalScore:   Math.max(localData.totalScore   || 0, fbData.totalScore   || 0),
+                  totalGames:   Math.max(localData.totalGames   || 0, fbData.totalGames   || 0),
+                  totalHasanat: Math.max(localData.totalHasanat || 0, fbData.totalHasanat || 0),
+                  streak:       Math.max(localData.streak       || 0, fbData.streak       || 0),
+                  lastPlay:     fbData.lastPlay || localData.lastPlay || null,
+                };
+              } else {
+                merged = localData;
+              }
+              loginSuccess(user, merged);
+              if (fbData && typeof window.fbSaveFullUserData === 'function') {
+                window.fbSaveFullUserData(user, merged);
+              }
+              if (typeof window.fbSaveUser === 'function' && (merged.totalScore || 0) > 0) {
+                window.fbSaveUser(user, Object.assign({}, merged, {isGuest: false}));
+              }
+            });
+          } else {
+            loginSuccess(user, localData);
+          }
+        },
+        (errMsg) => {
+          // Firebase رفض → الباسورد المحلي مش كافي وحده
+          if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'دخول ✨'; }
+          showLoginErr(errMsg);
         }
-      }, () => {});
+      );
+      return;
     }
+
+    // Fallback: بدون Firebase — اعتمد على المحلي فقط
+    document.getElementById('loginScreen').classList.add('hide');
+    loginSuccess(user, localData);
     return;
   }
 
@@ -2345,17 +2431,10 @@ function guestLogin() {
 }
 
 function loginSuccess(username, data, isGuest=false) {
-  // لو في auto-login حصل بالفعل لنفس المستخدم — نعمل merge يأخد الأعلى
+  // لو في auto-login حصل بالفعل لنفس المستخدم — رفّه البيانات بس
   if (window.currentUser && window.currentUser.username === username) {
     if (data) {
-      const cu = window.currentUser;
-      // نأخد الأعلى في كل field عشان نضمن ما نكتبش صفر فوق نقاط حقيقية
-      cu.totalHasanat = Math.max(cu.totalHasanat || 0, data.totalHasanat || 0);
-      cu.totalScore   = Math.max(cu.totalScore   || 0, data.totalScore   || 0);
-      cu.totalGames   = Math.max(cu.totalGames   || 0, data.totalGames   || 0);
-      cu.streak       = Math.max(cu.streak       || 0, data.streak       || 0);
-      if (data.lastPlay) cu.lastPlay = data.lastPlay;
-      if (data.resetAt)  cu.resetAt  = data.resetAt;
+      Object.assign(window.currentUser, data);
       currentUser = window.currentUser;
       updateHomeStats();
     }
@@ -2412,7 +2491,6 @@ function saveCurrentUser() {
     streak:       currentUser.streak || 0,
     lastPlay:     currentUser.lastPlay,
     isGuest:      currentUser.isGuest || false,
-    ...(currentUser.resetAt ? { resetAt: currentUser.resetAt } : {}),
   };
   saveUsers(users);
 
@@ -5058,21 +5136,18 @@ function showResults() {
 function resetScore() {
   if (!currentUser) return;
   showConfirm('هتتصفر النقاط وعدد الجلسات. متأكد؟', () => {
-    const zeroData = { totalScore:0, totalGames:0, totalHasanat:0, streak:0, resetAt: Date.now() };
-    currentUser.totalScore   = 0;
-    currentUser.totalGames   = 0;
+    currentUser.totalScore = 0;
+    currentUser.totalGames = 0;
     currentUser.totalHasanat = 0;
-    currentUser.streak       = 0;
-    currentUser.resetAt      = zeroData.resetAt;
-    // محلي — حفظ الصفر + وقت التصفير (عشان الـ merge يعرف يحترمه)
+    currentUser.streak = 0;
+    // محلي
     const users = getUsers();
     if (users[currentUser.username]) {
-      Object.assign(users[currentUser.username], zeroData);
+      users[currentUser.username].totalScore = 0;
+      users[currentUser.username].totalGames = 0;
+      users[currentUser.username].totalHasanat = 0;
+      users[currentUser.username].streak = 0;
       saveUsers(users);
-    }
-    // Firebase — اكتب الصفر على users/{key}/data عشان كل الأجهزة تاخده
-    if (!currentUser.isGuest && typeof window.fbSaveFullUserData === 'function') {
-      window.fbSaveFullUserData(currentUser.username, zeroData);
     }
     // Firebase — احذف المستخدم من اللوحة
     if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(currentUser.username, currentUser.isGuest);
@@ -5387,7 +5462,6 @@ function renderMistakesForDay(mistakes, dayKey) {
           <span class="mistake-lbl-right">✅ الصح: ${m.blank}</span>
         </div>
         <div style="font-size:11px;color:rgba(245,217,139,0.45);margin-top:8px;">${hint}</div>
-        ${m.ts ? `<div style="font-size:10px;color:rgba(245,217,139,0.3);margin-top:4px;text-align:left;">🕐 ${new Date(m.ts).toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'})}</div>` : ''}
       </div>
     `;
   }).join('');
@@ -6556,6 +6630,9 @@ function multiJoinRoom() {
           _showWaitingRoom(code);
           _startPolling();
           showToast('✅ انضممت للغرفة!');
+
+          // ★ عداد 10 ثواني — لو المضيف لسه ما بدأش، ابدأ أوتوماتيك بمن حضر
+          _startJoinCountdown(code);
         })
         .catch(() => { resetJoinBtn(); showToast('⚠️ خطأ في الانضمام'); });
     } else {
@@ -6621,7 +6698,11 @@ function _updateWaitingUI() {
   const startBtn = document.getElementById('multiStartBtn');
   const waitMsg = document.getElementById('multiWaitMsg');
   if (multiState.isHost) {
-    if (playerEntries.length >= 2) {
+    // لو العداد شغال — أخفي زرار الابدأ وورّي العداد
+    if (_joinCountdownTimer) {
+      startBtn.style.display = 'none';
+      // waitMsg بيتحدث من tick مباشرة
+    } else if (playerEntries.length >= 2) {
       startBtn.style.display = 'block';
       waitMsg.textContent = '✅ جاهز للبدء! اضغط ابدأ التحدي';
     } else {
@@ -6630,7 +6711,13 @@ function _updateWaitingUI() {
     }
   } else {
     startBtn.style.display = 'none';
-    waitMsg.textContent = room.phase === 'playing' ? '🎯 اللعبة بدأت!' : '⏳ في انتظار المضيف...';
+    // ورّي العداد للاعبين التانيين من Firebase
+    const cd = room.countdown;
+    if (cd && cd > 0 && room.phase !== 'playing') {
+      waitMsg.textContent = '⏳ اللعبة ستبدأ خلال ' + cd + ' ثواني...';
+    } else {
+      waitMsg.textContent = room.phase === 'playing' ? '🎯 اللعبة بدأت!' : '⏳ في انتظار المضيف...';
+    }
   }
 
   // لو المضيف بدأ اللعبة (للـ non-host عبر cache polling — الـ Firebase listener يتعامل منفرداً)
@@ -6654,6 +6741,44 @@ function multiCopyCode() {
   }
 }
 
+// ★ عداد 10 ثواني بعد أول انضمام — تبدأ اللعبة أوتوماتيك بمن حضر
+let _joinCountdownTimer = null;
+let _joinCountdownVal = 0;
+
+function _startJoinCountdown(code) {
+  // لو في عداد شغال بالفعل — متبدأش تاني
+  if (_joinCountdownTimer) return;
+  // لو اللعبة بدأت فعلاً — متبدأش
+  if (multiState.phase === 'playing') return;
+
+  _joinCountdownVal = 10;
+  const waitMsg = document.getElementById('multiWaitMsg');
+  const startBtn = document.getElementById('multiStartBtn');
+
+  // أخفي زرار الابدأ عند المضيف وخليه يتحكم العداد
+  if (startBtn) startBtn.style.display = 'none';
+
+  const tick = () => {
+    if (multiState.phase === 'playing') { clearInterval(_joinCountdownTimer); _joinCountdownTimer = null; return; }
+    if (_joinCountdownVal <= 0) {
+      clearInterval(_joinCountdownTimer);
+      _joinCountdownTimer = null;
+      // تبدأ اللعبة بمن حضر
+      if (multiState.phase !== 'playing') multiStartGame();
+      return;
+    }
+    if (waitMsg) waitMsg.textContent = '⏳ اللعبة ستبدأ خلال ' + _joinCountdownVal + ' ثواني...';
+    // رفع العداد على Firebase عشان كل اللاعبين يشوفوه
+    if (typeof window.fbMulti !== 'undefined' && multiState.isHost) {
+      window.fbMulti.updateRoom(code, { countdown: _joinCountdownVal });
+    }
+    _joinCountdownVal--;
+  };
+
+  tick(); // شغّل فوراً
+  _joinCountdownTimer = setInterval(tick, 1000);
+}
+
 function multiStartGame() {
   if (!multiState.isHost) return;
   if (!multiState.questions || multiState.questions.length < 3) {
@@ -6663,6 +6788,8 @@ function multiStartGame() {
   }
   const room = _getRoomData(multiState.roomCode);
   if (!room) return;
+  // وقّف العداد لو شغال
+  if (_joinCountdownTimer) { clearInterval(_joinCountdownTimer); _joinCountdownTimer = null; }
   room.questions = multiState.questions;
   room.totalQ = multiState.questions.length;
   room.phase = 'playing';
@@ -7003,9 +7130,8 @@ function _showMultiResults() {
     _cu.lastPlay     = Date.now();
     currentUser = _cu;
     window.currentUser = _cu;
-    // حفظ محلي للكل (مسجل وضيف)
-    saveCurrentUser();
     if (!_cu.isGuest) {
+      saveCurrentUser();
       if (typeof window.fbIncrementScore === 'function') {
         window.fbIncrementScore(_cu.username, multiState.myScore, multiState.myScore, 1);
       }
@@ -7100,9 +7226,8 @@ function multiLeaveRoom() {
       // totalGames لا تُزاد — لأن اللعبة لم تكتمل
       currentUser = _cu;
       window.currentUser = _cu;
-      // حفظ محلي للكل (مسجل وضيف)
-      saveCurrentUser();
       if (!_cu.isGuest) {
+        saveCurrentUser();
         if (typeof window.fbIncrementScore === 'function') {
           window.fbIncrementScore(_cu.username, multiState.myScore, multiState.myScore, 0);
         }
