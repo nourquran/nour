@@ -1311,8 +1311,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     setDisconnect: function(roomCode, playerKey, isHost) {
       if (isHost) {
-        // المضيف — بس يحدّث phase لـ closed لو انقطع، مش يتشال من players
-        onDisconnect(ref(db, ROOMS_PATH + roomCode + '/phase')).set('closed');
+        // المضيف — لو انقطع تتمسح الغرفة كلها من Firebase فوراً
+        onDisconnect(ref(db, ROOMS_PATH + roomCode)).remove();
       } else {
         // لاعب عادي — يتشال من الغرفة لو انقطع
         onDisconnect(ref(db, ROOMS_PATH + roomCode + '/players/' + playerKey)).remove();
@@ -1321,6 +1321,14 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     deleteRoom: function(roomCode) {
       return remove(ref(db, ROOMS_PATH + roomCode));
+    },
+
+    // مسح الغرفة تلقائياً بعد انتهاء اللعبة بـ delay (عشان اللاعبين يشوفوا النتيجة)
+    scheduleRoomCleanup: function(roomCode, delayMs) {
+      const delay = delayMs || 30000; // 30 ثانية افتراضي
+      setTimeout(() => {
+        remove(ref(db, ROOMS_PATH + roomCode)).catch(() => {});
+      }, delay);
     },
   };
 
@@ -6868,6 +6876,10 @@ function _showMultiResults() {
   const pk = multiState.playerKey || multiState.playerName;
   if (typeof window.fbMulti !== 'undefined') {
     window.fbMulti.updatePlayer(multiState.roomCode, pk, { score: multiState.myScore, done: true });
+    // المضيف — يحدّث phase لـ finished عشان اللاعبين يعرفوا اللعبة خلصت
+    if (multiState.isHost && multiState.roomCode) {
+      window.fbMulti.updateRoom(multiState.roomCode, { phase: 'finished' }).catch(() => {});
+    }
   } else {
     const room = _getRoomData(multiState.roomCode);
     if (room && room.players && room.players[pk]) {
@@ -7001,13 +7013,22 @@ function multiLeaveRoom() {
     }
   }
   if (typeof window.fbMulti !== 'undefined' && code) {
-    window.fbMulti.removePlayer(code, pk);
-    // لو الـ host خرج يحدّث phase لـ closed أولاً عشان اللاعبين يعرفوا، ثم يمسح الغرفة
-    const room = window._multiRoomCache;
-    if (room && room.hostUser === (currentUser && currentUser.username)) {
-      window.fbMulti.updateRoom(code, { phase: 'closed' }).catch(() => {});
-      setTimeout(() => window.fbMulti.deleteRoom(code).catch(() => {}), 1500);
-    }
+    // شيل اللاعب من الغرفة، ثم تحقق إيه اللاعبين الباقيين
+    window.fbMulti.removePlayer(code, pk).then(() => {
+      window.fbMulti.getRoom(code, (room) => {
+        if (!room) return; // الغرفة اتمسحت بالفعل
+        const remaining = Object.keys(room.players || {}).length;
+        if (remaining === 0) {
+          // مافيش لاعبين — امسح الغرفة فوراً
+          window.fbMulti.deleteRoom(code).catch(() => {});
+        } else if (room.hostUser === (currentUser && currentUser.username)) {
+          // المضيف خرج وفيه لاعبين — بلّغهم وامسح بعد ثانية
+          window.fbMulti.updateRoom(code, { phase: 'closed' }).catch(() => {});
+          setTimeout(() => window.fbMulti.deleteRoom(code).catch(() => {}), 1500);
+        }
+        // لاعب عادي خرج وفيه ناس — الغرفة تفضل لحد ما الباقيين يخرجوا
+      });
+    }).catch(() => {});
   } else {
     const room = _getRoomData(code);
     if (room && room.players[pk]) {
@@ -7315,16 +7336,22 @@ const _FIREBASE_CONFIG = { apiKey: null };
 
     // ─── مسح الغرف القديمة (أقدم من ساعتين) ─────────────────
     function cleanOldRooms() {
-      const cutoff = Date.now() - 2 * 3600 * 1000;
+      const now = Date.now();
+      const cutoff1h = now - 1 * 3600 * 1000; // أقدم من ساعة
       db.ref('nour_rooms').once('value').then(snap => {
         const rooms = snap.val() || {};
         Object.entries(rooms).forEach(([code, room]) => {
-          if ((room.createdAt || 0) < cutoff) db.ref('nour_rooms/'+code).remove();
+          // مسح فوري: غرف finished أو closed
+          const isDone = room.phase === 'finished' || room.phase === 'closed';
+          // مسح قديم: أي غرفة أقدم من ساعة بغض النظر عن الـ phase
+          const isOld  = (room.createdAt || 0) < cutoff1h;
+          if (isDone || isOld) db.ref('nour_rooms/' + code).remove();
         });
       });
     }
+    // شغّل cleanOldRooms عند فتح التطبيق وكل 10 دقائق
     cleanOldRooms();
-
+    setInterval(cleanOldRooms, 10 * 60 * 1000);
     // Auth معرّف في الـ module script أعلى
 
     // ─── Leaderboard ─────────────────────────────────────────
