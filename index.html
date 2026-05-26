@@ -1158,6 +1158,185 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     update(ref(db, 'users/' + key + '/data'), { ...cleanData, updatedAt: Date.now() }).catch(() => {});
   };
 
+  // ══════════════════════════════════════════════════════════
+  // CLOUD SYNC — غلطات + تقدم السور + المحفوظات
+  // ══════════════════════════════════════════════════════════
+
+  // ── حفظ الغلطات على Firebase ──
+  window.fbSaveMistakes = function(username, mistakesObj) {
+    if (!username || !mistakesObj) return;
+    const key = makeKey(username, false);
+    set(ref(db, 'users/' + key + '/mistakes'), mistakesObj)
+      .catch(e => console.error('fbSaveMistakes error:', e));
+  };
+
+  // ── جلب الغلطات من Firebase ──
+  window.fbLoadMistakes = function(username, callback) {
+    if (!username) return;
+    const key = makeKey(username, false);
+    get(ref(db, 'users/' + key + '/mistakes')).then(snap => {
+      callback(snap.exists() ? snap.val() : null);
+    }).catch(() => callback(null));
+  };
+
+  // ── حفظ تقدم المراجعة (nour_revprog) ──
+  window.fbSaveRevProg = function(username, revProgObj) {
+    if (!username || !revProgObj) return;
+    const key = makeKey(username, false);
+    set(ref(db, 'users/' + key + '/revprog'), revProgObj)
+      .catch(e => console.error('fbSaveRevProg error:', e));
+  };
+
+  // ── جلب تقدم المراجعة ──
+  window.fbLoadRevProg = function(username, callback) {
+    if (!username) return;
+    const key = makeKey(username, false);
+    get(ref(db, 'users/' + key + '/revprog')).then(snap => {
+      callback(snap.exists() ? snap.val() : null);
+    }).catch(() => callback(null));
+  };
+
+  // ── حفظ تقدم التحدي العادي (nour_surahprog) ──
+  window.fbSaveSurahProg = function(username, surahProgObj) {
+    if (!username || !surahProgObj) return;
+    const key = makeKey(username, false);
+    set(ref(db, 'users/' + key + '/surahprog'), surahProgObj)
+      .catch(e => console.error('fbSaveSurahProg error:', e));
+  };
+
+  // ── جلب تقدم التحدي العادي ──
+  window.fbLoadSurahProg = function(username, callback) {
+    if (!username) return;
+    const key = makeKey(username, false);
+    get(ref(db, 'users/' + key + '/surahprog')).then(snap => {
+      callback(snap.exists() ? snap.val() : null);
+    }).catch(() => callback(null));
+  };
+
+  // ── حفظ السور المحفوظة ──
+  window.fbSaveMemorized = function(username, memorizedArr) {
+    if (!username || !Array.isArray(memorizedArr)) return;
+    const key = makeKey(username, false);
+    set(ref(db, 'users/' + key + '/memorized'), memorizedArr)
+      .catch(e => console.error('fbSaveMemorized error:', e));
+  };
+
+  // ── جلب السور المحفوظة ──
+  window.fbLoadMemorized = function(username, callback) {
+    if (!username) return;
+    const key = makeKey(username, false);
+    get(ref(db, 'users/' + key + '/memorized')).then(snap => {
+      callback(snap.exists() ? snap.val() : null);
+    }).catch(() => callback(null));
+  };
+
+  // ── sync كامل عند الدخول: جلب كل البيانات من Firebase ومدمجها ──
+  window.fbSyncAllUserData = function(username) {
+    if (!username) return;
+    const key = makeKey(username, false);
+
+    // جلب الـ 4 مسارات دفعة واحدة
+    Promise.all([
+      get(ref(db, 'users/' + key + '/mistakes')),
+      get(ref(db, 'users/' + key + '/revprog')),
+      get(ref(db, 'users/' + key + '/surahprog')),
+      get(ref(db, 'users/' + key + '/memorized')),
+    ]).then(([mistSnap, revSnap, surahSnap, memSnap]) => {
+
+      // ── الغلطات ──
+      if (mistSnap.exists()) {
+        const fbMist = mistSnap.val();
+        const localKey = 'nour_mistakes_' + username;
+        let localMist = {};
+        try { localMist = JSON.parse(localStorage.getItem(localKey) || '{}'); } catch {}
+        // دمج: خذ كل يوم من Firebase ومن المحلي (الأكثر غلطات)
+        const merged = { ...fbMist };
+        Object.keys(localMist).forEach(day => {
+          if (!merged[day]) merged[day] = localMist[day];
+          else {
+            // دمج غلطات اليوم (بدون تكرار)
+            const combined = [...merged[day]];
+            localMist[day].forEach(m => {
+              if (!combined.some(c => c.ayah === m.ayah && c.blank === m.blank)) combined.push(m);
+            });
+            merged[day] = combined;
+          }
+        });
+        // احتفظ بآخر 7 أيام فقط
+        const days7 = Object.keys(merged).sort().reverse().slice(0, 7);
+        const trimmed = {};
+        days7.forEach(d => { trimmed[d] = merged[d]; });
+        localStorage.setItem(localKey, JSON.stringify(trimmed));
+      }
+
+      // ── تقدم المراجعة ──
+      if (revSnap.exists()) {
+        const fbRev = revSnap.val();
+        const localKey = 'nour_revprog_' + username;
+        let localRev = {};
+        try { localRev = JSON.parse(localStorage.getItem(localKey) || '{}'); } catch {}
+        // دمج: لكل سورة خذ البيانات الأحدث (lastPlay الأكبر)
+        const merged = { ...localRev };
+        Object.keys(fbRev).forEach(surah => {
+          const fb = fbRev[surah];
+          const loc = localRev[surah];
+          if (!loc || (fb.lastPlay || 0) > (loc.lastPlay || 0)) {
+            merged[surah] = fb;
+          } else if ((loc.done || 0) > (fb.done || 0)) {
+            merged[surah] = loc;
+          } else {
+            merged[surah] = fb;
+          }
+        });
+        localStorage.setItem(localKey, JSON.stringify(merged));
+        // لو Firebase أحدث → ارفع المدمج للسيرفر
+        set(ref(db, 'users/' + key + '/revprog'), merged).catch(() => {});
+      }
+
+      // ── تقدم التحدي العادي ──
+      if (surahSnap.exists()) {
+        const fbSurah = surahSnap.val();
+        const localKey = 'nour_surahprog_' + username;
+        let localSurah = {};
+        try { localSurah = JSON.parse(localStorage.getItem(localKey) || '{}'); } catch {}
+        const merged = { ...localSurah, ...fbSurah };
+        // خذ الأكبر لكل سورة
+        Object.keys(fbSurah).forEach(s => {
+          if ((fbSurah[s] || 0) > (localSurah[s] || 0)) merged[s] = fbSurah[s];
+          else merged[s] = localSurah[s] || 0;
+        });
+        localStorage.setItem(localKey, JSON.stringify(merged));
+        set(ref(db, 'users/' + key + '/surahprog'), merged).catch(() => {});
+      }
+
+      // ── السور المحفوظة ──
+      if (memSnap.exists()) {
+        const fbMem = memSnap.val();
+        if (Array.isArray(fbMem)) {
+          const localKey = 'nour_memorized_' + username;
+          let localMem = [];
+          try { localMem = JSON.parse(localStorage.getItem(localKey) || '[]'); } catch {}
+          // دمج: union بين الاتنين
+          const merged = [...new Set([...localMem, ...fbMem])];
+          localStorage.setItem(localKey, JSON.stringify(merged));
+          // أعد تحميل قائمة المحفوظات لو موجودة
+          if (window.currentUser && window.currentUser.username === username) {
+            if (typeof window.memorizedSurahs !== 'undefined') window.memorizedSurahs = merged;
+            if (typeof loadMemorizedSurahs === 'function') loadMemorizedSurahs();
+          }
+          set(ref(db, 'users/' + key + '/memorized'), merged).catch(() => {});
+        }
+      }
+
+      // ── تحديث الـ UI بعد الـ sync ──
+      if (window.currentUser && window.currentUser.username === username) {
+        if (typeof renderReviewGrid      === 'function') renderReviewGrid();
+        if (typeof renderInProgressSurahs === 'function') renderInProgressSurahs();
+        console.log('✅ Cloud sync مكتمل لـ ' + username);
+      }
+    }).catch(e => console.error('fbSyncAllUserData error:', e));
+  };
+
   // دالة جديدة لإضافة النقاط بشكل atomic (بدون race condition)
   window.fbIncrementScore = function(username, scoreAdd, hasanatAdd, gamesAdd) {
     if (!username || (!scoreAdd && !hasanatAdd && !gamesAdd)) return;
@@ -1419,24 +1598,37 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   };
 
   // ============================================================
-  // ===== LEADERBOARD — مسار موحد (leaderboard فقط) =====
-  // ============================================================
+  // ===== LEADERBOARD — مسار موحد + real-time لكل المستخدمين =====
   const LB_PATH = 'leaderboard/';
 
-  // ─── رفع بيانات اللاعب ───
+  // ─── رفع بيانات اللاعب (transactional لضمان أعلى نقطة) ───
   window.fbSaveUser = function(username, data) {
     if (!username) return;
     const key = makeKey(username, data.isGuest || false);
-    const payload = {
-      name:         username,
-      totalHasanat: Math.max(0, data.totalHasanat || 0),
-      totalScore:   Math.max(0, data.totalScore   || 0),
-      totalGames:   Math.max(0, data.totalGames   || 0),
-      isGuest:      data.isGuest || false,
-      updatedAt:    Date.now(),
-    };
-    // ★ مسار واحد فقط — leaderboard
-    set(ref(db, LB_PATH + key), payload).catch(e => console.error('fbSaveUser error:', e));
+    const entryRef = ref(db, LB_PATH + key);
+    // نقرأ القيمة الحالية أولاً ونحفظ الأعلى فقط
+    get(entryRef).then(snap => {
+      const cur = snap.val() || {};
+      const payload = {
+        name:         username,
+        totalHasanat: Math.max(cur.totalHasanat || 0, data.totalHasanat || 0),
+        totalScore:   Math.max(cur.totalScore   || 0, data.totalScore   || 0),
+        totalGames:   Math.max(cur.totalGames   || 0, data.totalGames   || 0),
+        isGuest:      data.isGuest || false,
+        updatedAt:    Date.now(),
+      };
+      set(entryRef, payload).catch(e => console.error('fbSaveUser error:', e));
+    }).catch(() => {
+      // fallback: اكتب مباشرة لو get فشلت
+      set(entryRef, {
+        name: username,
+        totalHasanat: Math.max(0, data.totalHasanat || 0),
+        totalScore:   Math.max(0, data.totalScore   || 0),
+        totalGames:   Math.max(0, data.totalGames   || 0),
+        isGuest:      data.isGuest || false,
+        updatedAt:    Date.now(),
+      }).catch(e => console.error('fbSaveUser fallback error:', e));
+    });
   };
 
   // ─── حذف اللاعب من اللوحة ───
@@ -1445,47 +1637,41 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     const keyAlt = makeKey(username, !isGuest);
     remove(ref(db, LB_PATH + key)).catch(() => {});
     if (key !== keyAlt) remove(ref(db, LB_PATH + keyAlt)).catch(() => {});
-    // بيانات المستخدم
     if (!isGuest) remove(ref(db, 'users/' + key)).catch(() => {});
-    // مسح المسار القديم أيضاً (cleanup)
     remove(ref(db, 'nour_lb/' + key)).catch(() => {});
     if (key !== keyAlt) remove(ref(db, 'nour_lb/' + keyAlt)).catch(() => {});
   };
 
-  // ─── fbRenderLeaderboard: ما بقيناش محتاجينه — الـ onValue بيكفي ───
+  // ─── جلب يدوي فوري (للزرار ولأول تحميل) ───
   window.fbRenderLeaderboard = function() {
-    // الـ real-time listener شغال — مش محتاج تعيد الجلب
-    if (window._lbAllList && window._lbAllList.length > 0) {
-      window._renderLbFromData(window._lbAllList.reduce((obj, [k,v]) => { obj[k]=v; return obj; }, {}));
-    } else {
-      const podiumWrap = document.getElementById('lbPodiumWrap');
-      if (podiumWrap) podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">⏳ جاري تحميل اللوحة...</div>';
-      get(ref(db, LB_PATH)).then(s => {
-        const data = s.val() || {};
-        window._renderLbFromData(data);
-      }).catch(() => {
-        if (document.getElementById('lbPodiumWrap'))
-          document.getElementById('lbPodiumWrap').innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:20px;">⚠️ تعذّر تحميل اللوحة</div>';
-      });
+    const podiumWrap = document.getElementById('lbPodiumWrap');
+    if (podiumWrap && (!window._lbAllList || window._lbAllList.length === 0)) {
+      podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">⏳ جاري تحميل اللوحة...</div>';
     }
+    get(ref(db, LB_PATH)).then(s => {
+      window._renderLbFromData(s.val() || {});
+    }).catch(() => {
+      if (document.getElementById('lbPodiumWrap'))
+        document.getElementById('lbPodiumWrap').innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:20px;">⚠️ تعذّر تحميل اللوحة</div>';
+    });
   };
 
-  // ─── real-time listener على مسار واحد فقط ───
+  // ─── real-time listener — يحدّث اللوحة لكل المستخدمين فور أي تغيير ───
   onValue(ref(db, LB_PATH), (snap) => {
     const data = snap.val() || {};
-    // دمج أي بيانات قديمة من nour_lb لو موجودة في الكاش
     window._renderLbFromData(data);
+    console.log('🏆 لوحة الشرف اتحدثت — ' + Object.keys(data).length + ' لاعب');
+  }, (err) => {
+    console.error('leaderboard listener error:', err);
   });
 
-  // ─── migration: انقل بيانات nour_lb للمسار الجديد (مرة واحدة) ───
+  // ─── migration: انقل bيانات nour_lb للمسار الجديد (مرة واحدة) ───
   get(ref(db, 'nour_lb')).then(snap => {
     if (!snap.exists()) return;
-    const old = snap.val() || {};
-    const lbSnap = {};
-    // انقل فقط اللاعبين اللي مش موجودين في leaderboard أو عندهم نقاط أعلى
+    const oldData = snap.val() || {};
     get(ref(db, LB_PATH)).then(lbS => {
       const current = lbS.val() || {};
-      Object.entries(old).forEach(([k, d]) => {
+      Object.entries(oldData).forEach(([k, d]) => {
         if (!d) return;
         if (!current[k] || (d.totalHasanat||0) > (current[k].totalHasanat||0)) {
           set(ref(db, LB_PATH + k), { ...d, updatedAt: d.updatedAt || Date.now() }).catch(() => {});
@@ -1494,13 +1680,16 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     }).catch(() => {});
   }).catch(() => {});
 
-  // ─── عرض اللوحة من البيانات ───
+  // ─── عرض اللوحة من البيانات — موحد لكل المستخدمين ───
   window._renderLbFromData = function(data) {
     const podiumWrap = document.getElementById('lbPodiumWrap');
     const dotsEl    = document.getElementById('lbDots');
     const lb        = document.getElementById('leaderboard');
     if (!podiumWrap) return;
 
+    const toA = n => String(Math.round(n || 0)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+
+    // ترتيب تنازلي حسب الحسنات
     const list = Object.entries(data)
       .filter(([, d]) => d && (d.totalHasanat || 0) > 0)
       .sort(([, a], [, b]) => (b.totalHasanat || 0) - (a.totalHasanat || 0));
@@ -1515,30 +1704,42 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       return;
     }
 
+    // ─── Top 3 منصة ───
     const top3 = list.slice(0, 3);
-    const rankEmojis  = ['🥇','🥈','🥉'];
-    const rankColors  = [
-      'linear-gradient(135deg,rgba(201,151,58,0.18),rgba(201,151,58,0.06))',
-      'linear-gradient(135deg,rgba(180,180,180,0.14),rgba(180,180,180,0.04))',
-      'linear-gradient(135deg,rgba(180,100,40,0.16),rgba(180,100,40,0.04))',
+    const rankEmojis   = ['🥇','🥈','🥉'];
+    const rankColors   = [
+      'linear-gradient(135deg,rgba(201,151,58,0.22),rgba(201,151,58,0.07))',
+      'linear-gradient(135deg,rgba(180,180,180,0.16),rgba(180,180,180,0.05))',
+      'linear-gradient(135deg,rgba(180,100,40,0.18),rgba(180,100,40,0.05))',
     ];
-    const borderColors = ['rgba(201,151,58,0.45)','rgba(180,180,180,0.3)','rgba(180,100,40,0.35)'];
-    const toA = n => String(Math.round(n || 0)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+    const borderColors = ['rgba(201,151,58,0.5)','rgba(180,180,180,0.35)','rgba(180,100,40,0.4)'];
+
+    // تحديد اللاعب الحالي بطريقتين (key مباشر أو اسم)
+    const cu = window.currentUser;
+    const myKey = (cu && window._makeKey) ? window._makeKey(cu.username, cu.isGuest || false) : null;
+    const myKeyReg = (cu && window._makeKey) ? window._makeKey(cu.username, false) : null;
+    const isMyEntry = (key, d) => {
+      if (!cu) return false;
+      if (myKey && key === myKey) return true;
+      if (myKeyReg && key === myKeyReg) return true;
+      if (d && d.name && cu.username && d.name === cu.username) return true;
+      return false;
+    };
 
     window._lbTop3Data = top3.map(([key, d], i) => {
-      const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest || false);
-      return [key, d, rankEmojis[i], rankColors[i], borderColors[i], isMe];
+      return [key, d, rankEmojis[i], rankColors[i], borderColors[i], isMyEntry(key, d)];
     });
 
     const [, d0, emoji0, color0, border0, isMe0] = window._lbTop3Data[0];
-    const name0 = top3[0][1].name || top3[0][0];
+    const name0 = (top3[0][1] && top3[0][1].name) ? top3[0][1].name : top3[0][0];
+
     podiumWrap.innerHTML = `<div class="lb-podium-slide active" id="lbSlide0"
          style="background:${color0};border:1px solid ${border0};transition:opacity 0.35s ease,transform 0.35s ease;">
       <div class="lb-podium-rank">${emoji0}</div>
       <div class="lb-podium-info">
         <div class="lb-podium-name${isMe0?' is-me':''}">${name0}${isMe0?' (أنت)':''}</div>
         <div class="lb-podium-hasanat">${toA(d0.totalHasanat)} ⭐</div>
-        <div class="lb-podium-score">${toA(d0.totalGames)} جلسة</div>
+        <div class="lb-podium-score">${toA(d0.totalGames)} جلسة · ${toA(d0.totalScore)} نقطة</div>
       </div>
     </div>`;
 
@@ -1546,9 +1747,30 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       `<div class="lb-dot${i===0?' active':''}" onclick="lbGoTo(${i})"></div>`
     ).join('');
 
-    if (lb) lb.innerHTML = '';
+    // ─── باقي اللاعبين (4+) ───
+    if (lb) {
+      if (list.length > 3) {
+        lb.style.display = 'block';
+        lb.innerHTML = list.slice(3).map(([key, d], i) => {
+          const rank = i + 4;
+          const nm = (d && d.name) ? d.name : key;
+          const isMeRow = isMyEntry(key, d);
+          return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;
+            background:rgba(255,254,249,${isMeRow?'0.07':'0.03'});
+            border:1px solid rgba(201,151,58,${isMeRow?'0.35':'0.1'});
+            border-radius:12px;margin-bottom:6px;">
+            <span style="font-size:13px;color:rgba(245,217,139,0.45);min-width:22px;text-align:center;">${toA(rank)}</span>
+            <span style="flex:1;font-size:13px;color:${isMeRow?'var(--gold)':'var(--cream)'};">${nm}${isMeRow?' (أنت)':''}</span>
+            <span style="font-size:12px;color:rgba(245,217,139,0.6);">${toA(d.totalHasanat||0)} ⭐</span>
+          </div>`;
+        }).join('');
+      } else {
+        lb.style.display = 'none';
+        lb.innerHTML = '';
+      }
+    }
 
-    // rotation
+    // rotation للـ top3
     if (window.lbPodiumTimer) { clearInterval(window.lbPodiumTimer); window.lbPodiumTimer = null; }
     window.lbPodiumIdx = 0;
     if (top3.length > 1) {
@@ -1556,12 +1778,11 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     }
 
     // ─── مركز اللاعب الحالي ───
-    _renderMyRankEl(list);
+    _renderMyRankEl(list, isMyEntry);
   };
 
-  // ─── عرض مركز اللاعب الحالي أسفل اللوحة ───
-  function _renderMyRankEl(list) {
-    // ابحث عن عنصر الـ rank أو اعمله
+  // ─── مركز اللاعب الحالي أسفل اللوحة ───
+  function _renderMyRankEl(list, isMyEntryFn) {
     let rankEl = document.getElementById('myLbRank');
     if (!rankEl) {
       rankEl = document.createElement('div');
@@ -1574,33 +1795,36 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     const cu = window.currentUser;
     if (!cu || cu.isGuest) { rankEl.innerHTML = ''; return; }
 
-    const myKey = window._makeKey ? window._makeKey(cu.username, false) : cu.username;
-    const myIdx = list.findIndex(([k]) => k === myKey);
     const toA = n => String(Math.round(n || 0)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+    const checkFn = isMyEntryFn || ((key, d) => {
+      const mk1 = window._makeKey ? window._makeKey(cu.username, false) : cu.username;
+      const mk2 = window._makeKey ? window._makeKey(cu.username, true)  : cu.username;
+      return key === mk1 || key === mk2 || (d && d.name === cu.username);
+    });
+
+    const myIdx = list.findIndex(([k, d]) => checkFn(k, d));
 
     if (myIdx < 0) {
-      // اللاعب مش في اللوحة بعد
-      if ((cu.totalHasanat || 0) === 0) { rankEl.innerHTML = ''; return; }
-      rankEl.innerHTML = `<div style="text-align:center;font-size:12px;color:rgba(245,217,139,0.4);padding:8px;">العب أكتر لتظهر في اللوحة 🌟</div>`;
+      rankEl.innerHTML = (cu.totalHasanat || 0) > 0
+        ? '<div style="text-align:center;font-size:12px;color:rgba(245,217,139,0.4);padding:8px;">العب أكتر لتظهر في اللوحة 🌟</div>'
+        : '';
       return;
     }
 
     const myRank = myIdx + 1;
+    if (myRank <= 3) { rankEl.innerHTML = ''; return; } // ظاهر في المنصة
+
     const medals = ['🥇','🥈','🥉'];
     const medal = medals[myIdx] || '🏅';
     const [, myData] = list[myIdx];
-    const isTop3 = myIdx < 3;
-
-    if (isTop3) { rankEl.innerHTML = ''; return; } // already visible in podium
 
     rankEl.innerHTML = `
       <div style="background:rgba(201,151,58,0.08);border:1px solid rgba(201,151,58,0.3);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
         <span style="font-size:22px;">${medal}</span>
         <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;color:var(--gold);">مركزك: ${toA(myRank)}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--gold);">مركزك: ${toA(myRank)} من ${toA(list.length)}</div>
           <div style="font-size:11px;color:rgba(245,217,139,0.5);margin-top:2px;">${toA(myData.totalHasanat||0)} ⭐ — ${toA(myData.totalGames||0)} جلسة</div>
         </div>
-        <div style="font-size:11px;color:rgba(245,217,139,0.4);">${toA(list.length)} لاعب</div>
       </div>`;
   }
 
@@ -1748,13 +1972,15 @@ function _callWhenReady(fn, args) {
     </div>
 
     <!-- LEADERBOARD -->
-    <div class="section-title">لوحة الشرف</div>
+    <div class="section-title">🏆 لوحة الشرف</div>
 
     <!-- streakDays/Dots still referenced by JS -->
     <div style="display:none;"><div id="streakDays"></div><div id="streakDots"></div></div>
     <div class="lb-section">
       <!-- المنصة المتحركة للمراكز الـ٣ -->
-      <div class="lb-podium-wrap" id="lbPodiumWrap"></div>
+      <div class="lb-podium-wrap" id="lbPodiumWrap">
+        <div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">⏳ جاري تحميل اللوحة...</div>
+      </div>
       <div class="lb-dots" id="lbDots"></div>
       <div class="lb-rest" id="leaderboard" style="display:none;"></div>
     </div>
@@ -2513,7 +2739,6 @@ function _finishLogin(username, isGuest) {
   document.getElementById('loginScreen').classList.add('hide');
   document.getElementById('userNameDisplay').textContent = '👤 ' + username;
   if (typeof window.fbSignInAnon === 'function') window.fbSignInAnon();
-  // احفظ آخر مستخدم دخل عشان نعمله autoLogin في المرة الجاية
   if (!isGuest) {
     try { localStorage.setItem('nour_last_user', username); } catch(e) {}
   }
@@ -2525,6 +2750,18 @@ function _finishLogin(username, isGuest) {
   populateJuzFilter();
   loadMemorizedSurahs();
   showToast('مرحباً ' + username + '! 🌙');
+
+  // ★ sync كامل من Firebase عند الدخول (مسجلين فقط)
+  if (!isGuest) {
+    const _doSync = () => {
+      if (typeof window.fbSyncAllUserData === 'function') {
+        window.fbSyncAllUserData(username);
+      } else {
+        setTimeout(_doSync, 500); // انتظر Firebase يتحمل
+      }
+    };
+    setTimeout(_doSync, 800); // خلي Firebase Auth يكمل أولاً
+  }
 }
 
 function doLogout() {
@@ -2923,6 +3160,10 @@ function loadMemorizedSurahs() {
 function saveMemorizedSurahs() {
   if (!currentUser || currentUser.isGuest) return;
   localStorage.setItem('nour_memorized_' + currentUser.username, JSON.stringify(memorizedSurahs));
+  // ★ sync على Firebase
+  if (typeof window.fbSaveMemorized === 'function') {
+    window.fbSaveMemorized(currentUser.username, memorizedSurahs);
+  }
 }
 
 // يتم استدعاؤها لما يخلص كل أسئلة سورة معينة
@@ -4363,7 +4604,10 @@ function saveSurahProgress(surahName, nextIndex) {
   try { data = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
   data[surahName] = nextIndex;
   localStorage.setItem(key, JSON.stringify(data));
-  // حدّث قائمة "بدأتها" في الـ Home
+  // ★ sync على Firebase
+  if (typeof window.fbSaveSurahProg === 'function') {
+    window.fbSaveSurahProg(currentUser.username, data);
+  }
   if (typeof renderInProgressSurahs === 'function') renderInProgressSurahs();
 }
 
@@ -5337,16 +5581,18 @@ function saveMistake(q, chosen) {
   try { all = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
   const today = getTodayKey();
   if (!all[today]) all[today] = [];
-  // avoid duplicates
   const exists = all[today].some(m => m.ayah === q.ayah && m.wrong_chosen === chosen);
   if (!exists) {
     all[today].push({ surah:q.surah, ayah:q.ayah, blank:q.blank, wrong_chosen:chosen, ts: Date.now() });
   }
-  // keep only last 7 days
   const keys = Object.keys(all).sort().reverse().slice(0,7);
   const trimmed = {};
   keys.forEach(k => trimmed[k] = all[k]);
   localStorage.setItem(key, JSON.stringify(trimmed));
+  // ★ sync على Firebase (مسجلين فقط)
+  if (!currentUser.isGuest && typeof window.fbSaveMistakes === 'function') {
+    window.fbSaveMistakes(currentUser.username, trimmed);
+  }
 }
 
 function getMistakes() {
@@ -5568,6 +5814,10 @@ function markSurahReviewStarted(surahName, total) {
   const prev = d[surahName] || {done:0, total:0, streak:0};
   d[surahName] = { ...prev, total, inProgress: true, lastPlay: Date.now() };
   localStorage.setItem(key, JSON.stringify(d));
+  // ★ sync على Firebase
+  if (typeof window.fbSaveRevProg === 'function') {
+    window.fbSaveRevProg(currentUser.username, d);
+  }
 }
 
 function saveSurahReviewProgress(surahName, done, total) {
@@ -5578,13 +5828,14 @@ function saveSurahReviewProgress(surahName, done, total) {
   const prev = d[surahName] || {done:0,total:0,streak:0};
   const accuracy = total > 0 ? done / total : 0;
   const perfect = accuracy >= 1.0;
-  const finished = total > 0; // وصل لآخر السورة = تتشال من "بدأتها"
+  const finished = total > 0;
   const streak = perfect ? (prev.streak||0)+1 : prev.streak||0;
-  // لو خلّص السورة (وصل آخرها): inProgress = false
-  // لو قفل في النص: inProgress = true (تفضل في "بدأتها")
   d[surahName] = { done, total, streak, lastPlay: Date.now(), inProgress: !finished };
   localStorage.setItem(key, JSON.stringify(d));
-  // رسالة إكمال السورة
+  // ★ sync على Firebase
+  if (typeof window.fbSaveRevProg === 'function') {
+    window.fbSaveRevProg(currentUser.username, d);
+  }
   if (perfect) {
     showToast('🏆 أتقنت سورة ' + surahName + (streak > 1 ? ' — سلسلة ×' + streak + ' 🔥' : ' ماشاءالله! 🌟'), 3500);
   }
@@ -5631,6 +5882,10 @@ function resetSurahProgress(surahName) {
   if (d[surahName]) { d[surahName].inProgress = false; }
   else { d[surahName] = { done:0, total:0, streak:0, inProgress:false }; }
   localStorage.setItem(key, JSON.stringify(d));
+  // ★ sync على Firebase
+  if (typeof window.fbSaveRevProg === 'function') {
+    window.fbSaveRevProg(currentUser.username, d);
+  }
   renderReviewGrid();
   showToast('🗑️ تم تصفير سورة ' + surahName);
 }
@@ -6487,20 +6742,7 @@ function showMultiScreen() {
   if (typeof window.fbSignInAnon === 'function') {
     window.fbSignInAnon().catch(() => {});
   }
-  // ★ لو fbMulti لسه مش جاهز — انتظر وورّي رسالة
-  if (typeof window.fbMulti === 'undefined') {
-    const createBtn = document.querySelector('#multiLobby button[onclick="multiCreateRoom()"]');
-    const joinBtn   = document.querySelector('#multiLobby button[onclick="multiJoinRoom()"]');
-    if (createBtn) { createBtn.disabled = true; createBtn.textContent = '⏳ جاري الاتصال...'; }
-    if (joinBtn)   { joinBtn.disabled = true; }
-    const _waitFbMulti = setInterval(() => {
-      if (typeof window.fbMulti !== 'undefined') {
-        clearInterval(_waitFbMulti);
-        if (createBtn) { createBtn.disabled = false; createBtn.textContent = '🚀 إنشاء الغرفة'; }
-        if (joinBtn)   { joinBtn.disabled = false; }
-      }
-    }, 300);
-  }
+  // Firebase بيتحمل في الخلفية — الأزرار شغالة دايماً، مش هنعطّلها
 }
 
 function _generateRoomCode() {
@@ -6524,17 +6766,10 @@ function _setRoomData(code, data) {
 function multiCreateRoom() {
   if (!currentUser) { showToast('⚠️ سجّل دخولك الأول'); return; }
 
-  // ★ انتظر لو fbMulti لسه مش جاهز (module script لسه بيحمّل)
-  if (typeof window.fbMulti === 'undefined') {
-    showToast('⏳ جاري الاتصال بالسيرفر...');
-    setTimeout(multiCreateRoom, 500);
-    return;
-  }
-
-  // feedback فوري على الزر
+  // تعطيل الزر مؤقتاً لمنع الضغط المزدوج
   const createBtn = document.querySelector('#multiLobby button[onclick="multiCreateRoom()"]');
-  if (createBtn) { createBtn.textContent = '⏳ جاري الإنشاء...'; createBtn.disabled = true; }
-  const resetCreateBtn = () => { if (createBtn) { createBtn.textContent = '🚀 إنشاء الغرفة'; createBtn.disabled = false; } };
+  if (createBtn) { createBtn.disabled = true; }
+  const resetCreateBtn = () => { if (createBtn) { createBtn.disabled = false; } };
 
   const code = _generateRoomCode();
   const surahVal = document.getElementById('multiSurahSelect').value;
@@ -6546,7 +6781,7 @@ function multiCreateRoom() {
     ? window._makeKey(currentUser.username, false)
     : currentUser.username;
 
-  // خطوة ١: أُظهر الواجهة فوراً
+  // خطوة ١: أُظهر الواجهة فوراً — بدون انتظار Firebase
   multiState.roomCode = code;
   multiState.isHost = true;
   multiState.playerName = currentUser.username;
@@ -6556,7 +6791,7 @@ function multiCreateRoom() {
   multiState.qTime = qTime;
   multiState.questions = [];
   multiState.totalQ = 0;
-  window.multiState = multiState; // ★ sync window reference
+  window.multiState = multiState;
 
   const initRoom = {
     code, hostUser: currentUser.username, phase: 'waiting',
@@ -6568,7 +6803,7 @@ function multiCreateRoom() {
   _showWaitingRoom(code);
   resetCreateBtn();
 
-  // خطوة ٢: بناء الأسئلة + Firebase في الخلفية
+  // خطوة ٢: بناء الأسئلة في الخلفية
   setTimeout(() => {
     const allSurah = (qCountRaw === 'all');
     let questions = [];
@@ -6592,37 +6827,40 @@ function multiCreateRoom() {
     const room = { ...initRoom, questions, totalQ: questions.length };
     window._multiRoomCache = room;
 
-    if (typeof window.fbMulti !== 'undefined') {
-      const _doCreate = () => {
-        const compressQ = (q) => {
-          const obj = { s: q.surah||'', a: q.ayah||'', b: q.blank||'', w: (q.wrong||[]).slice(0,3), t: q.qtype||'blank' };
-          if (q.ayahNum) obj.n = q.ayahNum;
-          return obj;
-        };
-        const rawRoom = { ...room, questions: questions.map(compressQ) };
-        delete rawRoom.startedAt;
-        const cleanRoom = JSON.parse(JSON.stringify(rawRoom));
-        window.fbMulti.createRoom(code, cleanRoom)
-          .then(() => {
-            window.fbMulti.setDisconnect(code, playerKey, true);
-            _startPolling();
-            
-          })
-          .catch((err) => {
-            console.error('createRoom error:', err.code, err.message);
-            showToast('⚠️ خطأ في إنشاء الغرفة: ' + (err.message || 'تأكد من الاتصال'));
-          });
+    // خطوة ٣: رفع الغرفة على Firebase — لو مش جاهز بعد، استنى عليه
+    const _doFirebaseCreate = () => {
+      const compressQ = (q) => {
+        const obj = { s: q.surah||'', a: q.ayah||'', b: q.blank||'', w: (q.wrong||[]).slice(0,3), t: q.qtype||'blank' };
+        if (q.ayahNum) obj.n = q.ayahNum;
+        return obj;
       };
-      if (typeof window.fbSignInAnon === 'function') {
-        window.fbSignInAnon().then(_doCreate).catch(_doCreate);
+      const rawRoom = { ...room, questions: questions.map(compressQ) };
+      delete rawRoom.startedAt;
+      const cleanRoom = JSON.parse(JSON.stringify(rawRoom));
+      window.fbMulti.createRoom(code, cleanRoom)
+        .then(() => {
+          window.fbMulti.setDisconnect(code, playerKey, true);
+          _startPolling();
+        })
+        .catch((err) => {
+          console.error('createRoom error:', err.code, err.message);
+          showToast('⚠️ خطأ في رفع الغرفة: ' + (err.message || 'تأكد من الاتصال'));
+        });
+    };
+
+    const _tryFirebase = () => {
+      if (typeof window.fbMulti !== 'undefined') {
+        if (typeof window.fbSignInAnon === 'function') {
+          window.fbSignInAnon().then(_doFirebaseCreate).catch(_doFirebaseCreate);
+        } else {
+          _doFirebaseCreate();
+        }
       } else {
-        _doCreate();
+        // Firebase لسه بيتحمل — استنى 300ms وحاول تاني
+        setTimeout(_tryFirebase, 300);
       }
-    } else {
-      _setRoomData(code, room);
-      _startPolling();
-      
-    }
+    };
+    _tryFirebase();
   }, 0);
 }
 
@@ -6857,7 +7095,19 @@ function _startJoinCountdown(code) {
       if (typeof window.fbMulti !== 'undefined') {
         window.fbMulti.updateRoom(code, { countdownEnded: true, countdown: 0 });
       }
-      if (multiState.phase !== 'playing') multiStartGame();
+      if (multiState.phase !== 'playing') {
+        if (!multiState.questions || multiState.questions.length < 3) {
+          if (waitMsg) waitMsg.textContent = '⏳ جاري تحضير الأسئلة...';
+          const _waitQ = setInterval(() => {
+            if (multiState.questions && multiState.questions.length >= 3) {
+              clearInterval(_waitQ);
+              if (multiState.phase !== 'playing') multiStartGame();
+            }
+          }, 100);
+        } else {
+          multiStartGame();
+        }
+      }
     } else {
       if (waitMsg) waitMsg.textContent = '⏳ اللعبة ستبدأ خلال ' + _joinCountdownVal + ' ثواني...';
       if (typeof window.fbMulti !== 'undefined' && multiState.isHost) {
@@ -7463,7 +7713,23 @@ function _startPolling() {
             // الأسئلة مش موجودة في الـ snapshot — اجلب الغرفة كاملة
             window.fbMulti.getRoom(multiState.roomCode, (fullRoom) => {
               if (!fullRoom || !fullRoom.questions || fullRoom.questions.length === 0) {
-                showToast('⚠️ تعذّر تحميل الأسئلة، حاول مجدداً');
+                // الأسئلة لسه بتتبني — حاول تاني بعد 300ms
+                setTimeout(() => {
+                  window.fbMulti.getRoom(multiState.roomCode, (retryRoom) => {
+                    if (!retryRoom || !retryRoom.questions || retryRoom.questions.length === 0) {
+                      showToast('⚠️ تعذّر تحميل الأسئلة، حاول مجدداً');
+                      return;
+                    }
+                    if (retryRoom.questions[0] && retryRoom.questions[0].s !== undefined) {
+                      retryRoom.questions = retryRoom.questions.map(window._expandMultiQ);
+                    }
+                    window._multiRoomCache = retryRoom;
+                    multiState.questions = retryRoom.questions;
+                    multiState.totalQ = retryRoom.totalQ || retryRoom.questions.length;
+                    multiState.qTime = retryRoom.qTime || 15;
+                    _startMultiGame();
+                  });
+                }, 300);
                 return;
               }
               if (fullRoom.questions[0].s !== undefined) {
