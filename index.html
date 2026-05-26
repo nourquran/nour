@@ -1184,11 +1184,12 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
         if (typeof updateHomeStats === 'function') updateHomeStats();
       }
     }).catch(() => {
-      // fallback لو Firebase مش متاح
+      // fallback لو Firebase مش متاح — نستخدم القيم الحالية من currentUser + الإضافة
+      const _cu = window.currentUser;
       update(dataRef, {
-        totalScore:   (scoreAdd   || 0),
-        totalGames:   (gamesAdd   || 0),
-        totalHasanat: (hasanatAdd || 0),
+        totalScore:   (_cu ? (_cu.totalScore   || 0) : 0) + (scoreAdd   || 0),
+        totalGames:   (_cu ? (_cu.totalGames   || 0) : 0) + (gamesAdd   || 0),
+        totalHasanat: (_cu ? (_cu.totalHasanat || 0) : 0) + (hasanatAdd || 0),
         updatedAt:    Date.now(),
       }).catch(() => {});
     });
@@ -1226,17 +1227,33 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       get(ref(db, 'users/' + makeKey(realUsername, false) + '/data'))
         .then(snap => {
           const fbData = snap.exists() ? snap.val() : {};
+          // نجيب البيانات المحلية كمان ونأخذ الأعلى (أمان ضد ضياع النقاط)
+          const _localUsers = (() => { try { return JSON.parse(localStorage.getItem('nour_users') || '{}'); } catch(e) { return {}; } })();
+          const _localData = _localUsers[realUsername] || {};
           const merged = {
-            totalScore:   fbData.totalScore   || 0,
-            totalGames:   fbData.totalGames   || 0,
-            totalHasanat: fbData.totalHasanat || 0,
-            streak:       fbData.streak       || 0,
-            lastPlay:     fbData.lastPlay      || null,
+            totalScore:   Math.max(fbData.totalScore   || 0, _localData.totalScore   || 0),
+            totalGames:   Math.max(fbData.totalGames   || 0, _localData.totalGames   || 0),
+            totalHasanat: Math.max(fbData.totalHasanat || 0, _localData.totalHasanat || 0),
+            streak:       Math.max(fbData.streak       || 0, _localData.streak       || 0),
+            lastPlay:     fbData.lastPlay || _localData.lastPlay || null,
           };
           // استنى loginSuccess لو لسه الـ regular script ما اتحملش
           const doIt = () => {
             if (typeof window.loginSuccess === 'function') {
               window.loginSuccess(realUsername, merged);
+              // لو المحلي أعلى من Firebase — ارفع الصح على Firebase
+              const _fbS = fbData.totalScore   || 0;
+              const _fbH = fbData.totalHasanat || 0;
+              if ((merged.totalScore > _fbS || merged.totalHasanat > _fbH) && !snap.exists() === false) {
+                try {
+                  if (typeof window.fbSaveFullUserData === 'function') {
+                    window.fbSaveFullUserData(realUsername, merged);
+                  }
+                  if (typeof window.fbSaveUser === 'function' && merged.totalScore > 0) {
+                    window.fbSaveUser(realUsername, Object.assign({}, merged, {isGuest: false}));
+                  }
+                } catch(e) {}
+              }
             } else {
               setTimeout(doIt, 30);
             }
@@ -1244,9 +1261,19 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
           doIt();
         })
         .catch(() => {
+          // Firebase مش متاح — خذ البيانات المحلية
+          const _lU = (() => { try { return JSON.parse(localStorage.getItem('nour_users') || '{}'); } catch(e) { return {}; } })();
+          const _lD = _lU[realUsername] || {};
+          const fallbackData = {
+            totalScore:   _lD.totalScore   || 0,
+            totalGames:   _lD.totalGames   || 0,
+            totalHasanat: _lD.totalHasanat || 0,
+            streak:       _lD.streak       || 0,
+            lastPlay:     _lD.lastPlay     || null,
+          };
           const doIt = () => {
             if (typeof window.loginSuccess === 'function') {
-              window.loginSuccess(realUsername, { totalScore:0, totalGames:0, totalHasanat:0, streak:0, lastPlay:null });
+              window.loginSuccess(realUsername, fallbackData);
             } else {
               setTimeout(doIt, 30);
             }
@@ -1879,9 +1906,9 @@ function _callWhenReady(fn, args) {
 
     <!-- Hints -->
     <div class="hints-row" id="hintsRow">
-      <button class="hint-btn" id="hintBtn1" onclick="useHint(1)" title="أول حرف من الكلمة">💡 حرف <span class="hint-count" id="h1c">١</span></button>
-      <button class="hint-btn" id="hintBtn2" onclick="useHint(2)" title="شيل خيار غلط">✂️ شيل خيار <span class="hint-count" id="h2c">١</span></button>
-      <button class="hint-btn" id="hintBtn3" onclick="useHint(3)" title="اقرأ الآية كاملة">📖 الآية <span class="hint-count" id="h3c">١</span></button>
+      <button class="hint-btn" id="hintBtn1" onclick="useHint(1)" title="أول حرف من الكلمة">💡 أول حرف <span class="hint-count" id="h1c">١</span></button>
+      <button class="hint-btn" id="hintBtn2" onclick="useHint(2)" title="حذف خيار غلط">✂️ حذف خيار <span class="hint-count" id="h2c">١</span></button>
+      <button class="hint-btn" id="hintBtn3" onclick="useHint(3)" title="اقرأ الآية كاملة">📖 إظهار الآية <span class="hint-count" id="h3c">١</span></button>
     </div>
     <div class="hint-reveal" id="hintReveal"></div>
 
@@ -2126,8 +2153,8 @@ const LEVEL_DEFS = [
   // minBlankWordLen: الحد الأدنى لطول الكلمة الناقصة (بالحروف العربية)
   // extraBlankApart: في حالة blankCount>1، الفراغات تكون في أماكن متباعدة
   { id:0, name:"المبتدئ",     icon:"🌱", desc:"آخر كلمة — خيارات مختلفة جداً",          reqScore:0, dataKey:"level1", hasanatMult:1,  qs:15, blankPos:'last',  blankCount:1, choiceDiff:'easy',   hints:3, forcedMode:null,     noHintsH3:false, timerSeconds:30, showAyahFraction:1,    minBlankWordLen:2, extraBlankApart:false },
-  { id:1, name:"المتوسط",     icon:"📖", desc:"كلمة من المنتصف — الخيارات أقرب لبعض",   reqScore:0, dataKey:"level2", hasanatMult:1.5,qs:15, blankPos:'mid',   blankCount:1, choiceDiff:'medium', hints:2, forcedMode:null,     noHintsH3:false, timerSeconds:22, showAyahFraction:1,    minBlankWordLen:3, extraBlankApart:false },
-  { id:2, name:"المتقدم",     icon:"⭐", desc:"أول الآية ناقص — خيارات متشابهة",         reqScore:0, dataKey:"level3", hasanatMult:2,  qs:15, blankPos:'first', blankCount:1, choiceDiff:'medium', hints:1, forcedMode:null,     noHintsH3:false, timerSeconds:18, showAyahFraction:0.75, minBlankWordLen:3, extraBlankApart:false },
+  { id:1, name:"المتوسط",     icon:"📖", desc:"كلمة من المنتصف — الخيارات أقرب لبعض",   reqScore:0, dataKey:"level2", hasanatMult:1.5,qs:15, blankPos:'mid',   blankCount:1, choiceDiff:'medium', hints:2, forcedMode:null,     noHintsH3:true,  noHintsH2:true,  timerSeconds:22, showAyahFraction:1,    minBlankWordLen:3, extraBlankApart:false },
+  { id:2, name:"المتقدم",     icon:"⭐", desc:"أول الآية ناقص — خيارات متشابهة",         reqScore:0, dataKey:"level3", hasanatMult:2,  qs:15, blankPos:'first', blankCount:1, choiceDiff:'medium', hints:1, forcedMode:null,     noHintsH3:true,  noHintsH2:true,  timerSeconds:18, showAyahFraction:0.75, minBlankWordLen:3, extraBlankApart:false },
   { id:3, name:"الحافظ",      icon:"👑", desc:"كلمتان ناقصتان — بدون hint الكشف",         reqScore:0, dataKey:"level4", hasanatMult:3,  qs:20, blankPos:'rand',  blankCount:2, choiceDiff:'hard',   hints:1, forcedMode:null,     noHintsH3:true,  timerSeconds:15, showAyahFraction:0.65, minBlankWordLen:3, extraBlankApart:true  },
   { id:4, name:"العالم",      icon:"🏅", desc:"عبارة من أول الآية — بدون hints",           reqScore:0, dataKey:"level5", hasanatMult:5,  qs:20, blankPos:'first', blankCount:2, choiceDiff:'hard',   hints:0, forcedMode:null,     noHintsH3:true,  timerSeconds:12, showAyahFraction:0.55, minBlankWordLen:4, extraBlankApart:true  },
   { id:5, name:"الحكيم",      icon:"💎", desc:"ثلاث كلمات ناقصة — مزيج كل السور",         reqScore:0, dataKey:"all",    hasanatMult:8,  qs:20, blankPos:'rand',  blankCount:3, choiceDiff:'hard',   hints:0, forcedMode:null,     forcedRandom:true,  noHintsH3:true,  timerSeconds:10, showAyahFraction:0.5,  minBlankWordLen:4, extraBlankApart:false },
@@ -2195,8 +2222,34 @@ function doLogin() {
     if (localData.password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
     document.getElementById('loginScreen').classList.add('hide');
     loginSuccess(user, localData);
-    // Firebase في الـ background بصمت للمزامنة
-    if (typeof window.fbLogin === 'function') window.fbLogin(user, pass, () => {}, () => {});
+    // Firebase في الـ background — نجيب الرصيد ونعمل merge صح
+    if (typeof window.fbLogin === 'function') {
+      window.fbLogin(user, pass, () => {
+        if (typeof window.fbGetUserData === 'function') {
+          window.fbGetUserData(user, (fbData) => {
+            if (!fbData || !window.currentUser || window.currentUser.username !== user) return;
+            // نأخذ أعلى قيمة بين المحلي والـ Firebase (نضمن ما نخسرش نقاط أي جهاز)
+            var merged = {
+              totalScore:   Math.max(window.currentUser.totalScore   || 0, fbData.totalScore   || 0),
+              totalGames:   Math.max(window.currentUser.totalGames   || 0, fbData.totalGames   || 0),
+              totalHasanat: Math.max(window.currentUser.totalHasanat || 0, fbData.totalHasanat || 0),
+              streak:       Math.max(fbData.streak || 0, window.currentUser.streak || 0),
+              lastPlay:     fbData.lastPlay || window.currentUser.lastPlay || null,
+            };
+            Object.assign(window.currentUser, merged);
+            currentUser = window.currentUser;
+            if (typeof updateHomeStats === 'function') updateHomeStats();
+            // لو الـ Firebase أقل من المحلي — ارفع الأعلى فوراً
+            if (typeof window.fbSaveFullUserData === 'function') {
+              window.fbSaveFullUserData(user, merged);
+            }
+            if (typeof window.fbSaveUser === 'function' && (merged.totalScore || 0) > 0) {
+              window.fbSaveUser(user, Object.assign({}, merged, {isGuest: false}));
+            }
+          });
+        }
+      }, () => {});
+    }
     return;
   }
 
@@ -4408,9 +4461,17 @@ function startGame() {
 function resetHintsUI() {
   document.getElementById('hintReveal').className = 'hint-reveal';
   document.getElementById('hintReveal').textContent = '';
-  ['hintBtn1','hintBtn2','hintBtn3'].forEach(id => {
-    document.getElementById(id).disabled = false;
-  });
+  // كل مساعدة مرة واحدة في الجلسة — لا نعيد تفعيل الزر لو استُخدم
+  document.getElementById('hintBtn1').disabled = state.hints.h1 <= 0;
+  const _lvlRH = LEVEL_DEFS[state.level];
+  document.getElementById('hintBtn2').disabled = state.hints.h2 <= 0 || !!_lvlRH.noHintsH2;
+  document.getElementById('hintBtn2').style.opacity = _lvlRH.noHintsH2 ? '0.3' : '';
+  document.getElementById('hintBtn3').style.opacity = _lvlRH.noHintsH3 ? '0.3' : '';
+  // عنوان زر المساعدة يتغير حسب المستوى
+  const _h2btn = document.getElementById('hintBtn2');
+  const _h2label = state.level === 0 ? '✂️ حذف خيارين' : '✂️ حذف خيار';
+  _h2btn.childNodes[0].textContent = _h2label + ' ';
+  document.getElementById('hintBtn3').disabled = state.hints.h3 <= 0;
   document.getElementById('h1c').textContent = toArabicNum(state.hints.h1);
   document.getElementById('h2c').textContent = toArabicNum(state.hints.h2);
   document.getElementById('h3c').textContent = toArabicNum(state.hints.h3);
@@ -4434,18 +4495,18 @@ function useHint(n) {
     reveal.textContent = '💡 الكلمة تبدأ بـ: ' + first + '...';
     reveal.className = 'hint-reveal show';
   } else if (n === 2) {
-    // Remove one wrong choice
+    // Remove wrong choices — 2 في المستوى السهل (0)، 1 في الباقي
+    const _lvlH2 = LEVEL_DEFS[state.level];
+    if (_lvlH2.noHintsH2) { showToast('🚫 هذا المستوى لا يتيح حذف الخيارات'); return; }
     if (state.hints.h2 <= 0) return;
     state.hints.h2--;
     document.getElementById('hintBtn2').disabled = true;
     const btns = document.getElementById('mcqWrap').querySelectorAll('.choice-btn:not(:disabled)');
     const wrongBtns = [...btns].filter(b => b.textContent !== q.blank);
-    if (wrongBtns.length > 0) {
-      const remove = wrongBtns[Math.floor(Math.random() * wrongBtns.length)];
-      remove.style.opacity = '0.2';
-      remove.disabled = true;
-    }
-    reveal.textContent = '✂️ تم شيل خيار غلط';
+    const removeCount = state.level === 0 ? 2 : 1;
+    const toRemove = wrongBtns.sort(() => Math.random()-0.5).slice(0, removeCount);
+    toRemove.forEach(b => { b.style.opacity = '0.2'; b.disabled = true; });
+    reveal.textContent = removeCount === 2 ? '✂️ تم حذف خيارين غلط' : '✂️ تم حذف خيار غلط';
     reveal.className = 'hint-reveal show';
   } else if (n === 3) {
     // Show full ayah — ممنوع في المستويات من 3 وفوق
@@ -5807,7 +5868,7 @@ function startSurahReview(surahName) {
   state.qIndex = 0; state.score = 0; state.correct = 0;
   state.sessionHasanat = 0; state.answered = false;
   state.combo = 0;
-  state.hints = { h1:2, h2:2, h3:2 };
+  state.hints = { h1:1, h2:1, h3:1 };
   state.mode = 'mcq';
   stopTimer();
   markSurahReviewStarted(_targetSurah, questions.length);
@@ -6580,6 +6641,7 @@ function multiStartGame() {
       startedAt: room.startedAt,
       currentQ: 0,
       totalQ: room.totalQ || multiState.totalQ,
+      qTime: room.qTime || multiState.qTime || 15,
     });
   } else {
     _setRoomData(multiState.roomCode, room);
@@ -6598,6 +6660,12 @@ function _startMultiGame() {
 }
 
 function _renderMultiQuestion() {
+  // guard — لو الأسئلة فاضية أو مش محملة
+  if (!multiState.questions || multiState.questions.length === 0) {
+    showToast('⚠️ جاري تحميل الأسئلة...');
+    setTimeout(_renderMultiQuestion, 500);
+    return;
+  }
   const q = multiState.questions[multiState.qIndex];
   if (!q) { _showMultiResults(); return; }
 
@@ -7109,12 +7177,37 @@ function _startPolling() {
       if (multiState.phase === 'waiting') {
         // لو الـ host بدأ اللعبة
         if (room.phase === 'playing' && !multiState.isHost) {
+          // تأكد من وجود الأسئلة — لو مش موجودة في الـ snapshot اجلبها من Firebase
+          const _qs = room.questions;
+          if (!_qs || _qs.length === 0) {
+            // الأسئلة مش موجودة في الـ snapshot — اجلب الغرفة كاملة
+            window.fbMulti.getRoom(multiState.roomCode, (fullRoom) => {
+              if (!fullRoom || !fullRoom.questions || fullRoom.questions.length === 0) {
+                showToast('⚠️ تعذّر تحميل الأسئلة، حاول مجدداً');
+                return;
+              }
+              if (fullRoom.questions[0].s !== undefined) {
+                fullRoom.questions = fullRoom.questions.map(window._expandMultiQ);
+              }
+              window._multiRoomCache = fullRoom;
+              multiState.phase = 'playing';
+              multiState.myScore = 0;
+              multiState.qIndex = 0;
+              multiState.questions = fullRoom.questions;
+              multiState.totalQ = fullRoom.totalQ || fullRoom.questions.length;
+              multiState.qTime = fullRoom.qTime || 15;
+              document.getElementById('multiWaiting').style.display = 'none';
+              document.getElementById('multiGameArea').style.display = 'block';
+              document.getElementById('multiQTotal').textContent = toArabicNum(multiState.totalQ);
+              _renderMultiQuestion();
+            });
+            return;
+          }
           multiState.phase = 'playing';
           multiState.myScore = 0;
           multiState.qIndex = 0;
-          // نتأكد إن الأسئلة اتوسّعت وتعدّت لـ multiState
-          multiState.questions = room.questions; // room.questions اتوسّعت فوق
-          multiState.totalQ = room.totalQ || room.questions.length;
+          multiState.questions = _qs;
+          multiState.totalQ = room.totalQ || _qs.length;
           multiState.qTime = room.qTime || 15;
           document.getElementById('multiWaiting').style.display = 'none';
           document.getElementById('multiGameArea').style.display = 'block';
