@@ -2674,7 +2674,7 @@ function lbRestGoTo(idx) {
 // ============================================================
 // ===== QUESTION COUNT =====
 // ============================================================
-let selectedQCount = 20;
+let selectedQCount = 50;
 
 function onQcountChange(val) {
   selectedQCount = parseInt(val);
@@ -3488,10 +3488,11 @@ function selectJuzFromDropdown(item) {
   const totalAyahs = item.totalAyahs;
   safeHTML('surahHint', '✅ الجزء ' + toArabicNum(item.num) + ' — <span style="color:var(--gold)">' + toArabicNum(totalAyahs) + ' آية</span> — محلي ⚡ بدون إنترنت');
   document.getElementById('surahHint').style.color = 'var(--emerald-light)';
-  selectedQCount = totalAyahs;
-  document.getElementById('qcountDisplay').textContent = toArabicNum(totalAyahs);
+  selectedQCount = Math.min(totalAyahs, 50);
+  document.getElementById('qcountDisplay').textContent = toArabicNum(selectedQCount);
   const qcountLbl = document.getElementById('qcountLabelText');
   if (qcountLbl) qcountLbl.textContent = 'عدد الأسئلة من الجزء ' + toArabicNum(item.num);
+  _showDualSlider(Math.min(totalAyahs, 50));
   updateQcountSliderMax();
 }
 
@@ -3509,10 +3510,11 @@ function onJuzFilterChange() {
   const totalAyahs = segs.reduce((sum,seg)=>sum+(seg.e-seg.a+1), 0);
   safeHTML('surahHint', '✅ الجزء ' + toArabicNum(selectedJuz) + ' — <span style="color:var(--gold)">' + toArabicNum(totalAyahs) + ' آية</span> — محلي ⚡ بدون إنترنت');
   document.getElementById('surahHint').style.color = 'var(--emerald-light)';
-  selectedQCount = totalAyahs;
-  document.getElementById('qcountDisplay').textContent = toArabicNum(totalAyahs);
+  selectedQCount = Math.min(totalAyahs, 50);
+  document.getElementById('qcountDisplay').textContent = toArabicNum(selectedQCount);
   const qcountLbl = document.getElementById('qcountLabelText');
   if (qcountLbl) qcountLbl.textContent = 'عدد الأسئلة من الجزء ' + toArabicNum(selectedJuz);
+  _showDualSlider(Math.min(totalAyahs, 50));
   updateQcountSliderMax();
 }
 
@@ -3677,7 +3679,7 @@ function clearSurahFilter() {
 // ============================================================
 // ===== CUSTOM DUAL SLIDER =====
 // ============================================================
-let _dsMin = 1, _dsMax = 50, _dsFrom = 1, _dsTo = 20;
+let _dsMin = 1, _dsMax = 50, _dsFrom = 1, _dsTo = 50;
 
 function _dsInit() {
   const wrap  = document.getElementById('dualTrackWrap');
@@ -3806,7 +3808,7 @@ function _showRandomSlider() {
   _dsFrom = Math.max(_dsMin, Math.min(_dsFrom, _dsMax));
   _dsTo   = Math.max(_dsFrom, Math.min(_dsTo, _dsMax));
   if (_dsFrom < _dsMin) _dsFrom = _dsMin;
-  if (_dsTo   < _dsFrom) _dsTo = 20;
+  if (_dsTo   < _dsFrom) _dsTo = 50;
   const ticksEl = document.getElementById('dualTicks');
   if (ticksEl) ticksEl.innerHTML = '<span>٥</span><span>١٠</span><span>٢٠</span><span>٣٠</span><span>٤٠</span><span>٥٠</span>';
   _dsRender();
@@ -4331,7 +4333,14 @@ function startGame() {
     if (lvlRand.dataKey === 'all') {
       qs = buildQuestionsFromLocal(selectedQCount);
     } else {
-      qs = buildQuestions();
+      // تحقق إن الـ pool فيها عدد كافي — لو لأ استخدم buildQuestionsFromLocal كـ fallback
+      const poolSize = (QURAN_DB[lvlRand.dataKey] || QURAN_DB.level1).length;
+      if (selectedQCount > poolSize) {
+        qs = buildQuestionsFromLocal(selectedQCount);
+        if (!qs || qs.length === 0) qs = buildQuestions();
+      } else {
+        qs = buildQuestions();
+      }
     }
   }
 
@@ -4997,7 +5006,7 @@ function openGameSheet() {
     } else if (selectedJuz) {
       const segs = JUZ_SURAHS[parseInt(selectedJuz)] || [];
       const total = segs.reduce((s,seg)=>s+(seg.e-seg.a+1), 0);
-      if (total > 0) _showDualSlider(total);
+      if (total > 0) _showDualSlider(Math.min(total, 50));
     } else {
       _showRandomSlider();
     }
@@ -7207,7 +7216,7 @@ function _stopPolling() {
     <div class="qcount-wrap" style="margin-bottom:0;">
       <div class="qcount-label">
         <span id="qcountLabelText">اختر عدد الأسئلة في كل جلسة</span>
-        <span class="qcount-val" id="qcountDisplay">٢٠</span>
+        <span class="qcount-val" id="qcountDisplay">٥٠</span>
       </div>
       <!-- الـ dual slider — دايمًا ظاهر -->
       <div id="dualSliderWrap">
