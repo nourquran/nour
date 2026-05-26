@@ -1410,92 +1410,91 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     // مسح الغرفة تلقائياً بعد انتهاء اللعبة بـ delay (عشان اللاعبين يشوفوا النتيجة)
     scheduleRoomCleanup: function(roomCode, delayMs) {
       const delay = delayMs || 30000; // 30 ثانية افتراضي
+      // أول خطوة: عيّن phase=finished عشان ما حدش يدخل
+      update(ref(db, ROOMS_PATH + roomCode), { phase: 'finished' }).catch(() => {});
       setTimeout(() => {
         remove(ref(db, ROOMS_PATH + roomCode)).catch(() => {});
       }, delay);
     },
   };
 
-  // ===== رفع بيانات المستخدم على Firebase =====
+  // ============================================================
+  // ===== LEADERBOARD — مسار موحد (leaderboard فقط) =====
+  // ============================================================
+  const LB_PATH = 'leaderboard/';
+
+  // ─── رفع بيانات اللاعب ───
   window.fbSaveUser = function(username, data) {
     if (!username) return;
-    const displayName = username;
-    const key = makeKey(username, data.isGuest);
+    const key = makeKey(username, data.isGuest || false);
     const payload = {
-      name: displayName,
-      totalHasanat: data.totalHasanat || 0,
-      totalScore:   data.totalScore   || 0,
-      totalGames:   data.totalGames   || 0,
-      isGuest:      data.isGuest      || false,
+      name:         username,
+      totalHasanat: Math.max(0, data.totalHasanat || 0),
+      totalScore:   Math.max(0, data.totalScore   || 0),
+      totalGames:   Math.max(0, data.totalGames   || 0),
+      isGuest:      data.isGuest || false,
       updatedAt:    Date.now(),
     };
-    // كتابة على المسارين معاً — leaderboard (الرئيسي) و nour_lb (مسار قديم) لضمان التوحيد
-    set(ref(db, 'leaderboard/' + key), payload).catch(e => console.error('fbSave error:', e));
-    set(ref(db, 'nour_lb/' + key), payload).catch(() => {});
+    // ★ مسار واحد فقط — leaderboard
+    set(ref(db, LB_PATH + key), payload).catch(e => console.error('fbSaveUser error:', e));
   };
 
-  // ===== جلب اللوحة من Firebase وعرضها (يدمج المسارين) =====
-  window.fbRenderLeaderboard = function() {
-    const podiumWrap = document.getElementById('lbPodiumWrap');
-    if (!podiumWrap) return;
-    podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">⏳ جاري تحميل اللوحة...</div>';
-    Promise.all([
-      get(ref(db, 'leaderboard')).then(s => s.val() || {}).catch(() => ({})),
-      get(ref(db, 'nour_lb')).then(s => s.val() || {}).catch(() => ({})),
-    ]).then(([main, old]) => {
-      const merged = { ...old };
-      Object.entries(main).forEach(([k, d]) => {
-        if (!merged[k] || (d.totalHasanat||0) >= (merged[k].totalHasanat||0)) merged[k] = d;
-      });
-      if (typeof window._renderLbFromData === 'function') window._renderLbFromData(merged);
-    }).catch(() => { if(podiumWrap) podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:20px;">⚠️ تعذّر تحميل اللوحة</div>'; });
-  };
-
-  // حذف المستخدم من اللوحة عند التصفير
+  // ─── حذف اللاعب من اللوحة ───
   window.fbDeleteUser = function(username, isGuest) {
-    const key = makeKey(username, isGuest);
+    const key    = makeKey(username, isGuest);
     const keyAlt = makeKey(username, !isGuest);
-
-    // مسح من leaderboard — نمسح بالـ key الصحيح والبديل معاً لضمان الحذف الكامل
-    remove(ref(db, 'leaderboard/' + key))
-      .then(() => console.log('Deleted leaderboard OK'))
-      .catch(e => console.error('fbDelete leaderboard error:', e));
-    if (key !== keyAlt) remove(ref(db, 'leaderboard/' + keyAlt)).catch(() => {});
-    // مسح من nour_lb كمان (مسار بديل)
+    remove(ref(db, LB_PATH + key)).catch(() => {});
+    if (key !== keyAlt) remove(ref(db, LB_PATH + keyAlt)).catch(() => {});
+    // بيانات المستخدم
+    if (!isGuest) remove(ref(db, 'users/' + key)).catch(() => {});
+    // مسح المسار القديم أيضاً (cleanup)
     remove(ref(db, 'nour_lb/' + key)).catch(() => {});
     if (key !== keyAlt) remove(ref(db, 'nour_lb/' + keyAlt)).catch(() => {});
-    // مسح بيانات المستخدم من DB
-    if (!isGuest) {
-      remove(ref(db, 'users/' + key))
-        .then(() => console.log('Deleted user DB OK'))
-        .catch(e => console.error('fbDelete user DB error:', e));
+  };
+
+  // ─── fbRenderLeaderboard: ما بقيناش محتاجينه — الـ onValue بيكفي ───
+  window.fbRenderLeaderboard = function() {
+    // الـ real-time listener شغال — مش محتاج تعيد الجلب
+    if (window._lbAllList && window._lbAllList.length > 0) {
+      window._renderLbFromData(window._lbAllList.reduce((obj, [k,v]) => { obj[k]=v; return obj; }, {}));
+    } else {
+      const podiumWrap = document.getElementById('lbPodiumWrap');
+      if (podiumWrap) podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">⏳ جاري تحميل اللوحة...</div>';
+      get(ref(db, LB_PATH)).then(s => {
+        const data = s.val() || {};
+        window._renderLbFromData(data);
+      }).catch(() => {
+        if (document.getElementById('lbPodiumWrap'))
+          document.getElementById('lbPodiumWrap').innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:20px;">⚠️ تعذّر تحميل اللوحة</div>';
+      });
     }
   };
 
-  // استمع للتغييرات في الوقت الفعلي — يدمج leaderboard و nour_lb معاً
-  let _lbMain = {}, _lbOld = {};
-  function _mergeLbAndRender() {
-    // دمج المسارين — لو نفس المستخدم في الاثنين، خذ الأعلى نقاطاً
-    const merged = { ..._lbOld };
-    Object.entries(_lbMain).forEach(([k, d]) => {
-      if (!merged[k] || (d.totalHasanat||0) >= (merged[k].totalHasanat||0)) merged[k] = d;
-    });
-    window._renderLbFromData(merged);
-  }
-  onValue(ref(db, 'leaderboard'), (snap) => {
-    _lbMain = snap.val() || {};
-    _mergeLbAndRender();
-  });
-  onValue(ref(db, 'nour_lb'), (snap) => {
-    _lbOld = snap.val() || {};
-    _mergeLbAndRender();
+  // ─── real-time listener على مسار واحد فقط ───
+  onValue(ref(db, LB_PATH), (snap) => {
+    const data = snap.val() || {};
+    // دمج أي بيانات قديمة من nour_lb لو موجودة في الكاش
+    window._renderLbFromData(data);
   });
 
-  window._renderLbFromSnapshot = function(snapshot) {
-    _lbMain = snapshot.val() || {};
-    _mergeLbAndRender();
-  };
+  // ─── migration: انقل بيانات nour_lb للمسار الجديد (مرة واحدة) ───
+  get(ref(db, 'nour_lb')).then(snap => {
+    if (!snap.exists()) return;
+    const old = snap.val() || {};
+    const lbSnap = {};
+    // انقل فقط اللاعبين اللي مش موجودين في leaderboard أو عندهم نقاط أعلى
+    get(ref(db, LB_PATH)).then(lbS => {
+      const current = lbS.val() || {};
+      Object.entries(old).forEach(([k, d]) => {
+        if (!d) return;
+        if (!current[k] || (d.totalHasanat||0) > (current[k].totalHasanat||0)) {
+          set(ref(db, LB_PATH + k), { ...d, updatedAt: d.updatedAt || Date.now() }).catch(() => {});
+        }
+      });
+    }).catch(() => {});
+  }).catch(() => {});
 
+  // ─── عرض اللوحة من البيانات ───
   window._renderLbFromData = function(data) {
     const podiumWrap = document.getElementById('lbPodiumWrap');
     const dotsEl    = document.getElementById('lbDots');
@@ -1503,18 +1502,20 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     if (!podiumWrap) return;
 
     const list = Object.entries(data)
-      .filter(([,d]) => (d.totalHasanat || 0) > 0)
-      .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
+      .filter(([, d]) => d && (d.totalHasanat || 0) > 0)
+      .sort(([, a], [, b]) => (b.totalHasanat || 0) - (a.totalHasanat || 0));
+
+    window._lbAllList = list;
 
     if (list.length === 0) {
       podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">كن أول من يسجل نقاطه! 🌟</div>';
       if (dotsEl) dotsEl.innerHTML = '';
       if (lb) lb.innerHTML = '';
+      _renderMyRankEl(list);
       return;
     }
 
     const top3 = list.slice(0, 3);
-    const rest  = list.slice(3);
     const rankEmojis  = ['🥇','🥈','🥉'];
     const rankColors  = [
       'linear-gradient(135deg,rgba(201,151,58,0.18),rgba(201,151,58,0.06))',
@@ -1522,41 +1523,88 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
       'linear-gradient(135deg,rgba(180,100,40,0.16),rgba(180,100,40,0.04))',
     ];
     const borderColors = ['rgba(201,151,58,0.45)','rgba(180,180,180,0.3)','rgba(180,100,40,0.35)'];
-    const toA = n => String(Math.round(n)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+    const toA = n => String(Math.round(n || 0)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
 
-    // خزّن الداتا واعرض slide واحد بس
     window._lbTop3Data = top3.map(([key, d], i) => {
-      const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest);
+      const isMe = window.currentUser && key === window._makeKey(window.currentUser.username, window.currentUser.isGuest || false);
       return [key, d, rankEmojis[i], rankColors[i], borderColors[i], isMe];
     });
-    const [key0, d0, emoji0, color0, border0, isMe0] = window._lbTop3Data[0];
+
+    const [, d0, emoji0, color0, border0, isMe0] = window._lbTop3Data[0];
+    const name0 = top3[0][1].name || top3[0][0];
     podiumWrap.innerHTML = `<div class="lb-podium-slide active" id="lbSlide0"
-         style="background:${color0};border-color:${border0};transition:opacity 0.35s ease,transform 0.35s ease;">
+         style="background:${color0};border:1px solid ${border0};transition:opacity 0.35s ease,transform 0.35s ease;">
       <div class="lb-podium-rank">${emoji0}</div>
       <div class="lb-podium-info">
-        <div class="lb-podium-name${isMe0?' is-me':''}">${d0.name}${isMe0?' (أنت)':''}</div>
-        <div class="lb-podium-hasanat">${toA(d0.totalHasanat||0)} ⭐</div>
-        <div class="lb-podium-score">${toA(d0.totalGames||0)} جلسة</div>
+        <div class="lb-podium-name${isMe0?' is-me':''}">${name0}${isMe0?' (أنت)':''}</div>
+        <div class="lb-podium-hasanat">${toA(d0.totalHasanat)} ⭐</div>
+        <div class="lb-podium-score">${toA(d0.totalGames)} جلسة</div>
       </div>
     </div>`;
 
-    if (dotsEl) dotsEl.innerHTML = top3.map((_,i) =>
+    if (dotsEl) dotsEl.innerHTML = top3.map((_, i) =>
       `<div class="lb-dot${i===0?' active':''}" onclick="lbGoTo(${i})"></div>`
     ).join('');
 
     if (lb) lb.innerHTML = '';
 
     // rotation
-    if (window.lbPodiumTimer) clearInterval(window.lbPodiumTimer);
+    if (window.lbPodiumTimer) { clearInterval(window.lbPodiumTimer); window.lbPodiumTimer = null; }
     window.lbPodiumIdx = 0;
     if (top3.length > 1) {
       window.lbPodiumTimer = setInterval(() => lbGoTo((window.lbPodiumIdx + 1) % top3.length), 3000);
     }
 
-    // ─── عرض مركز المستخدم الحالي ───
-    window._lbAllList = list; // نخزن القائمة الكاملة
-    if (typeof window._renderMyRank === 'function') window._renderMyRank(list);
+    // ─── مركز اللاعب الحالي ───
+    _renderMyRankEl(list);
   };
+
+  // ─── عرض مركز اللاعب الحالي أسفل اللوحة ───
+  function _renderMyRankEl(list) {
+    // ابحث عن عنصر الـ rank أو اعمله
+    let rankEl = document.getElementById('myLbRank');
+    if (!rankEl) {
+      rankEl = document.createElement('div');
+      rankEl.id = 'myLbRank';
+      rankEl.style.cssText = 'margin-top:10px;';
+      const lbSection = document.querySelector('.lb-section');
+      if (lbSection) lbSection.appendChild(rankEl);
+    }
+
+    const cu = window.currentUser;
+    if (!cu || cu.isGuest) { rankEl.innerHTML = ''; return; }
+
+    const myKey = window._makeKey ? window._makeKey(cu.username, false) : cu.username;
+    const myIdx = list.findIndex(([k]) => k === myKey);
+    const toA = n => String(Math.round(n || 0)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+
+    if (myIdx < 0) {
+      // اللاعب مش في اللوحة بعد
+      if ((cu.totalHasanat || 0) === 0) { rankEl.innerHTML = ''; return; }
+      rankEl.innerHTML = `<div style="text-align:center;font-size:12px;color:rgba(245,217,139,0.4);padding:8px;">العب أكتر لتظهر في اللوحة 🌟</div>`;
+      return;
+    }
+
+    const myRank = myIdx + 1;
+    const medals = ['🥇','🥈','🥉'];
+    const medal = medals[myIdx] || '🏅';
+    const [, myData] = list[myIdx];
+    const isTop3 = myIdx < 3;
+
+    if (isTop3) { rankEl.innerHTML = ''; return; } // already visible in podium
+
+    rankEl.innerHTML = `
+      <div style="background:rgba(201,151,58,0.08);border:1px solid rgba(201,151,58,0.3);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:22px;">${medal}</span>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:var(--gold);">مركزك: ${toA(myRank)}</div>
+          <div style="font-size:11px;color:rgba(245,217,139,0.5);margin-top:2px;">${toA(myData.totalHasanat||0)} ⭐ — ${toA(myData.totalGames||0)} جلسة</div>
+        </div>
+        <div style="font-size:11px;color:rgba(245,217,139,0.4);">${toA(list.length)} لاعب</div>
+      </div>`;
+  }
+
+  window._renderMyRank = _renderMyRankEl;
 </script>
 
 </head>
@@ -2723,67 +2771,16 @@ function renderLeaderboard() {
     window.fbRenderLeaderboard();
     return;
   }
-  // fallback local
+  // fallback محلي فقط لو Firebase مش متاح
   const users = getUsers();
-  const list = Object.entries(users)
-    .filter(([,d]) => (d.totalHasanat || 0) > 0)
-    .sort(([,a],[,b]) => (b.totalHasanat||0) - (a.totalHasanat||0));
-
-  const podiumWrap = document.getElementById('lbPodiumWrap');
-  const dotsEl    = document.getElementById('lbDots');
-  const lb        = document.getElementById('leaderboard');
-
-  if (!podiumWrap || !lb || !document.getElementById('homeScreen')?.classList.contains('show')) return;
-
-  if (list.length === 0) {
-    podiumWrap.innerHTML = '<div style="text-align:center;color:rgba(245,217,139,0.3);font-size:13px;padding:32px 16px;">كن أول من يسجل نقاطه! 🌟</div>';
-    dotsEl.innerHTML = '';
-    lb.innerHTML = '';
-    return;
-  }
-
-  const top3 = list.slice(0, 3);
-  const rest  = list.slice(3);
-  const rankEmojis = ['🥇','🥈','🥉'];
-  const rankColors = [
-    'linear-gradient(135deg,rgba(201,151,58,0.18),rgba(201,151,58,0.06))',
-    'linear-gradient(135deg,rgba(180,180,180,0.14),rgba(180,180,180,0.04))',
-    'linear-gradient(135deg,rgba(180,100,40,0.16),rgba(180,100,40,0.04))',
-  ];
-  const borderColors = ['rgba(201,151,58,0.45)','rgba(180,180,180,0.3)','rgba(180,100,40,0.35)'];
-
-  // Build podium slides
-  // خزّن الداتا واعرض slide واحد بس
-  window._lbTop3Data = top3.map(([name, data], i) => {
-    const isMe = currentUser && name === currentUser.username;
-    return [name, data, rankEmojis[i], rankColors[i], borderColors[i], isMe];
+  const data = {};
+  Object.entries(users).forEach(([name, d]) => {
+    if ((d.totalHasanat || 0) > 0) {
+      data[name] = { name, totalHasanat: d.totalHasanat||0, totalScore: d.totalScore||0, totalGames: d.totalGames||0, isGuest: d.isGuest||false };
+    }
   });
-  const [, d0, emoji0, color0, border0, isMe0] = window._lbTop3Data[0];
-  const name0 = top3[0][0];
-  podiumWrap.innerHTML = `<div class="lb-podium-slide active" id="lbSlide0"
-       style="background:${color0};border-color:${border0};transition:opacity 0.35s ease,transform 0.35s ease;">
-    <div class="lb-podium-rank">${emoji0}</div>
-    <div class="lb-podium-info">
-      <div class="lb-podium-name${isMe0?' is-me':''}">${name0}${isMe0?' (أنت)':''}</div>
-      <div class="lb-podium-hasanat">${toArabicNum(d0.totalHasanat||0)} ⭐</div>
-      <div class="lb-podium-score">${toArabicNum(d0.totalGames||0)} جلسة</div>
-    </div>
-  </div>`;
-
-  // Dots
-  dotsEl.innerHTML = top3.map((_,i) =>
-    `<div class="lb-dot${i===0?' active':''}" onclick="lbGoTo(${i})"></div>`
-  ).join('');
-
-  lb.innerHTML = '';
-
-  // Start auto-rotation if more than 1 top player
-  if (lbPodiumTimer) clearInterval(lbPodiumTimer);
-  lbPodiumIdx = 0;
-  if (top3.length > 1) {
-    lbPodiumTimer = setInterval(() => {
-      lbGoTo((lbPodiumIdx + 1) % top3.length);
-    }, 3000);
+  if (typeof window._renderLbFromData === 'function') {
+    window._renderLbFromData(data);
   }
 }
 
@@ -2792,8 +2789,8 @@ function lbGoTo(idx) {
   const wrap = document.getElementById('lbPodiumWrap');
   if (!wrap || !window._lbTop3Data) return;
 
-  lbPodiumIdx = idx;
   window.lbPodiumIdx = idx;
+  if (typeof lbPodiumIdx !== 'undefined') lbPodiumIdx = idx;
 
   const slide = wrap.querySelector('.lb-podium-slide');
   if (!slide) return;
@@ -2804,12 +2801,13 @@ function lbGoTo(idx) {
 
   setTimeout(() => {
     const [key, d, rankEmoji, rankColor, borderColor, isMe] = window._lbTop3Data[idx];
+    const displayName = (d && d.name) ? d.name : key;
     slide.style.background = rankColor;
     slide.style.borderColor = borderColor;
     slide.querySelector('.lb-podium-rank').textContent = rankEmoji;
-    slide.querySelector('.lb-podium-name').textContent = d.name + (isMe ? ' (أنت)' : '');
+    slide.querySelector('.lb-podium-name').textContent = displayName + (isMe ? ' (أنت)' : '');
     slide.querySelector('.lb-podium-name').className = 'lb-podium-name' + (isMe ? ' is-me' : '');
-    const toA = n => String(Math.round(n)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+    const toA = n => String(Math.round(n || 0)).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
     slide.querySelector('.lb-podium-hasanat').textContent = toA(d.totalHasanat||0) + ' ⭐';
     slide.querySelector('.lb-podium-score').textContent = toA(d.totalGames||0) + ' جلسة';
     // fade in
@@ -2819,12 +2817,12 @@ function lbGoTo(idx) {
 
   dots.forEach((dot, i) => dot.classList.toggle('active', i === idx));
 
-  if (lbPodiumTimer) { clearInterval(lbPodiumTimer); lbPodiumTimer = null; }
   if (window.lbPodiumTimer) { clearInterval(window.lbPodiumTimer); window.lbPodiumTimer = null; }
+  if (typeof lbPodiumTimer !== 'undefined' && lbPodiumTimer) { clearInterval(lbPodiumTimer); lbPodiumTimer = null; }
   const total = window._lbTop3Data.length;
   if (total > 1) {
-    lbPodiumTimer = setInterval(() => lbGoTo((lbPodiumIdx + 1) % total), 3000);
-    window.lbPodiumTimer = lbPodiumTimer;
+    window.lbPodiumTimer = setInterval(() => lbGoTo((window.lbPodiumIdx + 1) % total), 3000);
+    lbPodiumTimer = window.lbPodiumTimer;
   }
 }
 
@@ -6344,6 +6342,7 @@ let multiState = {
   roomCode: null,
   isHost: false,
   playerName: null,
+  playerKey: null,
   players: {},       // { username: { name, score, answered, ready } }
   questions: [],
   qIndex: 0,
@@ -6358,6 +6357,8 @@ let multiState = {
   questionTimer: null,
   timeLeft: 15,
 };
+// ★ expose على window عشان pagehide وغيره يوصله
+window.multiState = multiState;
 
 const MULTI_PREFIX = 'nour_multi_';
 
@@ -6555,6 +6556,7 @@ function multiCreateRoom() {
   multiState.qTime = qTime;
   multiState.questions = [];
   multiState.totalQ = 0;
+  window.multiState = multiState; // ★ sync window reference
 
   const initRoom = {
     code, hostUser: currentUser.username, phase: 'waiting',
@@ -6679,10 +6681,7 @@ function multiJoinRoom() {
           multiState.phase = 'waiting';
           _showWaitingRoom(code);
           _startPolling();
-          
-
-          // ★ عداد 10 ثواني — لو المضيف لسه ما بدأش، ابدأ أوتوماتيك بمن حضر
-          _startJoinCountdown(code);
+          // اللاعب التاني لا يبدأ عداد — المضيف هو اللي يبدأه عبر Firebase
         })
         .catch(() => { resetJoinBtn(); showToast('⚠️ خطأ في الانضمام'); });
     } else {
@@ -6762,14 +6761,18 @@ function _updateWaitingUI() {
     }
   } else {
     startBtn.style.display = 'none';
-    // ورّي العداد للاعبين التانيين — يحسبوه محلياً من countdownStartedAt
+    // ورّي العداد للاعبين التانيين — استخدم room.countdown المحدَّث من المضيف مباشرة
     if (room.countdownStartedAt && !room.countdownEnded && room.phase !== 'playing') {
-      const elapsed = Math.floor((Date.now() - room.countdownStartedAt) / 1000);
-      const remaining = Math.max(0, 5 - elapsed);
-      if (remaining > 0) {
-        waitMsg.textContent = '⏳ اللعبة ستبدأ خلال ' + remaining + ' ثواني...';
+      const serverCountdown = typeof room.countdown === 'number' ? room.countdown : null;
+      if (serverCountdown !== null && serverCountdown > 0) {
+        waitMsg.textContent = '⏳ اللعبة ستبدأ خلال ' + serverCountdown + ' ثواني...';
       } else {
-        waitMsg.textContent = '⏳ جاري بدء اللعبة...';
+        // حساب محلي كـ fallback
+        const elapsed = Math.floor((Date.now() - room.countdownStartedAt) / 1000);
+        const remaining = Math.max(0, 5 - elapsed);
+        waitMsg.textContent = remaining > 0
+          ? '⏳ اللعبة ستبدأ خلال ' + remaining + ' ثواني...'
+          : '🚀 جاري بدء اللعبة...';
       }
     } else {
       waitMsg.textContent = room.phase === 'playing' ? '🎯 اللعبة بدأت!' : '⏳ في انتظار المضيف...';
@@ -6814,7 +6817,7 @@ function multiCopyCode() {
   }
 }
 
-// ★ عداد 10 ثواني بعد أول انضمام — تبدأ اللعبة أوتوماتيك بمن حضر
+// ★ عداد 5 ثواني بعد أول انضمام — تبدأ اللعبة أوتوماتيك بمن حضر
 let _joinCountdownTimer = null;
 let _joinCountdownVal = 0;
 
@@ -6830,34 +6833,38 @@ function _startJoinCountdown(code) {
 
   // أخفي زرار الابدأ وخلي العداد يتحكم
   if (startBtn) startBtn.style.display = 'none';
+  if (waitMsg) waitMsg.textContent = '⏳ اللعبة ستبدأ خلال ' + _joinCountdownVal + ' ثواني...';
 
-  // ★ سجّل وقت بدء العداد على Firebase عشان نمنع الانضمام بعده
+  // ★ سجّل وقت بدء العداد على Firebase عشان نمنع الانضمام بعده واللاعبين يحسبوا العداد
   const countdownStartedAt = Date.now();
   if (typeof window.fbMulti !== 'undefined') {
-    window.fbMulti.updateRoom(code, { countdownStartedAt, countdown: 5 });
+    window.fbMulti.updateRoom(code, { countdownStartedAt, countdown: _joinCountdownVal });
   }
 
-  const tick = () => {
-    if (multiState.phase === 'playing') { clearInterval(_joinCountdownTimer); _joinCountdownTimer = null; return; }
+  _joinCountdownTimer = setInterval(() => {
+    if (multiState.phase === 'playing') {
+      clearInterval(_joinCountdownTimer);
+      _joinCountdownTimer = null;
+      return;
+    }
+    _joinCountdownVal--;
+
     if (_joinCountdownVal <= 0) {
       clearInterval(_joinCountdownTimer);
       _joinCountdownTimer = null;
+      if (waitMsg) waitMsg.textContent = '🚀 اللعبة بدأت!';
       // ★ سجّل إن العداد خلص على Firebase — هيمنع أي حد ينضم بعدها
       if (typeof window.fbMulti !== 'undefined') {
         window.fbMulti.updateRoom(code, { countdownEnded: true, countdown: 0 });
       }
       if (multiState.phase !== 'playing') multiStartGame();
-      return;
+    } else {
+      if (waitMsg) waitMsg.textContent = '⏳ اللعبة ستبدأ خلال ' + _joinCountdownVal + ' ثواني...';
+      if (typeof window.fbMulti !== 'undefined' && multiState.isHost) {
+        window.fbMulti.updateRoom(code, { countdown: _joinCountdownVal });
+      }
     }
-    if (waitMsg) waitMsg.textContent = '⏳ اللعبة ستبدأ خلال ' + _joinCountdownVal + ' ثواني...';
-    if (typeof window.fbMulti !== 'undefined' && multiState.isHost) {
-      window.fbMulti.updateRoom(code, { countdown: _joinCountdownVal });
-    }
-    _joinCountdownVal--;
-  };
-
-  tick();
-  _joinCountdownTimer = setInterval(tick, 1000);
+  }, 1000);
 }
 
 function multiStartGame() {
@@ -6878,7 +6885,9 @@ function multiStartGame() {
   room.phase = 'playing';
   room.startedAt = Date.now();
   room.currentQ = 0;
-  Object.keys(room.players).forEach(u => { room.players[u].score = 0; room.players[u].answered = false; });
+  Object.keys(room.players).forEach(u => {
+    if (room.players[u]) { room.players[u].score = 0; room.players[u].answered = false; }
+  });
   window._multiRoomCache = room;
   if (typeof window.fbMulti !== 'undefined') {
     // نبعت phase + الأسئلة المضغوطة معاً في نفس الـ update عشان اللاعبين يشوفوهم فوراً بدون delay
@@ -7199,9 +7208,13 @@ function _showMultiResults() {
   const pk = multiState.playerKey || multiState.playerName;
   if (typeof window.fbMulti !== 'undefined') {
     window.fbMulti.updatePlayer(multiState.roomCode, pk, { score: multiState.myScore, done: true });
-    // المضيف — يحدّث phase لـ finished عشان اللاعبين يعرفوا اللعبة خلصت
+    // المضيف — يحدّث phase لـ finished عشان اللاعبين يعرفوا اللعبة خلصت ويمسح الغرفة بعد كده
     if (multiState.isHost && multiState.roomCode) {
       window.fbMulti.updateRoom(multiState.roomCode, { phase: 'finished' }).catch(() => {});
+      // مسح الغرفة بعد 60 ثانية من النتايج
+      if (typeof window.fbMulti.scheduleRoomCleanup === 'function') {
+        window.fbMulti.scheduleRoomCleanup(multiState.roomCode, 60000);
+      }
     }
   } else {
     const room = _getRoomData(multiState.roomCode);
@@ -7344,7 +7357,7 @@ function multiLeaveRoom() {
     window.fbMulti.removePlayer(code, pk).then(() => {
       window.fbMulti.getRoom(code, (room) => {
         if (!room) return; // الغرفة اتمسحت بالفعل
-        const remaining = Object.keys(room.players || {}).length;
+        const remaining = Object.keys(room.players || {}).filter(k => room.players[k] !== null).length;
         if (remaining === 0) {
           // مافيش لاعبين — امسح الغرفة فوراً
           window.fbMulti.deleteRoom(code).catch(() => {});
@@ -7434,6 +7447,14 @@ function _startPolling() {
         }
       }
       if (multiState.phase === 'waiting') {
+        // ★ المضيف: لو دخل لاعب جديد وعداد مش شغال — ابدأ العداد
+        if (multiState.isHost && !_joinCountdownTimer && room.phase === 'waiting') {
+          const playerEntries = Object.entries(room.players || {}).filter(([, p]) => p !== null && p !== undefined);
+          const othersJoined = playerEntries.some(([k]) => k !== pk);
+          if (othersJoined) {
+            _startJoinCountdown(multiState.roomCode);
+          }
+        }
         // ★ لو الـ host بدأ اللعبة أو العداد خلص
         if ((room.phase === 'playing' || (room.countdownEnded && room.phase !== 'finished' && room.phase !== 'closed')) && !multiState.isHost) {
           // تأكد من وجود الأسئلة — لو مش موجودة في الـ snapshot اجلبها من Firebase
@@ -7687,11 +7708,13 @@ const _FIREBASE_CONFIG = { apiKey: null };
       db.ref('nour_rooms').once('value').then(snap => {
         const rooms = snap.val() || {};
         Object.entries(rooms).forEach(([code, room]) => {
-          // مسح فوري: غرف finished أو closed
-          const isDone = room.phase === 'finished' || room.phase === 'closed';
+          // مسح فوري: غرف finished أو closed أو null
+          const isDone = !room || room.phase === 'finished' || room.phase === 'closed';
           // مسح قديم: أي غرفة أقدم من ساعة بغض النظر عن الـ phase
-          const isOld  = (room.createdAt || 0) < cutoff1h;
-          if (isDone || isOld) db.ref('nour_rooms/' + code).remove();
+          const isOld  = !room || (room.createdAt || 0) < cutoff1h;
+          // مسح غرف لاعبيها صفر
+          const noPlayers = !room || Object.keys(room.players || {}).filter(k => room.players[k] !== null).length === 0;
+          if (isDone || isOld || noPlayers) db.ref('nour_rooms/' + code).remove();
         });
       });
     }
@@ -7755,17 +7778,23 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 // ─── مسح اللاعب من Firebase لو أغلق المتصفح أو انتقل لصفحة تانية ───
 window.addEventListener('pagehide', function() {
-  if (!window.multiState || !window.multiState.roomCode) return;
-  const code = window.multiState.roomCode;
-  const pk   = window.multiState.playerKey || window.multiState.playerName;
+  const ms = window.multiState;
+  if (!ms || !ms.roomCode) return;
+  const code = ms.roomCode;
+  const pk   = ms.playerKey || ms.playerName;
   if (!code || !pk) return;
 
-  // sendBeacon مع PUT null — الطريقة الصحيحة لمسح node في Firebase REST API
-  // بيشتغل حتى لو الصفحة اتقفلت لأن المتصفح بيكمله في الـ background
   const dbUrl = 'https://nour-75cc6-default-rtdb.europe-west1.firebasedatabase.app';
-  const url   = dbUrl + '/nour_rooms/' + code + '/players/' + pk + '.json';
-  navigator.sendBeacon(url, new Blob(['null'], { type: 'application/json' }));
-  // PUT null = حذف الـ node في Firebase REST API
+
+  // مسح اللاعب دايماً
+  const playerUrl = dbUrl + '/nour_rooms/' + code + '/players/' + pk + '.json';
+  navigator.sendBeacon(playerUrl, new Blob(['null'], { type: 'application/json' }));
+
+  // لو المضيف — امسح الغرفة كلها
+  if (ms.isHost) {
+    const roomUrl = dbUrl + '/nour_rooms/' + code + '.json';
+    navigator.sendBeacon(roomUrl, new Blob(['null'], { type: 'application/json' }));
+  }
 });
 
 // ─── Safety net: لو الصفحة اترجعت من الـ bfcache — نتأكد من تنظيف الحالة ───
