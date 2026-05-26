@@ -2324,9 +2324,13 @@ function doLogin() {
 
     if (typeof window.fbCheckDeleted === 'function') {
       // عندنا Firebase — تحقق من الـ blacklist قبل الدخول
+      // ★ نظهر حالة تحميل ونمنع التفاعل حتى يرجع الرد
+      const loginBtn = document.querySelector('#loginPanel .login-btn');
+      if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = 'جاري التحقق...'; }
       window.fbCheckDeleted(userKeyLocal,
         () => {
           // محذوف على Firebase — امسح البيانات المحلية وارفض
+          if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'دخول ✨'; }
           try {
             const u2 = getUsers(); delete u2[user]; saveUsers(u2);
             const d2 = JSON.parse(localStorage.getItem('nour_deleted_accounts') || '{}');
@@ -2335,7 +2339,11 @@ function doLogin() {
           } catch(e) {}
           showLoginErr('الحساب غير موجود');
         },
-        () => fbCheckAndLogin() // مش محذوف → ادخّل
+        () => {
+          // مش محذوف → ادخّل (هنا بس نخبّي الشاشة)
+          if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'دخول ✨'; }
+          fbCheckAndLogin();
+        }
       );
     } else {
       fbCheckAndLogin();
@@ -4424,8 +4432,12 @@ function buildQuestions() {
       }
     }
   } else {
-    const fresh = pool.filter(q => !recentlyAsked.includes(q.ayah));
-    const usePool = fresh.length >= selectedQCount ? fresh : pool;
+    // ★ لو الـ pool أصغر من العدد المطلوب — وسّع لكل القرآن
+    const fullPool = pool.length >= selectedQCount
+      ? pool
+      : Object.values(QURAN_DB).flat();
+    const fresh = fullPool.filter(q => !recentlyAsked.includes(q.ayah));
+    const usePool = fresh.length >= selectedQCount ? fresh : fullPool;
     const shuffled = [...usePool];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor((crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF) * (i + 1));
@@ -4467,7 +4479,9 @@ function buildQuestionsFromLocal(count) {
     [allAyahs[i], allAyahs[j]] = [allAyahs[j], allAyahs[i]];
   }
 
-  const picked = allAyahs.slice(0, Math.min(count, allAyahs.length));
+  // ★ نجيب ضعف الكمية المطلوبة عشان لما نفلتر (wrong >= 3) يفضل العدد صح
+  const fetchCount = Math.min(count * 2, allAyahs.length);
+  const picked = allAyahs.slice(0, fetchCount);
 
   // نبني كل سؤال بنفس منطق loadAndBuildSurahQuestions
   const questions = picked.map(({ surahNum, surahName, ayah }) => {
@@ -4486,7 +4500,8 @@ function buildQuestionsFromLocal(count) {
     };
   });
 
-  return questions.filter(q => q.wrong.length >= 3);
+  // بعد الفلترة نرجع بس count سؤال مجبوشتش
+  return questions.filter(q => q.wrong.length >= 3).slice(0, count);
 }
 
 function startGame() {
@@ -4525,11 +4540,15 @@ function startGame() {
   // ===== عشوائي =====
   else {
     const lvlRand = LEVEL_DEFS[state.level];
-    // المستويات اللي dataKey:'all' — نبني من QURAN_LOCAL عشان نتحكم في blankCount
     if (lvlRand.dataKey === 'all') {
       qs = buildQuestionsFromLocal(selectedQCount);
     } else {
       qs = buildQuestions();
+      // ★ لو الـ QURAN_DB جاب أقل من المطلوب — fallback لكل القرآن المحلي
+      if (!qs || qs.length < selectedQCount) {
+        const local = buildQuestionsFromLocal(selectedQCount);
+        if (local && local.length > (qs ? qs.length : 0)) qs = local;
+      }
     }
   }
 
@@ -4918,7 +4937,13 @@ function checkTyping() {
   const input = document.getElementById('typingInput');
   const val = input.value.trim();
   if (!val) { showToast('اكتب الكلمة أولاً'); return; }
-  const normalize = s => s.replace(/[\u064B-\u065F\u0670]/g,'');
+  const normalize = s => s
+    .trim()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')   // تشكيل + شدة + مدة + طة
+    .replace(/[\u0622\u0623\u0625\u0627]/g, '\u0627') // أ إ آ → ا
+    .replace(/\u0629/g, '\u0647')                    // ة → ه
+    .replace(/\u0649/g, '\u064A')                    // ى → ي
+    .replace(/\s+/g, ' ');
   const isRight = normalize(val) === normalize(q.blank);
   state.answered = true;
   if (!isRight) saveMistake(q, val);
