@@ -1079,6 +1079,13 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     return signInAnonymously(auth).catch(() => {});
   };
 
+  // helper: تحقق من الـ blacklist على Firebase
+  window.fbCheckDeleted = function(key, onDeleted, onOk) {
+    get(ref(db, 'nour_deleted/' + key))
+      .then(snap => snap.exists() ? onDeleted() : onOk())
+      .catch(() => onOk()); // لو Firebase مش شغال → اسمح بالدخول
+  };
+
   // ============================================================
   // ===== FIREBASE AUTH — login على كل الأجهزة =====
   // ============================================================
@@ -1116,6 +1123,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
           get(ref(db, 'nour_deleted/' + key)).then(snap => {
             if (snap.exists()) {
               // الحساب محذوف فعلاً — حاول تعمل sign in ثم delete ثم create جديد
+              window._registering = true; // ★ منع onAuthStateChanged من التدخل
               signInWithEmailAndPassword(auth, email, padPass(password))
                 .then(cred => cred.user.delete())
                 .then(() => {
@@ -1295,6 +1303,8 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   function _continueAuthLogin(user) {
     if (_authDone) return;
     if (window._accountDeleted) return;
+    // ★ لو المستخدم دخل فعلاً بالطريق المحلي السريع — مش محتاجين نكرر loginSuccess
+    if (window.currentUser && !window.currentUser.isGuest) { _authDone = true; return; }
     _authDone = true;
 
     const emailKey = (user.email || '').replace(/@.*$/, '');
@@ -2295,17 +2305,41 @@ function doLogin() {
     }
   } catch(e) {}
 
-  // ── دخول فوري: أخفي اللوجين فوراً لو الباسورد صح محلياً ──
+  // ── تحقق من الباسورد محلياً أولاً ──
   const users = getUsers();
   const localData = users[user];
 
   if (localData && localData.password) {
-    // بيانات محلية فيها باسورد → تحقق فوري
+    // بيانات محلية فيها باسورد → تحقق من الباسورد
     if (localData.password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
-    document.getElementById('loginScreen').classList.add('hide');
-    loginSuccess(user, localData);
-    // Firebase في الـ background بصمت للمزامنة
-    if (typeof window.fbLogin === 'function') window.fbLogin(user, pass, () => {}, () => {});
+
+    // ★ لازم نتحقق من Firebase blacklist قبل الدخول حتى لو البيانات محلية
+    // (الحساب ممكن يكون اتحذف من جهاز تاني)
+    const userKeyLocal = user.replace(/[.#$\/\[\]]/g, '_');
+    const fbCheckAndLogin = () => {
+      document.getElementById('loginScreen').classList.add('hide');
+      loginSuccess(user, localData);
+      if (typeof window.fbLogin === 'function') window.fbLogin(user, pass, () => {}, () => {});
+    };
+
+    if (typeof window.fbCheckDeleted === 'function') {
+      // عندنا Firebase — تحقق من الـ blacklist قبل الدخول
+      window.fbCheckDeleted(userKeyLocal,
+        () => {
+          // محذوف على Firebase — امسح البيانات المحلية وارفض
+          try {
+            const u2 = getUsers(); delete u2[user]; saveUsers(u2);
+            const d2 = JSON.parse(localStorage.getItem('nour_deleted_accounts') || '{}');
+            d2[userKeyLocal] = Date.now();
+            localStorage.setItem('nour_deleted_accounts', JSON.stringify(d2));
+          } catch(e) {}
+          showLoginErr('الحساب غير موجود');
+        },
+        () => fbCheckAndLogin() // مش محذوف → ادخّل
+      );
+    } else {
+      fbCheckAndLogin();
+    }
     return;
   }
 
