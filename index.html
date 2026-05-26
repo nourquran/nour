@@ -1230,7 +1230,18 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
           // نجيب البيانات المحلية كمان ونأخذ الأعلى (أمان ضد ضياع النقاط)
           const _localUsers = (() => { try { return JSON.parse(localStorage.getItem('nour_users') || '{}'); } catch(e) { return {}; } })();
           const _localData = _localUsers[realUsername] || {};
-          const merged = {
+          // لو في تصفير حديث (resetAt) → الجهاز اللي عنده أحدث resetAt هو الصح
+          const fbResetAt    = fbData.resetAt    || 0;
+          const localResetAt = _localData.resetAt || 0;
+          const latestResetAt = Math.max(fbResetAt, localResetAt);
+          // لو التصفير أحدث من آخر لعبة → نصفّر
+          const fbLastPlay    = fbData.lastPlay    || 0;
+          const localLastPlay = _localData.lastPlay || 0;
+          const useZero = latestResetAt > 0 && latestResetAt >= Math.max(fbLastPlay, localLastPlay);
+          const merged = useZero ? {
+            totalScore:   0, totalGames:0, totalHasanat:0, streak:0,
+            lastPlay:     null, resetAt: latestResetAt,
+          } : {
             totalScore:   Math.max(fbData.totalScore   || 0, _localData.totalScore   || 0),
             totalGames:   Math.max(fbData.totalGames   || 0, _localData.totalGames   || 0),
             totalHasanat: Math.max(fbData.totalHasanat || 0, _localData.totalHasanat || 0),
@@ -1241,19 +1252,15 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
           const doIt = () => {
             if (typeof window.loginSuccess === 'function') {
               window.loginSuccess(realUsername, merged);
-              // لو المحلي أعلى من Firebase — ارفع الصح على Firebase
-              const _fbS = fbData.totalScore   || 0;
-              const _fbH = fbData.totalHasanat || 0;
-              if ((merged.totalScore > _fbS || merged.totalHasanat > _fbH) && !snap.exists() === false) {
-                try {
-                  if (typeof window.fbSaveFullUserData === 'function') {
-                    window.fbSaveFullUserData(realUsername, merged);
-                  }
-                  if (typeof window.fbSaveUser === 'function' && merged.totalScore > 0) {
-                    window.fbSaveUser(realUsername, Object.assign({}, merged, {isGuest: false}));
-                  }
-                } catch(e) {}
-              }
+              // دايماً ارفع الـ merged على Firebase (يصحح لو كان قديم أو أقل)
+              try {
+                if (typeof window.fbSaveFullUserData === 'function') {
+                  window.fbSaveFullUserData(realUsername, merged);
+                }
+                if (typeof window.fbSaveUser === 'function' && (merged.totalScore || 0) > 0) {
+                  window.fbSaveUser(realUsername, Object.assign({}, merged, {isGuest: false}));
+                }
+              } catch(e) {}
             } else {
               setTimeout(doIt, 30);
             }
@@ -2221,29 +2228,46 @@ function doLogin() {
     // بيانات محلية فيها باسورد → تحقق فوري
     if (localData.password !== btoa(pass)) { showLoginErr('كلمة المرور خاطئة'); return; }
     document.getElementById('loginScreen').classList.add('hide');
+
+    // دالة merge تحترم resetAt وتاخد الأعلى
+    function _mergeData(localD, fbD) {
+      const fbResetAt    = (fbD  && fbD.resetAt)    || 0;
+      const localResetAt = (localD && localD.resetAt) || 0;
+      const latestReset  = Math.max(fbResetAt, localResetAt);
+      const fbLP    = (fbD  && fbD.lastPlay)    || 0;
+      const localLP = (localD && localD.lastPlay) || 0;
+      if (latestReset > 0 && latestReset >= Math.max(fbLP, localLP)) {
+        return { totalScore:0, totalGames:0, totalHasanat:0, streak:0, lastPlay:null, resetAt:latestReset };
+      }
+      return {
+        totalScore:   Math.max((fbD && fbD.totalScore)   || 0, (localD && localD.totalScore)   || 0),
+        totalGames:   Math.max((fbD && fbD.totalGames)   || 0, (localD && localD.totalGames)   || 0),
+        totalHasanat: Math.max((fbD && fbD.totalHasanat) || 0, (localD && localD.totalHasanat) || 0),
+        streak:       Math.max((fbD && fbD.streak)       || 0, (localD && localD.streak)       || 0),
+        lastPlay:     (fbD && fbD.lastPlay) || (localD && localD.lastPlay) || null,
+      };
+    }
+
+    // ادخل المستخدم فوراً بالبيانات المحلية (عشان الـ UX يكون سريع)
     loginSuccess(user, localData);
+
     // Firebase في الـ background — نجيب الرصيد ونعمل merge صح
     if (typeof window.fbLogin === 'function') {
       window.fbLogin(user, pass, () => {
         if (typeof window.fbGetUserData === 'function') {
           window.fbGetUserData(user, (fbData) => {
-            if (!fbData || !window.currentUser || window.currentUser.username !== user) return;
-            // نأخذ أعلى قيمة بين المحلي والـ Firebase (نضمن ما نخسرش نقاط أي جهاز)
-            var merged = {
-              totalScore:   Math.max(window.currentUser.totalScore   || 0, fbData.totalScore   || 0),
-              totalGames:   Math.max(window.currentUser.totalGames   || 0, fbData.totalGames   || 0),
-              totalHasanat: Math.max(window.currentUser.totalHasanat || 0, fbData.totalHasanat || 0),
-              streak:       Math.max(fbData.streak || 0, window.currentUser.streak || 0),
-              lastPlay:     fbData.lastPlay || window.currentUser.lastPlay || null,
-            };
+            if (!window.currentUser || window.currentUser.username !== user) return;
+            var merged = _mergeData(localData, fbData || {});
             Object.assign(window.currentUser, merged);
             currentUser = window.currentUser;
+            // حفظ محلي بالبيانات المتزامنة الصح
+            saveCurrentUser();
             if (typeof updateHomeStats === 'function') updateHomeStats();
-            // لو الـ Firebase أقل من المحلي — ارفع الأعلى فوراً
+            // ارفع الـ merged على Firebase عشان كل الأجهزة تشوف نفس الرقم
             if (typeof window.fbSaveFullUserData === 'function') {
               window.fbSaveFullUserData(user, merged);
             }
-            if (typeof window.fbSaveUser === 'function' && (merged.totalScore || 0) > 0) {
+            if (typeof window.fbSaveUser === 'function' && (merged.totalHasanat || 0) > 0) {
               window.fbSaveUser(user, Object.assign({}, merged, {isGuest: false}));
             }
           });
@@ -2321,10 +2345,17 @@ function guestLogin() {
 }
 
 function loginSuccess(username, data, isGuest=false) {
-  // لو في auto-login حصل بالفعل لنفس المستخدم — رفّه البيانات بس
+  // لو في auto-login حصل بالفعل لنفس المستخدم — نعمل merge يأخد الأعلى
   if (window.currentUser && window.currentUser.username === username) {
     if (data) {
-      Object.assign(window.currentUser, data);
+      const cu = window.currentUser;
+      // نأخد الأعلى في كل field عشان نضمن ما نكتبش صفر فوق نقاط حقيقية
+      cu.totalHasanat = Math.max(cu.totalHasanat || 0, data.totalHasanat || 0);
+      cu.totalScore   = Math.max(cu.totalScore   || 0, data.totalScore   || 0);
+      cu.totalGames   = Math.max(cu.totalGames   || 0, data.totalGames   || 0);
+      cu.streak       = Math.max(cu.streak       || 0, data.streak       || 0);
+      if (data.lastPlay) cu.lastPlay = data.lastPlay;
+      if (data.resetAt)  cu.resetAt  = data.resetAt;
       currentUser = window.currentUser;
       updateHomeStats();
     }
@@ -2381,6 +2412,7 @@ function saveCurrentUser() {
     streak:       currentUser.streak || 0,
     lastPlay:     currentUser.lastPlay,
     isGuest:      currentUser.isGuest || false,
+    ...(currentUser.resetAt ? { resetAt: currentUser.resetAt } : {}),
   };
   saveUsers(users);
 
@@ -5026,18 +5058,21 @@ function showResults() {
 function resetScore() {
   if (!currentUser) return;
   showConfirm('هتتصفر النقاط وعدد الجلسات. متأكد؟', () => {
-    currentUser.totalScore = 0;
-    currentUser.totalGames = 0;
+    const zeroData = { totalScore:0, totalGames:0, totalHasanat:0, streak:0, resetAt: Date.now() };
+    currentUser.totalScore   = 0;
+    currentUser.totalGames   = 0;
     currentUser.totalHasanat = 0;
-    currentUser.streak = 0;
-    // محلي
+    currentUser.streak       = 0;
+    currentUser.resetAt      = zeroData.resetAt;
+    // محلي — حفظ الصفر + وقت التصفير (عشان الـ merge يعرف يحترمه)
     const users = getUsers();
     if (users[currentUser.username]) {
-      users[currentUser.username].totalScore = 0;
-      users[currentUser.username].totalGames = 0;
-      users[currentUser.username].totalHasanat = 0;
-      users[currentUser.username].streak = 0;
+      Object.assign(users[currentUser.username], zeroData);
       saveUsers(users);
+    }
+    // Firebase — اكتب الصفر على users/{key}/data عشان كل الأجهزة تاخده
+    if (!currentUser.isGuest && typeof window.fbSaveFullUserData === 'function') {
+      window.fbSaveFullUserData(currentUser.username, zeroData);
     }
     // Firebase — احذف المستخدم من اللوحة
     if (typeof window.fbDeleteUser === 'function') window.fbDeleteUser(currentUser.username, currentUser.isGuest);
@@ -5352,6 +5387,7 @@ function renderMistakesForDay(mistakes, dayKey) {
           <span class="mistake-lbl-right">✅ الصح: ${m.blank}</span>
         </div>
         <div style="font-size:11px;color:rgba(245,217,139,0.45);margin-top:8px;">${hint}</div>
+        ${m.ts ? `<div style="font-size:10px;color:rgba(245,217,139,0.3);margin-top:4px;text-align:left;">🕐 ${new Date(m.ts).toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'})}</div>` : ''}
       </div>
     `;
   }).join('');
@@ -6967,8 +7003,9 @@ function _showMultiResults() {
     _cu.lastPlay     = Date.now();
     currentUser = _cu;
     window.currentUser = _cu;
+    // حفظ محلي للكل (مسجل وضيف)
+    saveCurrentUser();
     if (!_cu.isGuest) {
-      saveCurrentUser();
       if (typeof window.fbIncrementScore === 'function') {
         window.fbIncrementScore(_cu.username, multiState.myScore, multiState.myScore, 1);
       }
@@ -7063,8 +7100,9 @@ function multiLeaveRoom() {
       // totalGames لا تُزاد — لأن اللعبة لم تكتمل
       currentUser = _cu;
       window.currentUser = _cu;
+      // حفظ محلي للكل (مسجل وضيف)
+      saveCurrentUser();
       if (!_cu.isGuest) {
-        saveCurrentUser();
         if (typeof window.fbIncrementScore === 'function') {
           window.fbIncrementScore(_cu.username, multiState.myScore, multiState.myScore, 0);
         }
