@@ -4587,7 +4587,23 @@ function renderMCQ(q) {
       wrap.appendChild(btn);
       return;
     }
-    btn.textContent = ch;
+    // لـ firstword: اشيل الكلمات المعروضة في السؤال من أول الاختيار
+    // لـ reverse:   اشيل الكلمات المعروضة في السؤال من آخر الاختيار
+    let displayCh = ch;
+    if (q.qtype === 'firstword') {
+      const prefix = q.ayah.replace(/ ?\.\.\.$/,'').trim();
+      if (ch.startsWith(prefix)) {
+        const rest = ch.slice(prefix.length).trim();
+        displayCh = rest || ch;
+      }
+    } else if (q.qtype === 'reverse') {
+      const suffix = q.ayah.replace(/^\.\.\. ?/,'').trim();
+      if (ch.endsWith(suffix)) {
+        const rest = ch.slice(0, ch.length - suffix.length).trim();
+        displayCh = rest ? rest + ' ...' : ch;
+      }
+    }
+    btn.textContent = displayCh;
     btn.dataset.ch = ch;
     btn.onclick = (e) => { e.stopPropagation(); checkAnswer(ch, q.blank, e); };
 
